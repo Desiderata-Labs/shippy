@@ -12,6 +12,11 @@
 - helpbuildthis.com
 - helpme.build
 
+**Taglines**
+
+- Ship work. Earn royalties.
+- Build together, share the upside.
+
 **One-liner**
 
 > Earn A Slice lets founders “open-source” parts of their startup: they post real work (growth, marketing, product, etc.), contributors help ship it, and everyone who contributes earns an ongoing **share of the upside**, not just a one-off payment.
@@ -19,7 +24,6 @@
 **What it is**
 
 - A platform where:
-
   - **Founders** create **Projects** (their products/companies).
   - They define a **Reward Pool** (e.g. 10% of Oath Notes profits).
   - They publish **Bounties** (specific tasks with point rewards: growth, sales, content, design).
@@ -47,12 +51,10 @@ Prior Assembly Made members: https://github.com/orgs/asm-products/people
 - …but get stuck on **distribution, growth, marketing, and sales**.
 - Hiring full-time is expensive and risky.
 - Traditional agencies/freelancers are misaligned:
-
   - Paid hourly or per deliverable.
   - Incentive to bill, not to generate **durable revenue**.
 
 - Equity feels too permanent and binary:
-
   - Either “no equity” or “here’s 10–20% in perpetuity.”
 
 **Result:** It’s easier to ship product than to build a repeatable growth engine.
@@ -60,20 +62,17 @@ Prior Assembly Made members: https://github.com/orgs/asm-products/people
 ### Contributor Problem
 
 - Skilled people (growth, content, sales, design, dev) want:
-
   - **Leverage**: upside in things they help grow.
   - A way to build a **portfolio** of product contributions.
   - A model between “full-time job” and “cold freelance gig.”
 
 - They lack:
-
   - A structured way to **earn ongoing upside** in multiple products.
   - Clear rules for **how contributions turn into $$** (vs vague “we’ll figure out equity later”).
 
 ### Opportunity
 
 - Create an **Assembly-style** platform for 2025+:
-
   - Real products.
   - Clear contribution rules.
   - Programmatic rev/profit sharing tied to **performance**, not vibes.
@@ -121,7 +120,6 @@ Solo founders or small teams with a built or shipping product who:
 ### 3. (Later) Ecosystem / Platform
 
 - “Power users” who:
-
   - Contribute to many projects.
   - Build reputation as **growth mercenaries**.
 
@@ -178,7 +176,6 @@ Most contributors already understand GitHub. We use familiar patterns:
 
 - **Keep control & cap exposure**
   You choose:
-
   - What % of revenue/profit is shared.
   - What counts as a qualifying contribution.
   - When and how payouts are done.
@@ -198,7 +195,6 @@ Most contributors already understand GitHub. We use familiar patterns:
 
 - **Portfolio & reputation**
   Show:
-
   - “I helped Oath grow MRR by $X.”
   - “I have Y points and Z total lifetime earnings across projects.”
 
@@ -207,19 +203,16 @@ Most contributors already understand GitHub. We use familiar patterns:
 # 6. Primary Use Cases (MVP)
 
 1. **Founder wants growth help without hiring FTE**
-
    - Sets up a Reward Pool and a few initial Bounties (new customers, case studies, etc.).
    - Shares project on Discover page.
    - Runs a few quarters of payouts.
 
 2. **Contributor wants upside in a promising startup**
-
    - Browses Discover page, finds a project like Oath.
    - Claims Bounties aligned with their skills.
    - Delivers results, earns points, and starts seeing quarterly payouts.
 
 3. **Ongoing collaboration**
-
    - Founder sees who's actually generating results (Contributors tab).
    - Doubles down: adds more Bounties with better point rewards.
    - That contributor becomes a quasi-"growth co-founder," but on a **structured, rev-share basis**.
@@ -233,10 +226,8 @@ Most contributors already understand GitHub. We use familiar patterns:
 **Goal:** Get clinics for Oath Notes via contributors and align them with upside.
 
 1. **Sign up & create Project**
-
    - Land on marketing page → “Open-source your startup’s growth.”
    - Onboard flow asks:
-
      - What is your product?
      - What % of revenue/profit are you willing to share (e.g. 10%)?
      - How often do you want to pay out (monthly/quarterly)?
@@ -244,30 +235,24 @@ Most contributors already understand GitHub. We use familiar patterns:
    - Result: Project page: “Oath Notes – Growth Pool”.
 
 2. **Define Reward Pool**
-
    - Simple UI copy:
-
      - “You’re allocating **10% of Oath Notes net profit** to contributors.”
      - Clarify: “If profit is 0, no payout; nothing is owed.”
 
    - You can edit this later, but changes only affect future periods.
 
 3. **Create initial Bounties**
-
    - Templates for typical bounties:
-
      - "Bring in a new paying customer"
      - "Publish a case study that converts"
      - "Reach MRR milestone"
 
    - You configure:
-
      - New clinic active > 90 days → 100 points.
      - Case study that leads to a clinic within 120 days → 50 points.
      - Hitting $10k net-new MRR in a quarter → 500 bonus points.
 
    - Each Bounty has:
-
      - Title + description
      - Point reward
      - Tags (growth, sales, content, design)
@@ -275,44 +260,34 @@ Most contributors already understand GitHub. We use familiar patterns:
      - Evidence required (e.g. demo notes, contract, Stripe screenshot).
 
 4. **Invite contributors**
-
    - Share an invite link with:
-
      - Growth folks in your network.
      - Indie hacker communities.
      - Possibly a “friends of Oath” circle.
 
    - Invite page explains:
-
      - What Oath does.
      - How the Reward Pool works.
      - Examples: “If Oath makes $40k profit this quarter, pool is $4k. If you hold 25% of points, you get $1k.”
 
 5. **Review contributions**
-
    - Contributors submit:
-
      - “I closed Clinic ABC; here’s proof.”
      - “Here’s a case study we shipped that drove this clinic.”
 
    - You decide:
-
      - Approve or reject.
      - Adjust points if needed.
 
 6. **Run a payout**
-
    - At quarter end, you:
-
      - Enter: net profit or revenue for Oath Notes.
      - Platform shows how the 10% pool is split by points.
 
    - You approve and pay via your existing payment channels (MVP: manual).
 
 7. **Iterate**
-
    - Add more Bounties as you see what works:
-
      - "Launch webinar series."
      - "Land a partnership that drives 3+ clinics."
 
@@ -325,55 +300,41 @@ Most contributors already understand GitHub. We use familiar patterns:
 **Goal:** Earn ongoing revenue share for driving clinics to Oath Notes.
 
 1. **Discovers Oath's Project**
-
    - Finds Oath on the Discover page, or receives a direct link.
    - Project page shows:
-
      - Readme: What Oath Notes is, mission, how to help.
      - Reward Pool: "10% of net profit, paid monthly."
      - Open Bounties with point rewards.
 
 2. **Onboards to Project**
-
    - Accepts invite, agrees to Contributor Terms:
-
      - IP ownership.
      - Payout rules (no profit → no pool).
      - Anti-fraud policies (no fake leads).
 
 3. **Claims Bounties**
-
    - Views Bounties tab:
-
      - "New clinic active 90 days → 100 points"
      - "Case study that leads to a clinic → 50 points"
 
    - Claims what fits their skills:
-
      - Outbound clinics in their network.
      - Works on a clinic-friendly case study.
 
 4. **Submits contributions**
-
    - After closing Clinic ABC:
-
      - Logs a contribution with proof.
 
    - After case study launches and converts:
-
      - Logs that as well.
 
 5. **Sees point balance & potential earnings**
-
    - Dashboard:
-
      - “You have 300 points in Oath Notes (10% Reward Pool).”
      - “Last quarter’s pool: $4,000; your share: $900.”
 
 6. **Builds portfolio**
-
    - Over time, they can:
-
      - Contribute to multiple projects.
      - See total lifetime earnings and points.
      - Show this to future clients/founders as proof of effectiveness.
@@ -404,7 +365,6 @@ Like a GitHub README. Founder writes this in markdown-ish format.
 Like GitHub Issues. The core of the reward loop.
 
 - **List of open bounties**, each showing:
-
   - Title: "Close a new clinic (90-day retention)"
   - Points: "+100 points"
   - Tags: `growth`, `sales`, `content`, `design`
@@ -422,7 +382,6 @@ Like GitHub Issues. The core of the reward loop.
 Auto-computed from approved submissions. Like GitHub's contributor graph.
 
 - **List of everyone who holds points**, showing:
-
   - Avatar + username
   - Points held
   - % of total pool
@@ -743,7 +702,6 @@ In Earn A Slice v1:
 
 - The **Reward Pool %** (e.g. 10% of profit) is set by the founder and only changed explicitly.
 - “Expanding the pool” normally means:
-
   - Adding **new contributors** and
   - Granting **new points** when they produce verified, revenue-linked outcomes.
 
@@ -754,12 +712,10 @@ This **does not** retroactively change past payouts; it only affects **future pe
 **Fair dilution (intended case):**
 
 - New contributors:
-
   - Bring in more clinics, customers, revenue, or durable growth.
   - Hit well-defined, pre-agreed milestones.
 
 - Result:
-
   - Total profit/revenue increases.
   - Reward Pool in dollar terms grows.
   - Existing contributors’ percentage share shrinks, but their **payouts stay flat or rise**.
@@ -767,13 +723,11 @@ This **does not** retroactively change past payouts; it only affects **future pe
 **Unfair dilution (what the system should avoid):**
 
 - Points are granted:
-
   - For vague or unmeasured work.
   - For contributions that don’t drive durable value.
   - Without clear rules communicated up front.
 
 - Result:
-
   - New people dilute the pool **without** growing the pie.
 
 **Product stance:**
@@ -788,32 +742,25 @@ Earn A Slice's UX and defaults should **strongly encourage / nudge** founders to
 When founders want to bring in more people (e.g. more growth partners, designers, etc.), the product should guide them to:
 
 1. **Announce expansion clearly**
-
    - Example copy in UI:
 
      > "You're adding new Bounties and allowing new contributors to earn points. Existing contributors' percentage share may decrease, but the goal is for the overall pie (revenue/profit) to grow enough that everyone benefits."
 
 2. **Tie new points strictly to performance**
-
    - Every new Bounty should:
-
      - Be linked to a measurable outcome (MRR, active clinics, activated accounts, etc.).
      - Have a **verification window** (e.g. 90-day retention).
      - Award points only on confirmation of that outcome.
 
 3. **Avoid “fluffy” point grants**
-
    - Avoid awarding points for:
-
      - Ideas without implementation.
      - One-off artifacts (a slide deck, an email draft) without evidence of impact.
 
    - Where necessary, label such work as **fixed-fee** instead of point-based.
 
 4. **Use examples to calibrate**
-
    - In the UI, provide templates such as:
-
      - “New clinic active 90 days → 100 points.”
      - “Case study that leads to a clinic within 120 days → 50 points.”
      - “Hit $10k net-new MRR this quarter → 500 point bonus.”
@@ -861,11 +808,9 @@ To keep everyone reward/revenue-focused, Earn A Slice should:
 - Default new Bounties to **outcome-based templates** (e.g., revenue, active users, retained customers).
 - Encourage **verification windows** (90–120 days for revenue-linked work).
 - Make **manual point grants** (not tied to any Bounty) an explicit advanced action with warnings:
-
   - “This may dilute existing contributors without clear performance criteria.”
 
 - Provide a short “Best Practices for Founders” guide when they first create a Reward Pool, emphasizing:
-
   - Pay for results, not hours.
   - Don’t grant points retroactively without explaining to current contributors.
   - Consider separate pools for distinct products/initiatives to avoid cross-dilution.
@@ -1008,7 +953,6 @@ Earn A Slice sustains itself by participating in the same model it enables:
 ### Revenue Streams
 
 1. **Platform share of profit pools**
-
    - Earn A Slice takes a percentage of each project's reward pool (e.g., 10% of the pool)
    - Example: Founder sets pool at 10% of profit. On a $3k/mo profit project, pool = $300. EAS takes $30, contributors share $270.
    - We get paid when contributors get paid—fully aligned incentives
@@ -1035,26 +979,22 @@ To reach $100k ARR from pool share alone at average $3k/mo projects: **~278 acti
 Pool share alone requires significant scale. These additional revenue streams can accelerate sustainability:
 
 1. **Code Marketplace ("Buy a Vibe, Ship a Biz")**
-
    - Founders/contributors can sell full app templates, starter kits, or "franchise packages"
    - Buyer gets a working codebase + optional ongoing support
    - Platform takes 15-20% of each sale
    - Example: AI transcription SaaS template sells for $500 × 50 buyers = $25k GMV → $5k to EAS
 
 2. **Feature Marketplace**
-
    - Pre-built features (auth, billing, AI integrations, admin dashboards) sold as drop-in modules
    - Platform takes 15-20% of sales
    - Contributors can build these as bounties, then resell to other projects
 
 3. **Bounty Templates / Playbooks**
-
    - Successful bounty completions packaged as repeatable playbooks
    - "Here's exactly how I got 10 clinics for Oath" sold to other founders
    - Platform takes 10-20%
 
 4. **Premium Tier ($29-99/mo)**
-
    - Private/invite-only projects
    - Advanced analytics (contributor performance, payout forecasting)
    - Priority support

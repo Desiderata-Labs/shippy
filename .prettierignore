@@ -1,0 +1,29 @@
+# Build output
+dist/
+.next/
+out/
+
+# PRDs
+prds/assembly-made/
+
+# Dependencies
+node_modules/
+
+# Logs
+*.log
+
+# Coverage
+coverage/
+
+# Temporary files
+tmp/
+temp/
+
+# Git
+.git/
+
+# OS files
+.DS_Store
+
+# Prisma generated
+src/generated/

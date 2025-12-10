@@ -180,13 +180,13 @@ import { getUser } from "@/lib/auth";
 Use Untitled UI icons:
 
 ```tsx
-import { Trash03 } from "@untitled-ui/icons-react";
+import { Trash03 } from '@untitled-ui/icons-react'
 ```
 
 For loading icons, use Lucide:
 
 ```tsx
-import { Loader2 } from "lucide-react";
+import { Loader2 } from 'lucide-react'
 ```
 
 ## Key Development Principles
@@ -228,11 +228,24 @@ Always make state transitions explicit and logged.
 
 ## UX Principles
 
+### Design Philosophy
+
+- Aspire to Linear's aesthetic: clean, minimal, dev/product-focused
+- Prioritize clarity and speed over decoration
+- Use subtle animations and transitions sparingly but intentionally
+- Dense information display is fine—our users are power users
+
 ### Mobile-First by Default
 
 - Design for mobile screens first, then enhance for desktop
 - Use responsive Tailwind classes (`sm:`, `md:`, `lg:`) consistently
 - Touch targets should be at least 44x44px
+
+### Light/Dark Mode
+
+- Support both light and dark modes, defaulting to the user's system preference
+- Always use shadcn's semantic color variables (e.g., `bg-background`, `text-foreground`, `border-border`) which automatically adapt to the current theme
+- Avoid raw Tailwind colors (e.g., `bg-gray-100`)—use semantic tokens instead
 
 ### For Founders
 

@@ -2,13 +2,16 @@
 
 **Potential Names:**
 
-- Build Guild
-- Earn A Slice
+- (Chosen) Earn A Slice
+- (Alternate) Build Guild
 
 **Domains**
 
-- buildguild.ai
 - earnaslice.com
+
+Alternates:
+
+- buildguild.ai
 - helpbuildthis.com
 - helpme.build
 

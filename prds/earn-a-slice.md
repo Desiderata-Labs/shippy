@@ -461,6 +461,24 @@ Simple browse page for contributors to find projects. Optimized for finding real
 
 Each card shows at-a-glance stats that matter:
 
+**Private mode (default):**
+
+```
+┌─────────────────────────────────────────────┐
+│  🏥 Oath Notes                              │
+│  "Medical transcription for busy clinics"  │
+│                                             │
+│  ✓ 12 verified payouts                      │
+│  👥 8 contributors earning                  │
+│  🎯 5 open bounties (450 pts available)     │
+│                                             │
+│  Tags: growth, sales, content               │
+│  Pool: 10% of net profit • Monthly payouts  │
+└─────────────────────────────────────────────┘
+```
+
+**Public mode:**
+
 ```
 ┌─────────────────────────────────────────────┐
 │  🏥 Oath Notes                              │
@@ -534,7 +552,18 @@ A chronological feed of payout events, visible to all contributors:
 - **Payout marked complete**: founder marks as sent
 - **Contributors confirm receipt**: each contributor can click "✓ Received"
 
-Example timeline entry:
+Example timeline entry (private mode - default):
+
+```
+📅 December 2024 Payout
+   3 recipients
+
+   @jane — ✓ Confirmed by recipient
+   @mike — ✓ Confirmed by recipient
+   @sara — ⏳ Pending confirmation
+```
+
+Example timeline entry (public mode):
 
 ```
 📅 December 2024 Payout
@@ -547,11 +576,19 @@ Example timeline entry:
 
 #### Visibility Rules
 
-| Viewer                        | What they see                                               |
-| ----------------------------- | ----------------------------------------------------------- |
-| **Public** (logged out)       | Total paid out, # of payouts, # contributors                |
-| **Contributors** (on project) | Full payout history, their own amounts, confirmation status |
-| **Founder**                   | Everything + ability to mark payouts sent                   |
+Payout amounts are **private by default**. Founders can toggle this to public in project settings.
+
+| Viewer                        | Private mode (default)                                                      | Public mode                                           |
+| ----------------------------- | --------------------------------------------------------------------------- | ----------------------------------------------------- |
+| **Public** (logged out)       | # of verified payouts, # contributors                                       | Total paid out, # of payouts, # contributors          |
+| **Contributors** (on project) | Their own amounts only, other recipients show "✓ Confirmed" without amounts | Full payout history, all amounts, confirmation status |
+| **Founder**                   | Everything + ability to mark payouts sent                                   | Everything + ability to mark payouts sent             |
+
+**Why private by default:**
+
+- Contributors may not want their earnings public
+- Founders may prefer to keep financial details confidential
+- Confirmation status ("Confirmed by recipient") still builds trust without exposing exact amounts
 
 #### Payout Flow & Timing
 
@@ -1081,6 +1118,14 @@ The platform surfaces patterns that help contributors evaluate trustworthiness:
 | **Contributor reviews** | (Later) Contributors can rate their experience                                |
 
 ### What's Surfaced Publicly
+
+When payout visibility is **private** (default):
+
+- Number of verified payouts
+- Number of active, earning contributors
+- Any disputed payouts (red flag, prominently shown)
+
+When payout visibility is **public**:
 
 - Total $ paid out (verified by contributor confirmations)
 - Number of verified payouts

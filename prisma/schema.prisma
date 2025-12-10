@@ -2,7 +2,8 @@
 // Database: Supabase PostgreSQL
 
 generator client {
-  provider = "prisma-client-js"
+  provider   = "prisma-client-js"
+  engineType = "client"
 }
 
 datasource db {
@@ -23,6 +24,13 @@ model User {
   updatedAt     DateTime  @updatedAt @db.Timestamptz(3)
   sessions      Session[]
   accounts      Account[]
+
+  // Earn A Slice relations
+  ownedProjects      Project[]
+  bountyClaims       BountyClaim[]
+  submissions        Submission[]
+  submissionMessages SubmissionMessage[]
+  payoutRecipients   PayoutRecipient[]
 
   @@map("user")
 }
@@ -74,6 +82,243 @@ model Verification {
 }
 
 // ================================
-// Earn A Slice Models
+// Earn A Slice - Core Models
 // ================================
-// TODO: Add Project, Bounty, Submission, Payout models
+
+/// A project is a startup/product that can have bounties and contributors
+model Project {
+  id          String   @id @default(uuid())
+  slug        String   @unique // URL-friendly identifier
+  name        String
+  tagline     String? // Short description
+  description String?  @db.Text // Markdown readme content
+  logoUrl     String?
+  websiteUrl  String?
+  discordUrl  String?
+  isPublic    Boolean  @default(true)
+  createdAt   DateTime @default(now()) @db.Timestamptz(3)
+  updatedAt   DateTime @updatedAt @db.Timestamptz(3)
+
+  // Payout visibility: "PRIVATE" = only show confirmation status, "PUBLIC" = show $ amounts
+  payoutVisibility String @default("PRIVATE")
+
+  // Founder/Owner
+  founderId String
+  founder   User   @relation(fields: [founderId], references: [id], onDelete: Cascade)
+
+  // Relations
+  rewardPool RewardPool?
+  bounties   Bounty[]
+  payouts    Payout[]
+
+  @@index([founderId])
+  @@index([isPublic])
+  @@map("project")
+}
+
+/// The reward pool defines how much profit/revenue is shared with contributors
+model RewardPool {
+  id        String   @id @default(uuid())
+  projectId String   @unique
+  project   Project  @relation(fields: [projectId], references: [id], onDelete: Cascade)
+
+  // Pool configuration
+  poolPercentage   Int // Percentage of profit/revenue (e.g., 10 = 10%)
+  payoutFrequency  String // "MONTHLY" | "QUARTERLY" - stored as string, typed via TS
+  profitBasis      String   @default("NET_PROFIT") // "NET_PROFIT" | "GROSS_REVENUE"
+  commitmentMonths Int      @default(12) // Commitment period in months
+  commitmentEndsAt DateTime @db.Timestamptz(3) // When the pool commitment ends
+
+  // Platform fee (percentage of pool that goes to Earn A Slice)
+  platformFeePercentage Int @default(10) // 10% of the pool
+
+  createdAt DateTime @default(now()) @db.Timestamptz(3)
+  updatedAt DateTime @updatedAt @db.Timestamptz(3)
+
+  @@map("reward_pool")
+}
+
+/// A bounty is a specific task with point rewards
+model Bounty {
+  id        String  @id @default(uuid())
+  projectId String
+  project   Project @relation(fields: [projectId], references: [id], onDelete: Cascade)
+
+  // Bounty details
+  title       String
+  description String  @db.Text // What's required, how success is verified
+  points      Int // Point reward for completing this bounty
+  tags        String[] // ["GROWTH", "SALES", "CONTENT", "DESIGN", "DEV"]
+  status      String   @default("OPEN") // "OPEN" | "CLAIMED" | "COMPLETED" | "CLOSED"
+
+  // Claim configuration
+  claimMode       String   @default("SINGLE") // "SINGLE" | "MULTIPLE"
+  claimExpiryDays Int      @default(14) // Days before a claim expires
+  maxClaims       Int? // Max number of claims (null = unlimited for MULTIPLE mode)
+
+  // Evidence requirements
+  evidenceDescription String? @db.Text // What proof is needed
+
+  createdAt DateTime @default(now()) @db.Timestamptz(3)
+  updatedAt DateTime @updatedAt @db.Timestamptz(3)
+
+  // Relations
+  claims      BountyClaim[]
+  submissions Submission[]
+
+  @@index([projectId])
+  @@index([status])
+  @@map("bounty")
+}
+
+/// A claim represents a contributor's intent to work on a bounty
+model BountyClaim {
+  id       String @id @default(uuid())
+  bountyId String
+  bounty   Bounty @relation(fields: [bountyId], references: [id], onDelete: Cascade)
+  userId   String
+  user     User   @relation(fields: [userId], references: [id], onDelete: Cascade)
+
+  status    String   @default("ACTIVE") // "ACTIVE" | "EXPIRED" | "SUBMITTED" | "COMPLETED"
+  expiresAt DateTime @db.Timestamptz(3) // When this claim expires if no submission
+  createdAt DateTime @default(now()) @db.Timestamptz(3)
+  updatedAt DateTime @updatedAt @db.Timestamptz(3)
+
+  @@unique([bountyId, userId]) // One claim per user per bounty
+  @@index([bountyId])
+  @@index([userId])
+  @@index([status])
+  @@map("bounty_claim")
+}
+
+/// A submission is work + proof submitted by a contributor for a bounty
+model Submission {
+  id       String @id @default(uuid())
+  bountyId String
+  bounty   Bounty @relation(fields: [bountyId], references: [id], onDelete: Cascade)
+  userId   String
+  user     User   @relation(fields: [userId], references: [id], onDelete: Cascade)
+
+  // Submission content
+  description String @db.Text // What was done, context, notes
+  status      String @default("PENDING") // "DRAFT" | "PENDING" | "NEEDS_INFO" | "APPROVED" | "REJECTED"
+
+  // Points awarded (only set when approved)
+  pointsAwarded Int?
+  approvedAt    DateTime? @db.Timestamptz(3)
+  rejectedAt    DateTime? @db.Timestamptz(3)
+  rejectionNote String?   @db.Text
+
+  createdAt DateTime @default(now()) @db.Timestamptz(3)
+  updatedAt DateTime @updatedAt @db.Timestamptz(3)
+
+  // Relations
+  messages    SubmissionMessage[]
+  attachments SubmissionAttachment[]
+
+  @@index([bountyId])
+  @@index([userId])
+  @@index([status])
+  @@map("submission")
+}
+
+/// Messages in a submission thread (like GitHub PR comments)
+model SubmissionMessage {
+  id           String     @id @default(uuid())
+  submissionId String
+  submission   Submission @relation(fields: [submissionId], references: [id], onDelete: Cascade)
+  userId       String
+  user         User       @relation(fields: [userId], references: [id], onDelete: Cascade)
+
+  content   String   @db.Text
+  createdAt DateTime @default(now()) @db.Timestamptz(3)
+  updatedAt DateTime @updatedAt @db.Timestamptz(3)
+
+  @@index([submissionId])
+  @@index([userId])
+  @@map("submission_message")
+}
+
+/// File attachments for submissions (stored in R2)
+model SubmissionAttachment {
+  id           String     @id @default(uuid())
+  submissionId String
+  submission   Submission @relation(fields: [submissionId], references: [id], onDelete: Cascade)
+
+  fileName    String
+  fileUrl     String // R2 URL
+  fileSize    Int // Size in bytes
+  contentType String
+
+  createdAt DateTime @default(now()) @db.Timestamptz(3)
+
+  @@index([submissionId])
+  @@map("submission_attachment")
+}
+
+// ================================
+// Earn A Slice - Payout Models
+// ================================
+
+/// A payout represents a distribution of the reward pool for a period
+model Payout {
+  id        String  @id @default(uuid())
+  projectId String
+  project   Project @relation(fields: [projectId], references: [id], onDelete: Cascade)
+
+  // Period
+  periodStart DateTime @db.Timestamptz(3)
+  periodEnd   DateTime @db.Timestamptz(3)
+  periodLabel String // e.g., "December 2024", "Q4 2024"
+
+  // Financials (all in cents to avoid floating point issues)
+  reportedProfitCents Int // Profit/revenue reported by founder
+  poolAmountCents     Int // Pool amount (profit * pool %)
+  platformFeeCents    Int // Platform fee (pool * platform %)
+  totalPointsAtPayout Int // Total points at time of payout (for calculating shares)
+
+  // Status
+  status   String   @default("ANNOUNCED") // "ANNOUNCED" | "SENT" | "COMPLETED"
+  sentAt   DateTime? @db.Timestamptz(3) // When founder marked as sent
+  sentNote String? // Optional payment reference
+
+  createdAt DateTime @default(now()) @db.Timestamptz(3)
+  updatedAt DateTime @updatedAt @db.Timestamptz(3)
+
+  // Relations
+  recipients PayoutRecipient[]
+
+  @@index([projectId])
+  @@index([status])
+  @@map("payout")
+}
+
+/// Individual contributor's share of a payout
+model PayoutRecipient {
+  id       String @id @default(uuid())
+  payoutId String
+  payout   Payout @relation(fields: [payoutId], references: [id], onDelete: Cascade)
+  userId   String
+  user     User   @relation(fields: [userId], references: [id], onDelete: Cascade)
+
+  // Share calculation
+  pointsAtPayout Int // Points this user had at payout time
+  sharePercent   Decimal  @db.Decimal(5, 2) // Percentage of pool (e.g., 25.50)
+  amountCents    Int // Amount in cents
+
+  // Confirmation
+  status        String   @default("PENDING") // "PENDING" | "CONFIRMED" | "DISPUTED" | "UNCONFIRMED"
+  confirmedAt   DateTime? @db.Timestamptz(3)
+  disputedAt    DateTime? @db.Timestamptz(3)
+  confirmNote   String? // Optional note from contributor
+  disputeReason String?   @db.Text
+
+  createdAt DateTime @default(now()) @db.Timestamptz(3)
+  updatedAt DateTime @updatedAt @db.Timestamptz(3)
+
+  @@unique([payoutId, userId]) // One recipient per user per payout
+  @@index([payoutId])
+  @@index([userId])
+  @@index([status])
+  @@map("payout_recipient")
+}

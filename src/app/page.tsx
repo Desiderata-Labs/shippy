@@ -4,16 +4,18 @@ import { FeaturesSection } from '@/components/marketing/features-section'
 import { HeroSection } from '@/components/marketing/hero-section'
 import { HowItWorksSection } from '@/components/marketing/how-it-works-section'
 import { SiteFooter } from '@/components/marketing/site-footer'
+import { TrustSection } from '@/components/marketing/trust-section'
 
 export default function HomePage() {
   return (
-    <div className="flex flex-col">
+    <main className="flex flex-col overflow-x-clip">
       <HeroSection />
+      <TrustSection />
       <HowItWorksSection />
       <FeaturesSection />
       <ComparisonSection />
       <CtaSection />
       <SiteFooter />
-    </div>
+    </main>
   )
 }

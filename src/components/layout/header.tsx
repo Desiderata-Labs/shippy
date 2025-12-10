@@ -30,8 +30,8 @@ export function Header() {
         {/* Logo */}
         <Link href="/" className="mr-6 flex items-center space-x-2">
           <PieChart01 className="size-6 text-primary" />
-          <span className="hidden font-semibold sm:inline-block">
-            Earn A Slice
+          <span className="hidden font-logo text-base tracking-wide uppercase sm:inline-block">
+            Earn A <span className="text-primary">Slice</span>
           </span>
         </Link>
 

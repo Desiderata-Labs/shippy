@@ -16,6 +16,7 @@ const eslintConfig = defineConfig([
     // Custom ignores
     'tmp/**',
     'prds/assembly-made/**',
+    'examples/**',
   ]),
 ])
 

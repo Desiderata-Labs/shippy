@@ -419,4 +419,130 @@ export const projectRouter = router({
         include: { rewardPool: true },
       })
     }),
+
+  /**
+   * Get pool capacity stats for a project
+   */
+  getPoolStats: publicProcedure
+    .input(z.object({ projectId: z.string().uuid() }))
+    .query(async ({ ctx, input }) => {
+      const project = await ctx.prisma.project.findUnique({
+        where: { id: input.projectId },
+        include: {
+          rewardPool: {
+            include: {
+              expansionEvents: {
+                orderBy: { createdAt: 'desc' },
+              },
+            },
+          },
+          bounties: {
+            where: {
+              status: { in: [BountyStatus.OPEN, BountyStatus.CLAIMED] },
+            },
+            select: { points: true },
+          },
+        },
+      })
+
+      if (!project || !project.rewardPool) {
+        throw new TRPCError({
+          code: 'NOT_FOUND',
+          message: 'Project or reward pool not found',
+        })
+      }
+
+      // Calculate allocated points (sum of all active bounty points)
+      const allocatedPoints = project.bounties.reduce(
+        (sum, b) => sum + b.points,
+        0,
+      )
+
+      // Get earned points (from approved submissions)
+      const earnedResult = await ctx.prisma.submission.aggregate({
+        where: {
+          bounty: { projectId: input.projectId },
+          status: 'APPROVED',
+          pointsAwarded: { not: null },
+        },
+        _sum: { pointsAwarded: true },
+      })
+      const earnedPoints = earnedResult._sum.pointsAwarded ?? 0
+
+      return {
+        poolCapacity: project.rewardPool.poolCapacity,
+        allocatedPoints,
+        earnedPoints,
+        availablePoints: project.rewardPool.poolCapacity - allocatedPoints,
+        expansionEvents: project.rewardPool.expansionEvents,
+      }
+    }),
+
+  /**
+   * Expand pool capacity (founder only)
+   */
+  expandPoolCapacity: protectedProcedure
+    .input(
+      z.object({
+        projectId: z.string().uuid(),
+        newCapacity: z.number().int().min(1),
+        reason: z.string().min(1).max(500),
+      }),
+    )
+    .mutation(async ({ ctx, input }) => {
+      const project = await ctx.prisma.project.findUnique({
+        where: { id: input.projectId },
+        include: { rewardPool: true },
+      })
+
+      if (!project) {
+        throw new TRPCError({ code: 'NOT_FOUND', message: 'Project not found' })
+      }
+
+      if (project.founderId !== ctx.user.id) {
+        throw new TRPCError({
+          code: 'FORBIDDEN',
+          message: 'Only the founder can expand pool capacity',
+        })
+      }
+
+      if (!project.rewardPool) {
+        throw new TRPCError({
+          code: 'BAD_REQUEST',
+          message: 'Project has no reward pool',
+        })
+      }
+
+      const previousCapacity = project.rewardPool.poolCapacity
+
+      if (input.newCapacity <= previousCapacity) {
+        throw new TRPCError({
+          code: 'BAD_REQUEST',
+          message: 'New capacity must be greater than current capacity',
+        })
+      }
+
+      // Calculate dilution percentage
+      const dilutionPercent =
+        ((input.newCapacity - previousCapacity) / previousCapacity) * 100
+
+      // Update capacity and create expansion event
+      const [updatedPool] = await ctx.prisma.$transaction([
+        ctx.prisma.rewardPool.update({
+          where: { id: project.rewardPool.id },
+          data: { poolCapacity: input.newCapacity },
+        }),
+        ctx.prisma.poolExpansionEvent.create({
+          data: {
+            rewardPoolId: project.rewardPool.id,
+            previousCapacity,
+            newCapacity: input.newCapacity,
+            reason: input.reason,
+            dilutionPercent,
+          },
+        }),
+      ])
+
+      return updatedPool
+    }),
 })

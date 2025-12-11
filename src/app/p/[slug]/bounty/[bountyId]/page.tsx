@@ -5,10 +5,13 @@ import { trpc } from '@/lib/trpc/react'
 import {
   AlertCircle,
   AlertTriangle,
+  ArrowRight,
   Calendar,
   Check,
   Clock,
   Copy01,
+  FileCheck02,
+  MessageTextSquare02,
   Target01,
   Users01,
 } from '@untitled-ui/icons-react'
@@ -17,7 +20,12 @@ import { useState } from 'react'
 import Link from 'next/link'
 import { useParams, useRouter } from 'next/navigation'
 import { notFound } from 'next/navigation'
-import { BountyClaimMode, BountyStatus, ClaimStatus } from '@/lib/db/types'
+import {
+  BountyClaimMode,
+  BountyStatus,
+  ClaimStatus,
+  SubmissionStatus,
+} from '@/lib/db/types'
 import { routes } from '@/lib/routes'
 import { cn } from '@/lib/utils'
 import {
@@ -127,6 +135,7 @@ export default function BountyDetailPage() {
 
   const userClaim = bounty.claims.find((c) => c.userId === session?.user?.id)
   const hasActiveClaim = userClaim?.status === ClaimStatus.ACTIVE
+  const isFounder = session?.user?.id === bounty.project.founderId
   const canClaim =
     session &&
     bounty.status === BountyStatus.OPEN &&
@@ -328,6 +337,114 @@ export default function BountyDetailPage() {
                       Submit Work for Review
                     </AppButton>
                   )}
+                </AppCardContent>
+              </AppCard>
+            )}
+
+            {/* Submissions Section */}
+            {bounty.submissions.length > 0 && (
+              <AppCard>
+                <AppCardHeader>
+                  <AppCardTitle className="flex items-center gap-2">
+                    <FileCheck02 className="size-5" />
+                    Submissions ({bounty.submissions.length})
+                  </AppCardTitle>
+                  <AppCardDescription>
+                    {isFounder
+                      ? 'Review work submitted by contributors'
+                      : 'Your submissions for this bounty'}
+                  </AppCardDescription>
+                </AppCardHeader>
+                <AppCardContent>
+                  <div className="divide-y divide-border">
+                    {bounty.submissions.map((submission) => {
+                      const statusConfig: Record<
+                        string,
+                        { label: string; color: string }
+                      > = {
+                        [SubmissionStatus.DRAFT]: {
+                          label: 'Draft',
+                          color: 'bg-muted text-muted-foreground border-border',
+                        },
+                        [SubmissionStatus.PENDING]: {
+                          label: 'Pending',
+                          color:
+                            'bg-yellow-500/10 text-yellow-500 border-yellow-500/20',
+                        },
+                        [SubmissionStatus.NEEDS_INFO]: {
+                          label: 'Needs Info',
+                          color:
+                            'bg-orange-500/10 text-orange-500 border-orange-500/20',
+                        },
+                        [SubmissionStatus.APPROVED]: {
+                          label: 'Approved',
+                          color:
+                            'bg-green-500/10 text-green-500 border-green-500/20',
+                        },
+                        [SubmissionStatus.REJECTED]: {
+                          label: 'Rejected',
+                          color: 'bg-red-500/10 text-red-500 border-red-500/20',
+                        },
+                      }
+
+                      const status =
+                        statusConfig[submission.status] ??
+                        statusConfig[SubmissionStatus.PENDING]
+
+                      return (
+                        <Link
+                          key={submission.id}
+                          href={routes.project.submissionDetail({
+                            slug: params.slug,
+                            submissionId: submission.id,
+                          })}
+                          className="group flex items-center gap-4 py-4 first:pt-0 last:pb-0"
+                        >
+                          <Avatar className="size-10">
+                            <AvatarImage
+                              src={submission.user.image ?? undefined}
+                            />
+                            <AvatarFallback>
+                              {submission.user.name.charAt(0)}
+                            </AvatarFallback>
+                          </Avatar>
+                          <div className="min-w-0 flex-1">
+                            <div className="flex items-center gap-2">
+                              <span className="font-medium">
+                                {submission.user.name}
+                              </span>
+                              <Badge
+                                variant="outline"
+                                className={cn('text-xs', status.color)}
+                              >
+                                {status.label}
+                              </Badge>
+                              {submission._count.events > 0 && (
+                                <span className="flex items-center gap-1 text-xs text-muted-foreground">
+                                  <MessageTextSquare02 className="size-3" />
+                                  {submission._count.events}
+                                </span>
+                              )}
+                            </div>
+                            <p className="mt-0.5 line-clamp-1 text-sm text-muted-foreground">
+                              {submission.description}
+                            </p>
+                            <p className="mt-1 text-xs text-muted-foreground">
+                              {new Date(
+                                submission.createdAt,
+                              ).toLocaleDateString('en-US', {
+                                month: 'short',
+                                day: 'numeric',
+                                hour: 'numeric',
+                                minute: '2-digit',
+                              })}
+                            </p>
+                          </div>
+                          <ArrowRight className="size-4 shrink-0 text-muted-foreground opacity-0 transition-all group-hover:translate-x-0.5 group-hover:text-primary group-hover:opacity-100" />
+                        </Link>
+                      )
+                    })}
+                  </div>
                 </AppCardContent>
               </AppCard>
             )}

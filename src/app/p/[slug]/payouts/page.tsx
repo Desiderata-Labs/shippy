@@ -53,11 +53,11 @@ function formatCurrency(cents: number): string {
 
 const statusConfig: Record<string, { label: string; color: string }> = {
   [PayoutStatus.ANNOUNCED]: {
-    label: 'Pending',
+    label: 'Pending payment',
     color: 'bg-yellow-500/10 text-yellow-500 border-yellow-500/20',
   },
   [PayoutStatus.SENT]: {
-    label: 'Sent',
+    label: 'Paid',
     color: 'bg-blue-500/10 text-blue-500 border-blue-500/20',
   },
   [PayoutStatus.COMPLETED]: {
@@ -71,7 +71,7 @@ const recipientStatusConfig: Record<
   { label: string; color: string; icon: typeof Check }
 > = {
   [PayoutRecipientStatus.PENDING]: {
-    label: 'Pending',
+    label: 'Pending payment',
     color: 'text-yellow-500',
     icon: Clock,
   },
@@ -342,7 +342,7 @@ export default function PayoutsPage() {
                       <>
                         {showSentForm === payout.id ? (
                           <div className="space-y-3 rounded-lg border border-border bg-muted/30 p-4">
-                            <p className="text-sm font-medium">Mark as Sent</p>
+                            <p className="text-sm font-medium">Mark as Paid</p>
                             <AppTextarea
                               value={sentNote}
                               onChange={(e) => setSentNote(e.target.value)}
@@ -372,7 +372,7 @@ export default function PayoutsPage() {
                                 ) : (
                                   <Send01 className="mr-2 size-4" />
                                 )}
-                                Confirm Sent
+                                Confirm Paid
                               </AppButton>
                             </div>
                           </div>
@@ -382,7 +382,7 @@ export default function PayoutsPage() {
                             className="w-full"
                           >
                             <Send01 className="mr-2 size-4" />
-                            Mark as Sent
+                            Mark as Paid
                           </AppButton>
                         )}
                       </>

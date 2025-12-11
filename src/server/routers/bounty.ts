@@ -90,6 +90,13 @@ export const bountyRouter = router({
               user: { select: { id: true, name: true, image: true } },
             },
           },
+          submissions: {
+            orderBy: { createdAt: 'desc' },
+            include: {
+              user: { select: { id: true, name: true, image: true } },
+              _count: { select: { events: true } },
+            },
+          },
           _count: {
             select: { submissions: true },
           },
@@ -100,7 +107,18 @@ export const bountyRouter = router({
         throw new TRPCError({ code: 'NOT_FOUND', message: 'Bounty not found' })
       }
 
-      return bounty
+      // Filter submissions based on viewer:
+      // - Founder sees all submissions
+      // - Contributors only see their own submissions
+      const isFounder = bounty.project.founderId === ctx.user?.id
+      const filteredSubmissions = isFounder
+        ? bounty.submissions
+        : bounty.submissions.filter((s) => s.userId === ctx.user?.id)
+
+      return {
+        ...bounty,
+        submissions: filteredSubmissions,
+      }
     }),
 
   /**
@@ -109,10 +127,18 @@ export const bountyRouter = router({
   create: protectedProcedure
     .input(createBountySchema)
     .mutation(async ({ ctx, input }) => {
-      // Verify project ownership
+      // Verify project ownership and get pool info
       const project = await ctx.prisma.project.findUnique({
         where: { id: input.projectId },
-        select: { founderId: true },
+        include: {
+          rewardPool: true,
+          bounties: {
+            where: {
+              status: { in: [BountyStatus.OPEN, BountyStatus.CLAIMED] },
+            },
+            select: { points: true },
+          },
+        },
       })
 
       if (!project) {
@@ -126,6 +152,63 @@ export const bountyRouter = router({
         })
       }
 
+      if (!project.rewardPool) {
+        throw new TRPCError({
+          code: 'BAD_REQUEST',
+          message: 'Project does not have a reward pool',
+        })
+      }
+
+      // Calculate current allocated points and check if we need to expand
+      const currentAllocated = project.bounties.reduce(
+        (sum, b) => sum + b.points,
+        0,
+      )
+      const newTotalAllocated = currentAllocated + input.points
+      const currentCapacity = project.rewardPool.poolCapacity
+
+      // Auto-expand pool capacity if needed
+      if (newTotalAllocated > currentCapacity) {
+        const dilutionPercent =
+          ((newTotalAllocated - currentCapacity) / newTotalAllocated) * 100
+
+        // Use transaction to expand pool and create bounty together
+        return ctx.prisma.$transaction(async (tx) => {
+          // Expand pool capacity
+          await tx.rewardPool.update({
+            where: { id: project.rewardPool!.id },
+            data: { poolCapacity: newTotalAllocated },
+          })
+
+          // Log the expansion event
+          await tx.poolExpansionEvent.create({
+            data: {
+              rewardPoolId: project.rewardPool!.id,
+              previousCapacity: currentCapacity,
+              newCapacity: newTotalAllocated,
+              reason: `Auto-expanded to accommodate bounty: "${input.title}"`,
+              dilutionPercent,
+            },
+          })
+
+          // Create the bounty
+          return tx.bounty.create({
+            data: {
+              projectId: input.projectId,
+              title: input.title,
+              description: input.description,
+              points: input.points,
+              tags: input.tags,
+              claimMode: input.claimMode,
+              claimExpiryDays: input.claimExpiryDays,
+              maxClaims: input.maxClaims,
+              evidenceDescription: input.evidenceDescription,
+            },
+          })
+        })
+      }
+
+      // No expansion needed, just create the bounty
       return ctx.prisma.bounty.create({
         data: {
           projectId: input.projectId,

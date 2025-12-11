@@ -3,10 +3,12 @@
 import { useSession } from '@/lib/auth/react'
 import { trpc } from '@/lib/trpc/react'
 import {
+  ArrowRight,
   ArrowUpRight,
   Check,
   Clock,
   CoinsStacked01,
+  MessageTextSquare02,
   Target01,
   X,
 } from '@untitled-ui/icons-react'
@@ -14,8 +16,13 @@ import { Loader2 } from 'lucide-react'
 import { useEffect, useState } from 'react'
 import Link from 'next/link'
 import { redirect, useRouter } from 'next/navigation'
-import { PayoutRecipientStatus, PayoutStatus } from '@/lib/db/types'
+import {
+  PayoutRecipientStatus,
+  PayoutStatus,
+  SubmissionStatus,
+} from '@/lib/db/types'
 import { routes } from '@/lib/routes'
+import { cn } from '@/lib/utils'
 import {
   AppButton,
   AppCard,
@@ -51,6 +58,11 @@ export default function ContributorDashboardPage() {
   const { data, isLoading } = trpc.contributor.myDashboard.useQuery(undefined, {
     enabled: !!session,
   })
+
+  const { data: submissions } = trpc.submission.mySubmissions.useQuery(
+    {},
+    { enabled: !!session },
+  )
 
   const utils = trpc.useUtils()
 
@@ -184,6 +196,100 @@ export default function ContributorDashboardPage() {
           </AppCard>
         </div>
 
+        {/* My Submissions */}
+        {submissions && submissions.length > 0 && (
+          <div className="mb-6">
+            <AppCard>
+              <AppCardHeader>
+                <AppCardTitle>My Submissions</AppCardTitle>
+                <AppCardDescription>
+                  Track your submitted work
+                </AppCardDescription>
+              </AppCardHeader>
+              <AppCardContent>
+                <div className="divide-y divide-border/50 dark:divide-white/10">
+                  {submissions.slice(0, 5).map((submission) => {
+                    const statusConfig: Record<
+                      string,
+                      { label: string; color: string }
+                    > = {
+                      [SubmissionStatus.DRAFT]: {
+                        label: 'Draft',
+                        color: 'bg-muted text-muted-foreground border-border',
+                      },
+                      [SubmissionStatus.PENDING]: {
+                        label: 'Pending',
+                        color:
+                          'bg-yellow-500/10 text-yellow-500 border-yellow-500/20',
+                      },
+                      [SubmissionStatus.NEEDS_INFO]: {
+                        label: 'Needs Info',
+                        color:
+                          'bg-orange-500/10 text-orange-500 border-orange-500/20',
+                      },
+                      [SubmissionStatus.APPROVED]: {
+                        label: 'Approved',
+                        color:
+                          'bg-green-500/10 text-green-500 border-green-500/20',
+                      },
+                      [SubmissionStatus.REJECTED]: {
+                        label: 'Rejected',
+                        color: 'bg-red-500/10 text-red-500 border-red-500/20',
+                      },
+                    }
+
+                    const status =
+                      statusConfig[submission.status] ??
+                      statusConfig[SubmissionStatus.PENDING]
+
+                    return (
+                      <Link
+                        key={submission.id}
+                        href={routes.project.submissionDetail({
+                          slug: submission.bounty.project.slug,
+                          submissionId: submission.id,
+                        })}
+                        className="group -mx-4 flex items-center justify-between rounded-lg p-4 transition-colors hover:bg-muted/50"
+                      >
+                        <div className="min-w-0 flex-1">
+                          <div className="flex items-center gap-2">
+                            <Badge
+                              variant="outline"
+                              className={cn('text-xs', status.color)}
+                            >
+                              {status.label}
+                            </Badge>
+                            {submission._count.events > 0 && (
+                              <span className="flex items-center gap-1 text-xs text-muted-foreground">
+                                <MessageTextSquare02 className="size-3" />
+                                {submission._count.events}
+                              </span>
+                            )}
+                          </div>
+                          <p className="mt-1 truncate font-medium">
+                            {submission.bounty.title}
+                          </p>
+                          <p className="text-sm text-muted-foreground">
+                            {submission.bounty.project.name}
+                          </p>
+                        </div>
+                        <div className="ml-4 flex items-center gap-2">
+                          {submission.pointsAwarded && (
+                            <span className="text-sm font-medium text-green-600 dark:text-green-400">
+                              +{submission.pointsAwarded} pts
+                            </span>
+                          )}
+                          <ArrowRight className="size-4 text-muted-foreground opacity-0 transition-all group-hover:translate-x-0.5 group-hover:text-primary group-hover:opacity-100" />
+                        </div>
+                      </Link>
+                    )
+                  })}
+                </div>
+              </AppCardContent>
+            </AppCard>
+          </div>
+        )}
+
         {/* Projects */}
         <div className="grid gap-6 lg:grid-cols-2">
           <AppCard>
@@ -214,7 +320,7 @@ export default function ContributorDashboardPage() {
                       href={routes.project.detail({
                         slug: project.projectSlug,
                       })}
-                      className="flex items-center justify-between rounded-lg py-4 transition-colors first:pt-0 last:pb-0 hover:bg-muted/50"
+                      className="-mx-4 flex items-center justify-between rounded-lg p-4 transition-colors hover:bg-muted/50"
                     >
                       <div>
                         <p className="font-medium">{project.projectName}</p>
@@ -288,10 +394,7 @@ export default function ContributorDashboardPage() {
                     }
 
                     return (
-                      <div
-                        key={recipient.id}
-                        className="py-4 first:pt-0 last:pb-0"
-                      >
+                      <div key={recipient.id} className="-mx-4 p-4">
                         <div className="flex items-center justify-between">
                           <div>
                             <p className="font-medium">

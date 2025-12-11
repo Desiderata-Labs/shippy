@@ -1,10 +1,16 @@
 'use client'
 
-import { BookOpen02, Target01, Users01 } from '@untitled-ui/icons-react'
+import {
+  BookOpen02,
+  CoinsStacked01,
+  Target01,
+  Users01,
+} from '@untitled-ui/icons-react'
 import { useState } from 'react'
 import { cn } from '@/lib/utils'
 import { BountiesTab } from './bounties-tab'
 import { ContributorsTab } from './contributors-tab'
+import { PayoutsTab } from './payouts-tab'
 import { ReadmeTab } from './readme-tab'
 
 interface ProjectTabsProps {
@@ -15,6 +21,7 @@ interface ProjectTabsProps {
     description: string | null
     discordUrl: string | null
     websiteUrl: string | null
+    payoutVisibility: string
     rewardPool: {
       poolPercentage: number
       payoutFrequency: string
@@ -33,13 +40,17 @@ interface ProjectTabsProps {
       _count: {
         claims: number
         submissions: number
+        pendingSubmissions: number
       }
     }>
+    stats: {
+      verifiedPayoutCount: number
+    }
   }
   isFounder: boolean
 }
 
-type TabValue = 'readme' | 'bounties' | 'contributors'
+type TabValue = 'readme' | 'bounties' | 'contributors' | 'payouts'
 
 interface TabItem {
   value: TabValue
@@ -51,7 +62,10 @@ interface TabItem {
 export function ProjectTabs({ project, isFounder }: ProjectTabsProps) {
   const [activeTab, setActiveTab] = useState<TabValue>('readme')
 
-  const openBounties = project.bounties.filter((b) => b.status === 'OPEN')
+  // Count active bounties (not COMPLETED or CLOSED)
+  const activeBounties = project.bounties.filter(
+    (b) => b.status === 'OPEN' || b.status === 'CLAIMED',
+  )
 
   const tabs: TabItem[] = [
     {
@@ -63,12 +77,23 @@ export function ProjectTabs({ project, isFounder }: ProjectTabsProps) {
       value: 'bounties',
       label: 'Bounties',
       icon: Target01,
-      count: openBounties.length || undefined,
+      // Show count if there are any active bounties
+      count: activeBounties.length > 0 ? activeBounties.length : undefined,
     },
     {
       value: 'contributors',
       label: 'Contributors',
       icon: Users01,
+    },
+    {
+      value: 'payouts',
+      label: 'Payouts',
+      icon: CoinsStacked01,
+      // Show count of verified payouts
+      count:
+        project.stats.verifiedPayoutCount > 0
+          ? project.stats.verifiedPayoutCount
+          : undefined,
     },
   ]
 
@@ -130,6 +155,14 @@ export function ProjectTabs({ project, isFounder }: ProjectTabsProps) {
         )}
         {activeTab === 'contributors' && (
           <ContributorsTab projectId={project.id} />
+        )}
+        {activeTab === 'payouts' && (
+          <PayoutsTab
+            projectId={project.id}
+            projectSlug={project.slug}
+            isFounder={isFounder}
+            payoutVisibility={project.payoutVisibility}
+          />
         )}
       </div>
     </div>

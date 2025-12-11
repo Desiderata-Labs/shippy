@@ -1,5 +1,6 @@
 'use client'
 
+import { AlertTriangle, PieChart01 } from '@untitled-ui/icons-react'
 import { Loader2 } from 'lucide-react'
 import { useState } from 'react'
 import {
@@ -26,6 +27,7 @@ import {
   SelectTrigger,
   SelectValue,
 } from '@/components/ui/select'
+import { Slider } from '@/components/ui/slider'
 
 export interface BountyFormData {
   title: string
@@ -38,12 +40,20 @@ export interface BountyFormData {
   evidenceDescription: string
 }
 
+export interface PoolStats {
+  poolCapacity: number
+  allocatedPoints: number
+  earnedPoints: number
+  availablePoints: number
+}
+
 interface BountyFormProps {
   mode: 'create' | 'edit'
   initialData?: BountyFormData
   isLoading: boolean
   onSubmit: (data: BountyFormData) => void
   onCancel: () => void
+  poolStats?: PoolStats
 }
 
 const TAG_OPTIONS: { value: BountyTag; label: string; color: string }[] = [
@@ -127,6 +137,7 @@ export function BountyForm({
   isLoading,
   onSubmit,
   onCancel,
+  poolStats,
 }: BountyFormProps) {
   const [title, setTitle] = useState(initialData?.title ?? '')
   const [description, setDescription] = useState(initialData?.description ?? '')
@@ -207,6 +218,16 @@ export function BountyForm({
         </AppCard>
       )}
 
+      {/* Pool Allocation & Points Input */}
+      {poolStats && mode === 'create' && (
+        <PoolAllocationCard
+          poolStats={poolStats}
+          bountyPoints={points}
+          onPointsChange={setPoints}
+          disabled={isLoading}
+        />
+      )}
+
       {/* Basic Info */}
       <AppCard>
         <AppCardHeader>
@@ -241,26 +262,29 @@ export function BountyForm({
             />
           </div>
 
-          <div className="space-y-2">
-            <Label htmlFor="points">Point Reward *</Label>
-            <div className="flex items-center gap-2">
-              <AppInput
-                id="points"
-                type="number"
-                min="1"
-                value={points}
-                onChange={(e) => setPoints(parseInt(e.target.value) || 0)}
-                required
-                disabled={isLoading}
-                className="w-32"
-              />
-              <span className="text-sm text-muted-foreground">points</span>
+          {/* Points input - only shown in edit mode or when poolStats unavailable */}
+          {(!poolStats || mode === 'edit') && (
+            <div className="space-y-2">
+              <Label htmlFor="points">Point Reward *</Label>
+              <div className="flex items-center gap-2">
+                <AppInput
+                  id="points"
+                  type="number"
+                  min="1"
+                  value={points}
+                  onChange={(e) => setPoints(parseInt(e.target.value) || 0)}
+                  required
+                  disabled={isLoading}
+                  className="w-32"
+                />
+                <span className="text-sm text-muted-foreground">points</span>
+              </div>
+              <p className="text-xs text-muted-foreground">
+                Each point = 0.1% of the reward pool. A 50-point bounty pays 5%
+                of the pool each payout.
+              </p>
             </div>
-            <p className="text-xs text-muted-foreground">
-              Higher points = larger share of the reward pool when payouts
-              happen
-            </p>
-          </div>
+          )}
 
           <div className="space-y-2">
             <Label>Tags *</Label>
@@ -422,5 +446,180 @@ export function BountyForm({
         </AppButton>
       </div>
     </form>
+  )
+}
+
+function PoolAllocationCard({
+  poolStats,
+  bountyPoints,
+  onPointsChange,
+  disabled,
+}: {
+  poolStats: PoolStats
+  bountyPoints: number
+  onPointsChange: (points: number) => void
+  disabled?: boolean
+}) {
+  const { poolCapacity, allocatedPoints, availablePoints } = poolStats
+
+  const newTotalAllocated = allocatedPoints + bountyPoints
+  const wouldExceedCapacity = newTotalAllocated > poolCapacity
+  const newCapacityIfExpanded = wouldExceedCapacity ? newTotalAllocated : null
+
+  // Calculate percentages
+  const bountyPercent = (bountyPoints / poolCapacity) * 100
+  const allocatedPercent = (allocatedPoints / poolCapacity) * 100
+
+  // Calculate dilution if expanding
+  const dilutionPercent = newCapacityIfExpanded
+    ? ((newCapacityIfExpanded - poolCapacity) / newCapacityIfExpanded) * 100
+    : 0
+
+  // Slider max is either available points or a reasonable amount beyond
+  const sliderMax = Math.max(availablePoints, 500, bountyPoints)
+
+  return (
+    <AppCard>
+      <AppCardHeader>
+        <div className="flex items-center gap-3">
+          <div className="flex size-8 items-center justify-center rounded-lg bg-primary/10">
+            <PieChart01 className="size-4 text-primary" />
+          </div>
+          <div>
+            <AppCardTitle>Point Reward</AppCardTitle>
+            <AppCardDescription>
+              Each point = 0.1% of the reward pool
+            </AppCardDescription>
+          </div>
+        </div>
+      </AppCardHeader>
+      <AppCardContent className="space-y-5">
+        {/* Points input with slider */}
+        <div className="space-y-4">
+          <div className="flex items-center gap-4">
+            <div className="flex-1">
+              <Slider
+                value={[bountyPoints]}
+                onValueChange={([value]) => onPointsChange(value)}
+                min={1}
+                max={sliderMax}
+                step={5}
+                disabled={disabled}
+                className="py-2"
+              />
+            </div>
+            <div className="flex items-center gap-2">
+              <AppInput
+                type="number"
+                min="1"
+                value={bountyPoints}
+                onChange={(e) => onPointsChange(parseInt(e.target.value) || 1)}
+                disabled={disabled}
+                className="w-24 text-center font-semibold"
+              />
+              <span className="text-sm text-muted-foreground">pts</span>
+            </div>
+          </div>
+
+          {/* Quick select buttons */}
+          <div className="flex flex-wrap gap-2">
+            {[25, 50, 100, 200, 500].map((preset) => (
+              <button
+                key={preset}
+                type="button"
+                onClick={() => onPointsChange(preset)}
+                disabled={disabled}
+                className={`cursor-pointer rounded-lg border px-3 py-1.5 text-sm font-medium transition-colors ${
+                  bountyPoints === preset
+                    ? 'border-primary bg-primary/10 text-primary'
+                    : 'border-border bg-muted/50 text-muted-foreground hover:bg-muted'
+                }`}
+              >
+                {preset} pts
+              </button>
+            ))}
+          </div>
+        </div>
+
+        {/* Visual progress bar */}
+        <div className="space-y-2">
+          <div className="flex h-3 overflow-hidden rounded-full bg-muted">
+            {/* Already allocated */}
+            <div
+              className="bg-primary/50 transition-all duration-300"
+              style={{ width: `${Math.min(allocatedPercent, 100)}%` }}
+            />
+            {/* This bounty */}
+            <div
+              className={`transition-all duration-300 ${wouldExceedCapacity ? 'bg-amber-500' : 'bg-primary'}`}
+              style={{
+                width: `${Math.min(bountyPercent, 100 - Math.min(allocatedPercent, 100))}%`,
+              }}
+            />
+          </div>
+          <div className="flex justify-between text-xs text-muted-foreground">
+            <span>0 pts</span>
+            <span>{poolCapacity.toLocaleString()} pts (capacity)</span>
+          </div>
+        </div>
+
+        {/* Stats grid */}
+        <div className="grid grid-cols-3 gap-3 text-center">
+          <div className="rounded-lg border border-border bg-muted/50 px-3 py-2">
+            <div className="text-lg font-semibold">
+              {allocatedPoints.toLocaleString()}
+            </div>
+            <div className="text-xs text-muted-foreground">Allocated</div>
+          </div>
+          <div
+            className={`rounded-lg border px-3 py-2 ${wouldExceedCapacity ? 'border-amber-500/30 bg-amber-500/10' : 'border-primary/30 bg-primary/10'}`}
+          >
+            <div
+              className={`text-lg font-semibold ${wouldExceedCapacity ? 'text-amber-500' : 'text-primary'}`}
+            >
+              +{bountyPoints.toLocaleString()}
+            </div>
+            <div className="text-xs text-muted-foreground">This bounty</div>
+          </div>
+          <div className="rounded-lg border border-border bg-muted/50 px-3 py-2">
+            <div className="text-lg font-semibold">
+              {Math.max(0, availablePoints - bountyPoints).toLocaleString()}
+            </div>
+            <div className="text-xs text-muted-foreground">Remaining</div>
+          </div>
+        </div>
+
+        {/* This bounty's share */}
+        <div className="rounded-lg border border-primary/20 bg-primary/5 px-4 py-3">
+          <div className="flex items-center justify-between">
+            <span className="text-sm text-muted-foreground">
+              This bounty pays
+            </span>
+            <span className="font-semibold text-primary">
+              {bountyPercent.toFixed(1)}% of pool per payout
+            </span>
+          </div>
+        </div>
+
+        {/* Capacity warning */}
+        {wouldExceedCapacity && (
+          <div className="rounded-lg border border-amber-500/30 bg-amber-500/10 px-4 py-3">
+            <div className="flex items-start gap-3">
+              <AlertTriangle className="mt-0.5 size-4 shrink-0 text-amber-500" />
+              <div className="space-y-1">
+                <p className="text-sm font-medium text-amber-500">
+                  This will expand pool capacity
+                </p>
+                <p className="text-xs text-muted-foreground">
+                  Capacity will increase from {poolCapacity.toLocaleString()} to{' '}
+                  {newCapacityIfExpanded?.toLocaleString()} pts, diluting
+                  existing contributors by {dilutionPercent.toFixed(1)}%.
+                </p>
+              </div>
+            </div>
+          </div>
+        )}
+      </AppCardContent>
+    </AppCard>
   )
 }

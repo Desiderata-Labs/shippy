@@ -15,7 +15,7 @@ import { useState } from 'react'
 import Link from 'next/link'
 import { useParams } from 'next/navigation'
 import { notFound } from 'next/navigation'
-import { SubmissionStatus } from '@/lib/db/types'
+import { SubmissionEventType, SubmissionStatus } from '@/lib/db/types'
 import { routes } from '@/lib/routes'
 import { cn } from '@/lib/utils'
 import {
@@ -37,6 +37,8 @@ import {
   BreadcrumbPage,
   BreadcrumbSeparator,
 } from '@/components/ui/breadcrumb'
+import { ConfirmModal } from '@/components/ui/confirm-modal'
+import { Markdown } from '@/components/ui/markdown'
 import { Skeleton } from '@/components/ui/skeleton'
 import { toast } from 'sonner'
 
@@ -78,6 +80,7 @@ export default function SubmissionDetailPage() {
   const [isSending, setIsSending] = useState(false)
   const [reviewNote, setReviewNote] = useState('')
   const [showReviewActions, setShowReviewActions] = useState(false)
+  const [showRejectModal, setShowRejectModal] = useState(false)
 
   const { data: submission, isLoading } = trpc.submission.getById.useQuery(
     { id: params.submissionId },
@@ -86,7 +89,7 @@ export default function SubmissionDetailPage() {
 
   const utils = trpc.useUtils()
 
-  const addMessage = trpc.submission.addMessage.useMutation({
+  const addComment = trpc.submission.addComment.useMutation({
     onSuccess: () => {
       setMessageContent('')
       utils.submission.getById.invalidate({ id: params.submissionId })
@@ -125,23 +128,21 @@ export default function SubmissionDetailPage() {
   }
 
   const isFounder = session?.user?.id === submission.bounty.project.founderId
-  const isSubmitter = session?.user?.id === submission.userId
-  const canReview =
-    isFounder &&
-    submission.status !== SubmissionStatus.APPROVED &&
-    submission.status !== SubmissionStatus.REJECTED
+  // Founders can review pending, needs_info, OR rejected submissions (can change mind)
+  // Only approved submissions are final (points already awarded)
+  const canReview = isFounder && submission.status !== SubmissionStatus.APPROVED
 
   const status =
     statusConfig[submission.status] || statusConfig[SubmissionStatus.PENDING]
   const StatusIcon = status.icon
 
-  const handleSendMessage = async (e: React.FormEvent) => {
+  const handleSendComment = async (e: React.FormEvent) => {
     e.preventDefault()
     if (!messageContent.trim()) return
 
     setIsSending(true)
     try {
-      await addMessage.mutateAsync({
+      await addComment.mutateAsync({
         submissionId: submission.id,
         content: messageContent,
       })
@@ -165,22 +166,60 @@ export default function SubmissionDetailPage() {
     }
   }
 
-  // Combine initial description with messages for timeline
-  const timeline = [
+  // Build timeline from initial submission + events
+  type TimelineItem =
+    | {
+        id: string
+        type: 'initial'
+        user: typeof submission.user
+        content: string
+        createdAt: Date | string
+      }
+    | {
+        id: string
+        type: 'comment'
+        user: (typeof submission.events)[0]['user']
+        content: string
+        createdAt: Date | string
+      }
+    | {
+        id: string
+        type: 'status_change'
+        user: (typeof submission.events)[0]['user']
+        fromStatus: string | null
+        toStatus: string
+        note: string | null
+        createdAt: Date | string
+      }
+
+  const timeline: TimelineItem[] = [
     {
       id: 'initial',
+      type: 'initial',
       user: submission.user,
       content: submission.description,
       createdAt: submission.createdAt,
-      isInitial: true,
     },
-    ...submission.messages.map((m) => ({
-      id: m.id,
-      user: m.user,
-      content: m.content,
-      createdAt: m.createdAt,
-      isInitial: false,
-    })),
+    ...submission.events.map((event): TimelineItem => {
+      if (event.type === SubmissionEventType.STATUS_CHANGE) {
+        return {
+          id: event.id,
+          type: 'status_change',
+          user: event.user,
+          fromStatus: event.fromStatus,
+          toStatus: event.toStatus!,
+          note: event.note,
+          createdAt: event.createdAt,
+        }
+      }
+      return {
+        id: event.id,
+        type: 'comment',
+        user: event.user,
+        content: event.content!,
+        createdAt: event.createdAt,
+      }
+    }),
   ]
 
   return (
@@ -253,221 +292,275 @@ export default function SubmissionDetailPage() {
           </div>
         </div>
 
-        {/* Conversation Thread */}
-        <AppCard className="mb-6">
-          <AppCardHeader>
-            <AppCardTitle className="flex items-center gap-2">
-              <MessageTextSquare02 className="size-4" />
-              Conversation
-            </AppCardTitle>
-          </AppCardHeader>
-          <AppCardContent className="p-0">
-            <div className="divide-y divide-border">
-              {timeline.map((item) => (
-                <div key={item.id} className="p-4">
-                  <div className="flex gap-3">
-                    <Avatar className="size-8 shrink-0">
-                      <AvatarImage src={item.user.image ?? undefined} />
-                      <AvatarFallback>
-                        {item.user.name.charAt(0)}
-                      </AvatarFallback>
-                    </Avatar>
-                    <div className="min-w-0 flex-1">
-                      <div className="flex items-center gap-2">
-                        <span className="font-medium">{item.user.name}</span>
-                        {item.user.id ===
-                          submission.bounty.project.founderId && (
-                          <Badge
-                            variant="outline"
-                            className="px-1.5 py-0 text-[10px]"
-                          >
-                            Founder
-                          </Badge>
-                        )}
-                        <span className="text-xs text-muted-foreground">
-                          {new Date(item.createdAt).toLocaleDateString(
-                            'en-US',
-                            {
-                              month: 'short',
-                              day: 'numeric',
-                            },
-                          )}{' '}
-                          at{' '}
-                          {new Date(item.createdAt).toLocaleTimeString(
-                            'en-US',
-                            {
-                              hour: 'numeric',
-                              minute: '2-digit',
-                            },
-                          )}
-                        </span>
-                      </div>
-                      <div className="mt-2 text-sm whitespace-pre-wrap">
-                        {item.content}
-                      </div>
-                    </div>
-                  </div>
-                </div>
-              ))}
-            </div>
-
-            {/* Add message form */}
-            {submission.status !== SubmissionStatus.APPROVED &&
-              submission.status !== SubmissionStatus.REJECTED && (
-                <form
-                  onSubmit={handleSendMessage}
-                  className="border-t border-border p-4"
-                >
-                  <div className="flex gap-3">
-                    <Avatar className="size-8 shrink-0">
-                      <AvatarImage src={session?.user?.image ?? undefined} />
-                      <AvatarFallback>
-                        {session?.user?.name?.charAt(0) ?? 'U'}
-                      </AvatarFallback>
-                    </Avatar>
-                    <div className="min-w-0 flex-1">
-                      <AppTextarea
-                        value={messageContent}
-                        onChange={(e) => setMessageContent(e.target.value)}
-                        placeholder="Add a comment..."
-                        rows={3}
-                        disabled={isSending}
-                      />
-                      <div className="mt-2 flex justify-end">
-                        <AppButton
-                          type="submit"
-                          size="sm"
-                          disabled={isSending || !messageContent.trim()}
-                        >
-                          {isSending ? (
-                            <Loader2 className="mr-2 size-4 animate-spin" />
-                          ) : (
-                            <Send01 className="mr-2 size-4" />
-                          )}
-                          Send
-                        </AppButton>
-                      </div>
-                    </div>
-                  </div>
-                </form>
-              )}
-          </AppCardContent>
-        </AppCard>
-
         {/* Review Actions (Founder only) */}
         {canReview && (
-          <AppCard>
-            <AppCardHeader>
-              <AppCardTitle className="flex items-center gap-2">
-                <Target01 className="size-4" />
-                Review Submission
-              </AppCardTitle>
-            </AppCardHeader>
-            <AppCardContent>
-              {showReviewActions ? (
-                <div className="space-y-4">
+          <div className="sticky top-[72px] z-10 mb-6">
+            {showReviewActions ? (
+              <div className="space-y-4 rounded-xl border border-border bg-card p-4 shadow-2xl">
+                <div>
                   <AppTextarea
                     value={reviewNote}
                     onChange={(e) => setReviewNote(e.target.value)}
-                    placeholder="Add a note (optional)..."
+                    placeholder="Add a comment..."
                     rows={3}
                     disabled={isSending}
                   />
-                  <div className="flex flex-wrap gap-2">
-                    <AppButton
-                      onClick={() => handleReview('approve')}
-                      disabled={isSending}
-                      className="bg-green-600 hover:bg-green-700"
-                    >
-                      {isSending ? (
-                        <Loader2 className="mr-2 size-4 animate-spin" />
-                      ) : (
-                        <Check className="mr-2 size-4" />
-                      )}
-                      Approve (+{submission.bounty.points} pts)
-                    </AppButton>
-                    <AppButton
-                      variant="outline"
-                      onClick={() => handleReview('requestInfo')}
-                      disabled={isSending}
-                    >
-                      <MessageTextSquare02 className="mr-2 size-4" />
-                      Request Info
-                    </AppButton>
-                    <AppButton
-                      variant="outline"
-                      onClick={() => handleReview('reject')}
-                      disabled={isSending}
-                      className="text-red-500 hover:bg-red-500/10 hover:text-red-500"
-                    >
-                      <X className="mr-2 size-4" />
-                      Reject
-                    </AppButton>
-                    <AppButton
-                      variant="ghost"
-                      onClick={() => setShowReviewActions(false)}
-                      disabled={isSending}
-                    >
-                      Cancel
-                    </AppButton>
-                  </div>
+                  <p className="mt-1.5 text-xs text-muted-foreground">
+                    A comment is required when rejecting or requesting more
+                    info.
+                  </p>
                 </div>
-              ) : (
+                <div className="flex flex-wrap gap-2">
+                  <AppButton
+                    onClick={() => handleReview('approve')}
+                    disabled={isSending}
+                    className="bg-green-600 hover:bg-green-700"
+                  >
+                    {isSending ? (
+                      <Loader2 className="mr-2 size-4 animate-spin" />
+                    ) : (
+                      <Check className="mr-2 size-4" />
+                    )}
+                    Approve (+{submission.bounty.points} pts)
+                  </AppButton>
+                  <AppButton
+                    variant="outline"
+                    onClick={() => handleReview('requestInfo')}
+                    disabled={isSending || !reviewNote.trim()}
+                  >
+                    <MessageTextSquare02 className="mr-2 size-4" />
+                    Request Info
+                  </AppButton>
+                  <AppButton
+                    variant="outline"
+                    onClick={() => setShowRejectModal(true)}
+                    disabled={isSending || !reviewNote.trim()}
+                    className="text-red-500 hover:bg-red-500/10 hover:text-red-500"
+                  >
+                    <X className="mr-2 size-4" />
+                    Reject
+                  </AppButton>
+                  <AppButton
+                    variant="ghost"
+                    onClick={() => setShowReviewActions(false)}
+                    disabled={isSending}
+                  >
+                    Cancel
+                  </AppButton>
+                </div>
+              </div>
+            ) : (
+              <div className="rounded-xl bg-card p-1 shadow-lg">
                 <AppButton
                   onClick={() => setShowReviewActions(true)}
                   className="w-full"
                 >
+                  <Target01 className="mr-2 size-4" />
                   Review This Submission
                 </AppButton>
-              )}
-            </AppCardContent>
-          </AppCard>
+              </div>
+            )}
+          </div>
         )}
 
-        {/* Rejection Note */}
-        {submission.status === SubmissionStatus.REJECTED &&
-          submission.rejectionNote && (
-            <AppCard className="border-red-500/20 bg-red-500/5">
-              <AppCardHeader>
-                <AppCardTitle className="flex items-center gap-2 text-red-500">
-                  <X className="size-4" />
-                  Rejection Reason
-                </AppCardTitle>
-              </AppCardHeader>
-              <AppCardContent>
-                <p className="text-sm">{submission.rejectionNote}</p>
-              </AppCardContent>
-            </AppCard>
-          )}
+        {/* Activity Timeline */}
+        <AppCard className="mb-6">
+          <AppCardHeader>
+            <AppCardTitle className="flex items-center gap-2">
+              <MessageTextSquare02 className="size-4" />
+              Activity
+            </AppCardTitle>
+          </AppCardHeader>
+          <AppCardContent className="p-0">
+            <div className="divide-y divide-border">
+              {timeline.map((item) => {
+                // Status change events render differently
+                if (item.type === 'status_change') {
+                  const statusInfo = statusConfig[item.toStatus]
+                  const StatusIcon = statusInfo?.icon ?? Clock
 
-        {/* Approval Info */}
-        {submission.status === SubmissionStatus.APPROVED && (
-          <AppCard className="border-green-500/20 bg-green-500/5">
-            <AppCardHeader>
-              <AppCardTitle className="flex items-center gap-2 text-green-500">
-                <Check className="size-4" />
-                Submission Approved
-              </AppCardTitle>
-            </AppCardHeader>
-            <AppCardContent>
-              <p className="text-sm">
-                {submission.pointsAwarded} points have been awarded to{' '}
-                {isSubmitter ? 'you' : submission.user.name}.
-              </p>
-              {submission.approvedAt && (
-                <p className="mt-1 text-xs text-muted-foreground">
-                  Approved on{' '}
-                  {new Date(submission.approvedAt).toLocaleDateString('en-US', {
-                    month: 'long',
-                    day: 'numeric',
-                    year: 'numeric',
-                  })}
-                </p>
-              )}
-            </AppCardContent>
-          </AppCard>
-        )}
+                  return (
+                    <div key={item.id} className="flex items-start gap-3 p-4">
+                      <div
+                        className={cn(
+                          'flex size-8 shrink-0 items-center justify-center rounded-full',
+                          item.toStatus === SubmissionStatus.APPROVED &&
+                            'bg-green-500/10',
+                          item.toStatus === SubmissionStatus.REJECTED &&
+                            'bg-red-500/10',
+                          item.toStatus === SubmissionStatus.NEEDS_INFO &&
+                            'bg-orange-500/10',
+                        )}
+                      >
+                        <StatusIcon
+                          className={cn(
+                            'size-4',
+                            item.toStatus === SubmissionStatus.APPROVED &&
+                              'text-green-500',
+                            item.toStatus === SubmissionStatus.REJECTED &&
+                              'text-red-500',
+                            item.toStatus === SubmissionStatus.NEEDS_INFO &&
+                              'text-orange-500',
+                          )}
+                        />
+                      </div>
+                      <div className="min-w-0 flex-1">
+                        <div className="flex flex-wrap items-center gap-x-2 gap-y-1">
+                          <span className="font-medium">{item.user.name}</span>
+                          {item.user.id ===
+                            submission.bounty.project.founderId && (
+                            <Badge
+                              variant="outline"
+                              className="px-1.5 py-0 text-[10px]"
+                            >
+                              Owner
+                            </Badge>
+                          )}
+                          <span className="text-sm text-muted-foreground">
+                            {item.toStatus === SubmissionStatus.APPROVED &&
+                              `approved this submission (+${submission.pointsAwarded} points)`}
+                            {item.toStatus === SubmissionStatus.REJECTED &&
+                              'rejected this submission'}
+                            {item.toStatus === SubmissionStatus.NEEDS_INFO &&
+                              'requested more information'}
+                          </span>
+                          <span className="text-xs text-muted-foreground">
+                            •{' '}
+                            {new Date(item.createdAt).toLocaleDateString(
+                              'en-US',
+                              {
+                                month: 'short',
+                                day: 'numeric',
+                              },
+                            )}{' '}
+                            at{' '}
+                            {new Date(item.createdAt).toLocaleTimeString(
+                              'en-US',
+                              {
+                                hour: 'numeric',
+                                minute: '2-digit',
+                              },
+                            )}
+                          </span>
+                        </div>
+                        {item.note && (
+                          <div className="mt-2">
+                            <Markdown markdown={item.note} proseSize="sm" />
+                          </div>
+                        )}
+                      </div>
+                    </div>
+                  )
+                }
+
+                // Comment and initial submission render as regular messages
+                return (
+                  <div key={item.id} className="p-4">
+                    <div className="flex gap-3">
+                      <Avatar className="size-8 shrink-0">
+                        <AvatarImage src={item.user.image ?? undefined} />
+                        <AvatarFallback>
+                          {item.user.name.charAt(0)}
+                        </AvatarFallback>
+                      </Avatar>
+                      <div className="min-w-0 flex-1">
+                        <div className="flex items-center gap-2">
+                          <span className="font-medium">{item.user.name}</span>
+                          {item.user.id ===
+                            submission.bounty.project.founderId && (
+                            <Badge
+                              variant="outline"
+                              className="px-1.5 py-0 text-[10px]"
+                            >
+                              Owner
+                            </Badge>
+                          )}
+                          <span className="text-xs text-muted-foreground">
+                            {new Date(item.createdAt).toLocaleDateString(
+                              'en-US',
+                              {
+                                month: 'short',
+                                day: 'numeric',
+                              },
+                            )}{' '}
+                            at{' '}
+                            {new Date(item.createdAt).toLocaleTimeString(
+                              'en-US',
+                              {
+                                hour: 'numeric',
+                                minute: '2-digit',
+                              },
+                            )}
+                          </span>
+                        </div>
+                        <div className="mt-2">
+                          <Markdown markdown={item.content} proseSize="sm" />
+                        </div>
+                      </div>
+                    </div>
+                  </div>
+                )
+              })}
+            </div>
+
+            {/* Add comment form */}
+            {/* Allow comments until approved (rejected can still be discussed) */}
+            {submission.status !== SubmissionStatus.APPROVED && (
+              <form
+                onSubmit={handleSendComment}
+                className="border-t border-border p-4"
+              >
+                <div className="flex gap-3">
+                  <Avatar className="size-8 shrink-0">
+                    <AvatarImage src={session?.user?.image ?? undefined} />
+                    <AvatarFallback>
+                      {session?.user?.name?.charAt(0) ?? 'U'}
+                    </AvatarFallback>
+                  </Avatar>
+                  <div className="min-w-0 flex-1">
+                    <AppTextarea
+                      value={messageContent}
+                      onChange={(e) => setMessageContent(e.target.value)}
+                      placeholder="Add a comment..."
+                      rows={3}
+                      disabled={isSending}
+                    />
+                    <div className="mt-2 flex justify-end">
+                      <AppButton
+                        type="submit"
+                        size="sm"
+                        disabled={isSending || !messageContent.trim()}
+                      >
+                        {isSending ? (
+                          <Loader2 className="mr-2 size-4 animate-spin" />
+                        ) : (
+                          <Send01 className="mr-2 size-4" />
+                        )}
+                        Send
+                      </AppButton>
+                    </div>
+                  </div>
+                </div>
+              </form>
+            )}
+          </AppCardContent>
+        </AppCard>
       </div>
+
+      <ConfirmModal
+        open={showRejectModal}
+        onClose={() => setShowRejectModal(false)}
+        onConfirm={() => {
+          setShowRejectModal(false)
+          handleReview('reject')
+        }}
+        title="Reject this submission?"
+        description="This will mark the submission as rejected and notify the contributor. You can still approve it later if you change your mind."
+        confirmText="Reject Submission"
+        cancelText="Cancel"
+        variant="destructive"
+        isLoading={isSending}
+      />
     </AppBackground>
   )
 }

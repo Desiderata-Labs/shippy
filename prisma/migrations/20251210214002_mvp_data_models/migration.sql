@@ -81,6 +81,7 @@ CREATE TABLE "reward_pool" (
     "id" TEXT NOT NULL,
     "projectId" TEXT NOT NULL,
     "poolPercentage" INTEGER NOT NULL,
+    "poolCapacity" INTEGER NOT NULL DEFAULT 1000,
     "payoutFrequency" TEXT NOT NULL,
     "profitBasis" TEXT NOT NULL DEFAULT 'NET_PROFIT',
     "commitmentMonths" INTEGER NOT NULL DEFAULT 12,
@@ -90,6 +91,19 @@ CREATE TABLE "reward_pool" (
     "updatedAt" TIMESTAMPTZ(3) NOT NULL,
 
     CONSTRAINT "reward_pool_pkey" PRIMARY KEY ("id")
+);
+
+-- CreateTable
+CREATE TABLE "pool_expansion_event" (
+    "id" TEXT NOT NULL,
+    "rewardPoolId" TEXT NOT NULL,
+    "previousCapacity" INTEGER NOT NULL,
+    "newCapacity" INTEGER NOT NULL,
+    "reason" TEXT NOT NULL,
+    "dilutionPercent" DECIMAL(5,2) NOT NULL,
+    "createdAt" TIMESTAMPTZ(3) NOT NULL DEFAULT CURRENT_TIMESTAMP,
+
+    CONSTRAINT "pool_expansion_event_pkey" PRIMARY KEY ("id")
 );
 
 -- CreateTable
@@ -142,15 +156,19 @@ CREATE TABLE "submission" (
 );
 
 -- CreateTable
-CREATE TABLE "submission_message" (
+CREATE TABLE "submission_event" (
     "id" TEXT NOT NULL,
     "submissionId" TEXT NOT NULL,
     "userId" TEXT NOT NULL,
-    "content" TEXT NOT NULL,
+    "type" TEXT NOT NULL,
+    "content" TEXT,
+    "fromStatus" TEXT,
+    "toStatus" TEXT,
+    "note" TEXT,
     "createdAt" TIMESTAMPTZ(3) NOT NULL DEFAULT CURRENT_TIMESTAMP,
     "updatedAt" TIMESTAMPTZ(3) NOT NULL,
 
-    CONSTRAINT "submission_message_pkey" PRIMARY KEY ("id")
+    CONSTRAINT "submission_event_pkey" PRIMARY KEY ("id")
 );
 
 -- CreateTable
@@ -260,10 +278,10 @@ CREATE INDEX "submission_userId_idx" ON "submission"("userId");
 CREATE INDEX "submission_status_idx" ON "submission"("status");
 
 -- CreateIndex
-CREATE INDEX "submission_message_submissionId_idx" ON "submission_message"("submissionId");
+CREATE INDEX "submission_event_submissionId_idx" ON "submission_event"("submissionId");
 
 -- CreateIndex
-CREATE INDEX "submission_message_userId_idx" ON "submission_message"("userId");
+CREATE INDEX "submission_event_userId_idx" ON "submission_event"("userId");
 
 -- CreateIndex
 CREATE INDEX "submission_attachment_submissionId_idx" ON "submission_attachment"("submissionId");
@@ -286,6 +304,9 @@ CREATE INDEX "payout_recipient_status_idx" ON "payout_recipient"("status");
 -- CreateIndex
 CREATE UNIQUE INDEX "payout_recipient_payoutId_userId_key" ON "payout_recipient"("payoutId", "userId");
 
+-- CreateIndex
+CREATE INDEX "pool_expansion_event_rewardPoolId_idx" ON "pool_expansion_event"("rewardPoolId");
+
 -- AddForeignKey
 ALTER TABLE "session" ADD CONSTRAINT "session_userId_fkey" FOREIGN KEY ("userId") REFERENCES "user"("id") ON DELETE CASCADE ON UPDATE CASCADE;
 
@@ -297,6 +318,9 @@ ALTER TABLE "project" ADD CONSTRAINT "project_founderId_fkey" FOREIGN KEY ("foun
 
 -- AddForeignKey
 ALTER TABLE "reward_pool" ADD CONSTRAINT "reward_pool_projectId_fkey" FOREIGN KEY ("projectId") REFERENCES "project"("id") ON DELETE CASCADE ON UPDATE CASCADE;
+
+-- AddForeignKey
+ALTER TABLE "pool_expansion_event" ADD CONSTRAINT "pool_expansion_event_rewardPoolId_fkey" FOREIGN KEY ("rewardPoolId") REFERENCES "reward_pool"("id") ON DELETE CASCADE ON UPDATE CASCADE;
 
 -- AddForeignKey
 ALTER TABLE "bounty" ADD CONSTRAINT "bounty_projectId_fkey" FOREIGN KEY ("projectId") REFERENCES "project"("id") ON DELETE CASCADE ON UPDATE CASCADE;
@@ -314,10 +338,10 @@ ALTER TABLE "submission" ADD CONSTRAINT "submission_bountyId_fkey" FOREIGN KEY (
 ALTER TABLE "submission" ADD CONSTRAINT "submission_userId_fkey" FOREIGN KEY ("userId") REFERENCES "user"("id") ON DELETE CASCADE ON UPDATE CASCADE;
 
 -- AddForeignKey
-ALTER TABLE "submission_message" ADD CONSTRAINT "submission_message_submissionId_fkey" FOREIGN KEY ("submissionId") REFERENCES "submission"("id") ON DELETE CASCADE ON UPDATE CASCADE;
+ALTER TABLE "submission_event" ADD CONSTRAINT "submission_event_submissionId_fkey" FOREIGN KEY ("submissionId") REFERENCES "submission"("id") ON DELETE CASCADE ON UPDATE CASCADE;
 
 -- AddForeignKey
-ALTER TABLE "submission_message" ADD CONSTRAINT "submission_message_userId_fkey" FOREIGN KEY ("userId") REFERENCES "user"("id") ON DELETE CASCADE ON UPDATE CASCADE;
+ALTER TABLE "submission_event" ADD CONSTRAINT "submission_event_userId_fkey" FOREIGN KEY ("userId") REFERENCES "user"("id") ON DELETE CASCADE ON UPDATE CASCADE;
 
 -- AddForeignKey
 ALTER TABLE "submission_attachment" ADD CONSTRAINT "submission_attachment_submissionId_fkey" FOREIGN KEY ("submissionId") REFERENCES "submission"("id") ON DELETE CASCADE ON UPDATE CASCADE;

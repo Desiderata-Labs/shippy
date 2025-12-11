@@ -85,11 +85,18 @@ export default function NewPayoutPage() {
 
   // Calculate payout preview
   const profitCents = Math.round((parseFloat(profitDollars) || 0) * 100)
-  const { data: preview, isLoading: previewLoading } =
-    trpc.payout.previewPayout.useQuery(
-      { projectId: project?.id ?? '', reportedProfitCents: profitCents },
-      { enabled: !!project?.id && profitCents > 0 },
-    )
+  const {
+    data: preview,
+    isLoading: previewLoading,
+    isFetching: previewFetching,
+  } = trpc.payout.previewPayout.useQuery(
+    { projectId: project?.id ?? '', reportedProfitCents: profitCents },
+    {
+      enabled: !!project?.id && profitCents > 0,
+      // Keep previous data to prevent flickering during updates
+      placeholderData: (previousData) => previousData,
+    },
+  )
 
   const utils = trpc.useUtils()
 
@@ -296,119 +303,146 @@ export default function NewPayoutPage() {
             </AppCardContent>
           </AppCard>
 
-          {/* Preview */}
-          {profitCents > 0 && (
-            <AppCard>
-              <AppCardHeader>
-                <AppCardTitle className="flex items-center gap-2">
-                  <Users01 className="size-4" />
-                  Payout Preview
-                </AppCardTitle>
-                <AppCardDescription>
-                  How the reward pool will be distributed
-                </AppCardDescription>
-              </AppCardHeader>
-              <AppCardContent>
-                {previewLoading ? (
-                  <div className="space-y-3">
-                    <Skeleton className="h-4 w-48" />
-                    <Skeleton className="h-16 w-full" />
-                    <Skeleton className="h-16 w-full" />
+          {/* Preview - always visible */}
+          <AppCard>
+            <AppCardHeader>
+              <div className="flex items-center justify-between">
+                <div>
+                  <AppCardTitle className="flex items-center gap-2">
+                    <Users01 className="size-4" />
+                    Payout Preview
+                  </AppCardTitle>
+                  <AppCardDescription>
+                    How the reward pool will be distributed
+                  </AppCardDescription>
+                </div>
+                {previewFetching && (
+                  <Loader2 className="size-4 animate-spin text-muted-foreground" />
+                )}
+              </div>
+            </AppCardHeader>
+            <AppCardContent>
+              {profitCents === 0 ? (
+                <div className="py-8 text-center">
+                  <p className="text-sm text-muted-foreground">
+                    Enter a profit amount above to see the payout preview
+                  </p>
+                </div>
+              ) : previewLoading && !preview ? (
+                <div className="space-y-3">
+                  <Skeleton className="h-4 w-48" />
+                  <Skeleton className="h-16 w-full" />
+                  <Skeleton className="h-16 w-full" />
+                </div>
+              ) : preview ? (
+                <div className="space-y-4">
+                  {/* Summary */}
+                  <div className="grid gap-4 rounded-lg border border-border bg-muted/30 p-4 sm:grid-cols-2 lg:grid-cols-4">
+                    <div>
+                      <p className="text-xs text-muted-foreground">
+                        Reported Profit
+                      </p>
+                      <p className="text-lg font-semibold">
+                        {formatCurrency(preview.reportedProfitCents)}
+                      </p>
+                    </div>
+                    <div>
+                      <p className="text-xs text-muted-foreground">
+                        Pool ({preview.poolPercentage}%)
+                      </p>
+                      <p className="text-lg font-semibold">
+                        {formatCurrency(preview.poolAmountCents)}
+                      </p>
+                    </div>
+                    <div>
+                      <p className="text-xs text-muted-foreground">
+                        Earned / Capacity
+                      </p>
+                      <p className="text-lg font-semibold">
+                        {preview.totalEarnedPoints} / {preview.poolCapacity} pts
+                      </p>
+                    </div>
+                    <div>
+                      <p className="text-xs text-muted-foreground">
+                        To Distribute
+                      </p>
+                      <p className="text-lg font-semibold text-green-600 dark:text-green-400">
+                        {formatCurrency(preview.distributedAmountCents)}
+                      </p>
+                      <p className="text-[10px] text-muted-foreground">
+                        (
+                        {formatPercentage(
+                          (preview.totalEarnedPoints / preview.poolCapacity) *
+                            100,
+                        )}{' '}
+                        of pool)
+                      </p>
+                    </div>
                   </div>
-                ) : preview ? (
-                  <div className="space-y-4">
-                    {/* Summary */}
-                    <div className="grid gap-4 rounded-lg border border-border bg-muted/30 p-4 sm:grid-cols-3">
-                      <div>
-                        <p className="text-xs text-muted-foreground">
-                          Reported Profit
-                        </p>
-                        <p className="text-lg font-semibold">
-                          {formatCurrency(preview.reportedProfitCents)}
-                        </p>
+
+                  <Separator />
+
+                  {/* Contributors */}
+                  {preview.breakdown.length === 0 ? (
+                    <div className="py-8 text-center">
+                      <p className="text-sm text-muted-foreground">
+                        No contributors with points to pay out.
+                      </p>
+                      <p className="mt-1 text-xs text-muted-foreground">
+                        Approve some submissions first to award points.
+                      </p>
+                    </div>
+                  ) : (
+                    <div className="space-y-3">
+                      <div className="flex items-center justify-between text-xs text-muted-foreground">
+                        <span>Contributor</span>
+                        <span>Points / Share / Amount</span>
                       </div>
-                      <div>
-                        <p className="text-xs text-muted-foreground">
-                          Pool ({preview.poolPercentage}%)
-                        </p>
-                        <p className="text-lg font-semibold">
-                          {formatCurrency(preview.poolAmountCents)}
-                        </p>
-                      </div>
-                      <div>
-                        <p className="text-xs text-muted-foreground">
-                          Platform Fee ({preview.platformFeePercentage}%)
-                        </p>
-                        <p className="text-lg font-semibold">
-                          {formatCurrency(preview.platformFeeCents)}
-                        </p>
+                      {preview.breakdown.map((recipient) => (
+                        <div
+                          key={recipient.userId}
+                          className="flex items-center justify-between rounded-lg border border-border bg-background p-3"
+                        >
+                          <div className="flex items-center gap-3">
+                            <Avatar className="size-8">
+                              <AvatarImage
+                                src={recipient.userImage ?? undefined}
+                              />
+                              <AvatarFallback>
+                                {recipient.userName.charAt(0)}
+                              </AvatarFallback>
+                            </Avatar>
+                            <span className="font-medium">
+                              {recipient.userName}
+                            </span>
+                          </div>
+                          <div className="text-right">
+                            <p className="font-semibold text-green-600 dark:text-green-400">
+                              {formatCurrency(recipient.amountCents)}
+                            </p>
+                            <p className="text-xs text-muted-foreground">
+                              {recipient.points} pts (
+                              {formatPercentage(recipient.sharePercent)})
+                            </p>
+                          </div>
+                        </div>
+                      ))}
+
+                      {/* Total */}
+                      <div className="flex items-center justify-between border-t border-border pt-3">
+                        <span className="font-medium">
+                          Total to Contributors
+                        </span>
+                        <span className="text-lg font-semibold text-green-600 dark:text-green-400">
+                          {formatCurrency(preview.distributedAmountCents)}
+                        </span>
                       </div>
                     </div>
-
-                    <Separator />
-
-                    {/* Contributors */}
-                    {preview.breakdown.length === 0 ? (
-                      <div className="py-8 text-center">
-                        <p className="text-sm text-muted-foreground">
-                          No contributors with points to pay out.
-                        </p>
-                        <p className="mt-1 text-xs text-muted-foreground">
-                          Approve some submissions first to award points.
-                        </p>
-                      </div>
-                    ) : (
-                      <div className="space-y-3">
-                        <div className="flex items-center justify-between text-xs text-muted-foreground">
-                          <span>Contributor</span>
-                          <span>Points / Share / Amount</span>
-                        </div>
-                        {preview.breakdown.map((recipient) => (
-                          <div
-                            key={recipient.userId}
-                            className="flex items-center justify-between rounded-lg border border-border bg-background p-3"
-                          >
-                            <div className="flex items-center gap-3">
-                              <Avatar className="size-8">
-                                <AvatarImage
-                                  src={recipient.userImage ?? undefined}
-                                />
-                                <AvatarFallback>
-                                  {recipient.userName.charAt(0)}
-                                </AvatarFallback>
-                              </Avatar>
-                              <span className="font-medium">
-                                {recipient.userName}
-                              </span>
-                            </div>
-                            <div className="text-right">
-                              <p className="font-semibold text-green-600 dark:text-green-400">
-                                {formatCurrency(recipient.amountCents)}
-                              </p>
-                              <p className="text-xs text-muted-foreground">
-                                {recipient.points} pts (
-                                {formatPercentage(recipient.sharePercent)})
-                              </p>
-                            </div>
-                          </div>
-                        ))}
-
-                        {/* Total */}
-                        <div className="flex items-center justify-between border-t border-border pt-3">
-                          <span className="font-medium">
-                            Total to Contributors
-                          </span>
-                          <span className="text-lg font-semibold text-green-600 dark:text-green-400">
-                            {formatCurrency(preview.distributedAmountCents)}
-                          </span>
-                        </div>
-                      </div>
-                    )}
-                  </div>
-                ) : null}
-              </AppCardContent>
-            </AppCard>
-          )}
+                  )}
+                </div>
+              ) : null}
+            </AppCardContent>
+          </AppCard>
 
           {/* Submit */}
           <div className="flex justify-end gap-4">

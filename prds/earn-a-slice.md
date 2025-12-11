@@ -22,7 +22,7 @@ Alternates:
 
 **One-liner**
 
-> Earn A Slice lets founders “open-source” parts of their startup: they post real work (growth, marketing, product, etc.), contributors help ship it, and everyone who contributes earns an ongoing **share of the upside**, not just a one-off payment.
+> Earn A Slice lets founders "open-source" parts of their startup: they post real work (growth, marketing, product, etc.), contributors help ship it, and everyone who contributes earns an ongoing **share of the upside**, not just a one-off payment.
 
 **What it is**
 
@@ -33,10 +33,10 @@ Alternates:
   - **Contributors** claim bounties, deliver results, and earn **Points** tied to **measured performance**.
   - Points convert into **recurring payouts** out of that pool.
 
-**What it’s not (on purpose)**
+**What it's not (on purpose)**
 
 - Not a generic freelance marketplace.
-- Not a “find a cofounder” app.
+- Not a "find a cofounder" app.
 - Not a token/crypto play.
 - Not complex cap table equity; this is **off-cap-table, rev/profit-share**.
 
@@ -58,20 +58,20 @@ Prior Assembly Made members: https://github.com/orgs/asm-products/people
   - Incentive to bill, not to generate **durable revenue**.
 
 - Equity feels too permanent and binary:
-  - Either “no equity” or “here’s 10–20% in perpetuity.”
+  - Either "no equity" or "here's 10-20% in perpetuity."
 
-**Result:** It’s easier to ship product than to build a repeatable growth engine.
+**Result:** It's easier to ship product than to build a repeatable growth engine.
 
 ### Contributor Problem
 
 - Skilled people (growth, content, sales, design, dev) want:
   - **Leverage**: upside in things they help grow.
   - A way to build a **portfolio** of product contributions.
-  - A model between “full-time job” and “cold freelance gig.”
+  - A model between "full-time job" and "cold freelance gig."
 
 - They lack:
   - A structured way to **earn ongoing upside** in multiple products.
-  - Clear rules for **how contributions turn into $$** (vs vague “we’ll figure out equity later”).
+  - Clear rules for **how contributions turn into $$** (vs vague "we'll figure out equity later").
 
 ### Opportunity
 
@@ -114,7 +114,7 @@ Solo founders or small teams with a built or shipping product who:
 **Core Needs:**
 
 - Ability to **earn upside without quitting their day job**.
-- Clarity: “If I do X and it works, I get Y (and Y keeps paying if it keeps working).”
+- Clarity: "If I do X and it works, I get Y (and Y keeps paying if it keeps working)."
 - Visibility: a way to show and track their contributions and earnings over time.
 - Protection from flaky founders who promise upside and vanish.
 
@@ -122,7 +122,7 @@ Solo founders or small teams with a built or shipping product who:
 
 ### 3. (Later) Ecosystem / Platform
 
-- “Power users” who:
+- "Power users" who:
   - Contribute to many projects.
   - Build reputation as **growth mercenaries**.
 
@@ -137,9 +137,9 @@ MVP: focus primarily on **Founders + Contributors**; platform/network effects co
 
 Think about it as three combined metaphors:
 
-1. **GitHub repo** – A project you can "open up" to others.
-2. **Bounty board** – Specific, well-defined outcomes that are up for grabs.
-3. **Royalty / rev-share engine** – People who contribute to results share in ongoing upside.
+1. **GitHub repo** - A project you can "open up" to others.
+2. **Bounty board** - Specific, well-defined outcomes that are up for grabs.
+3. **Royalty / rev-share engine** - People who contribute to results share in ongoing upside.
 
 ### GitHub Mental Model
 
@@ -152,18 +152,19 @@ Most contributors already understand GitHub. We use familiar patterns:
 | Issues       | **Bounties**     | Specific tasks with point rewards             |
 | Contributors | **Contributors** | Auto-computed from accepted submissions       |
 | Pull Request | **Submission**   | Contributor's work + proof                    |
-| Merge        | **Approval**     | Founder approves → points awarded             |
+| Merge        | **Approval**     | Founder approves -> points awarded            |
 | Sponsors     | **Reward Pool**  | The $ that flows to contributors              |
 
 **Key Concepts (for users, not engineers):**
 
-- **Project** – The thing you're building (e.g. "Oath Notes").
-- **Readme** – Markdown-style about page: mission, how to help, links to Discord/resources.
-- **Bounties** – Concrete ways to help with clear rules and point rewards (e.g. "Bring in a new clinic that stays 90+ days: 100 points").
-- **Contributors** – Anyone who has earned points via approved submissions (auto-computed, like GitHub's contributor list).
-- **Reward Pool** – The slice of revenue/profit reserved for contributors (e.g. "10% of net profit").
-- **Points** – Your share of the Reward Pool. The more points you collect, the bigger your cut.
-- **Payouts** – Regular distributions of the Reward Pool to all contributors, in proportion to their points.
+- **Project** - The thing you're building (e.g. "Oath Notes").
+- **Readme** - Markdown-style about page: mission, how to help, links to Discord/resources.
+- **Bounties** - Concrete ways to help with clear rules and point rewards (e.g. "Bring in a new clinic that stays 90+ days: 100 points").
+- **Contributors** - Anyone who has earned points via approved submissions (auto-computed, like GitHub's contributor list).
+- **Reward Pool** - The slice of revenue/profit reserved for contributors (e.g. "10% of net profit").
+- **Pool Capacity** - The total points representing 100% of the reward pool (default: 1,000 points). 1 point = 0.1% of the pool.
+- **Points** - Your fixed share of the Reward Pool. Each point is worth exactly 0.1% of the pool (1/1000th). A 50-point bounty = 5% of the pool.
+- **Payouts** - Regular distributions of the Reward Pool. Your payout = (your points ÷ pool capacity) × pool amount. Only earned points get paid out.
 
 ---
 
@@ -184,22 +185,22 @@ Most contributors already understand GitHub. We use familiar patterns:
   - When and how payouts are done.
 
 - **Narrative benefit**
-  “We run Oath like an open-source company. Anyone who helps us grow shares in the upside.”
+  "We run Oath like an open-source company. Anyone who helps us grow shares in the upside."
 
 ---
 
 ### For Contributors
 
 - **Get paid for outcomes, not time**
-  If you’re good at bringing revenue or users, your work can compound, not just pay once.
+  If you're good at bringing revenue or users, your work can compound, not just pay once.
 
 - **Stack small bets**
   Work with several projects; some pay a little, some might break out and pay for years.
 
 - **Portfolio & reputation**
   Show:
-  - “I helped Oath grow MRR by $X.”
-  - “I have Y points and Z total lifetime earnings across projects.”
+  - "I helped Oath grow MRR by $X."
+  - "I have Y points and Z total lifetime earnings across projects."
 
 ---
 
@@ -224,23 +225,23 @@ Most contributors already understand GitHub. We use familiar patterns:
 
 # 7. User Journeys (High-Level UX)
 
-## 7.1 Founder Journey – “Rob with Oath Notes”
+## 7.1 Founder Journey - "Rob with Oath Notes"
 
 **Goal:** Get clinics for Oath Notes via contributors and align them with upside.
 
 1. **Sign up & create Project**
-   - Land on marketing page → “Open-source your startup’s growth.”
+   - Land on marketing page -> "Open-source your startup's growth."
    - Onboard flow asks:
      - What is your product?
      - What % of revenue/profit are you willing to share (e.g. 10%)?
      - How often do you want to pay out (monthly/quarterly)?
 
-   - Result: Project page: “Oath Notes – Growth Pool”.
+   - Result: Project page: "Oath Notes - Growth Pool".
 
 2. **Define Reward Pool**
    - Simple UI copy:
-     - “You’re allocating **10% of Oath Notes net profit** to contributors.”
-     - Clarify: “If profit is 0, no payout; nothing is owed.”
+     - "You're allocating **10% of Oath Notes net profit** to contributors."
+     - Clarify: "If profit is 0, no payout; nothing is owed."
 
    - You can edit this later, but changes only affect future periods.
 
@@ -251,9 +252,9 @@ Most contributors already understand GitHub. We use familiar patterns:
      - "Reach MRR milestone"
 
    - You configure:
-     - New clinic active > 90 days → 100 points.
-     - Case study that leads to a clinic within 120 days → 50 points.
-     - Hitting $10k net-new MRR in a quarter → 500 bonus points.
+     - New clinic active > 90 days -> 100 points.
+     - Case study that leads to a clinic within 120 days -> 50 points.
+     - Hitting $10k net-new MRR in a quarter -> 500 bonus points.
 
    - Each Bounty has:
      - Title + description
@@ -266,17 +267,17 @@ Most contributors already understand GitHub. We use familiar patterns:
    - Share an invite link with:
      - Growth folks in your network.
      - Indie hacker communities.
-     - Possibly a “friends of Oath” circle.
+     - Possibly a "friends of Oath" circle.
 
    - Invite page explains:
      - What Oath does.
      - How the Reward Pool works.
-     - Examples: “If Oath makes $40k profit this quarter, pool is $4k. If you hold 25% of points, you get $1k.”
+     - Examples: "If Oath makes $40k profit this quarter, pool is $4k. If you hold 25% of points, you get $1k."
 
 5. **Review contributions**
    - Contributors submit:
-     - “I closed Clinic ABC; here’s proof.”
-     - “Here’s a case study we shipped that drove this clinic.”
+     - "I closed Clinic ABC; here's proof."
+     - "Here's a case study we shipped that drove this clinic."
 
    - You decide:
      - Approve or reject.
@@ -298,7 +299,7 @@ Most contributors already understand GitHub. We use familiar patterns:
 
 ---
 
-## 7.2 Contributor Journey – “Growth Partner”
+## 7.2 Contributor Journey - "Growth Partner"
 
 **Goal:** Earn ongoing revenue share for driving clinics to Oath Notes.
 
@@ -312,13 +313,13 @@ Most contributors already understand GitHub. We use familiar patterns:
 2. **Onboards to Project**
    - Accepts invite, agrees to Contributor Terms:
      - IP ownership.
-     - Payout rules (no profit → no pool).
+     - Payout rules (no profit -> no pool).
      - Anti-fraud policies (no fake leads).
 
 3. **Claims Bounties**
    - Views Bounties tab:
-     - "New clinic active 90 days → 100 points"
-     - "Case study that leads to a clinic → 50 points"
+     - "New clinic active 90 days -> 100 points"
+     - "Case study that leads to a clinic -> 50 points"
 
    - Claims what fits their skills:
      - Outbound clinics in their network.
@@ -333,8 +334,8 @@ Most contributors already understand GitHub. We use familiar patterns:
 
 5. **Sees point balance & potential earnings**
    - Dashboard:
-     - “You have 300 points in Oath Notes (10% Reward Pool).”
-     - “Last quarter’s pool: $4,000; your share: $900.”
+     - "You have 300 points in Oath Notes (10% Reward Pool)."
+     - "Last quarter's pool: $4,000; your share: $900."
 
 6. **Builds portfolio**
    - Over time, they can:
@@ -361,7 +362,7 @@ Like a GitHub README. Founder writes this in markdown-ish format.
 - **Mission / About**: What the product is, why it exists
 - **How to Help**: What kinds of contributions are valuable
 - **Links**: Discord, docs, brand assets, website
-- **Reward Pool Summary**: "10% of net profit → distributed monthly"
+- **Reward Pool Summary**: "10% of net profit -> distributed monthly"
 
 #### Tab 2: Bounties
 
@@ -378,7 +379,7 @@ Like GitHub Issues. The core of the reward loop.
 - **Sort**: by points (highest first), by date
 
 - **Claim flow**: Contributor clicks "I'm working on this"
-- **Submit flow**: Contributor submits proof → Founder approves/rejects → Points awarded
+- **Submit flow**: Contributor submits proof -> Founder approves/rejects -> Points awarded
 
 #### Tab 3: Contributors
 
@@ -391,15 +392,15 @@ Auto-computed from approved submissions. Like GitHub's contributor graph.
   - Lifetime earnings from this project
 
 - Sorted by points (descending)
-- **This IS the team**—no separate setup required
+- **This IS the team**-no separate setup required
 
 #### Submission Flow (Detail)
 
-Submissions work like GitHub Pull Requests—a private thread between contributor and founder.
+Submissions work like GitHub Pull Requests-a private thread between contributor and founder.
 
 **Privacy:**
 
-- Submissions are **private by default**—only the contributor and founder can see them
+- Submissions are **private by default**-only the contributor and founder can see them
 - Other contributors cannot see each other's submissions or evidence
 - This protects sensitive information (sales contacts, strategy details, proprietary work)
 
@@ -427,11 +428,11 @@ Like a PR, there can be back-and-forth before approval:
 │ Nice work! Can you confirm they've completed onboarding?    │
 ├─────────────────────────────────────────────────────────────┤
 │ @contributor (Dec 11)                                       │
-│ Yes—they went live yesterday. Here's the activation email.  │
+│ Yes-they went live yesterday. Here's the activation email.  │
 │ 📎 activation-confirmation.png                              │
 ├─────────────────────────────────────────────────────────────┤
 │ @founder (Dec 12)                                           │
-│ ✅ Approved — 100 points awarded                            │
+│ ✅ Approved - 100 points awarded                            │
 └─────────────────────────────────────────────────────────────┘
 ```
 
@@ -539,11 +540,28 @@ For founders managing their project.
 
 ---
 
-### 8.5 Payout History & Verification
+### 8.5 Payouts Tab
 
-Builds trust before programmatic payments exist. Shows that real money is flowing.
+The Payouts tab on the Project Page builds trust by showing that real money is flowing. It includes both payout history and pool expansion events.
 
-#### Payout Timeline (on Project Page)
+#### Pool Expansion Timeline
+
+Shows all changes to pool capacity, creating a transparent audit trail:
+
+```
+Pool Expansion Timeline
+
+Dec 15, 2024 - Pool expanded: 1,000 -> 1,200 pts
+  Reason: "Adding sales bounties for Q1 push"
+  Impact: All contributors diluted by 16.7%
+
+Oct 1, 2024 - Pool created: 1,000 pts
+  Initial capacity set
+```
+
+This transparency ensures contributors can see when/why dilution happened and hold founders accountable.
+
+#### Payout Timeline
 
 A chronological feed of payout events, visible to all contributors:
 
@@ -558,9 +576,9 @@ Example timeline entry (private mode - default):
 📅 December 2024 Payout
    3 recipients
 
-   @jane — ✓ Confirmed by recipient
-   @mike — ✓ Confirmed by recipient
-   @sara — ⏳ Pending confirmation
+   @jane - ✓ Confirmed by recipient
+   @mike - ✓ Confirmed by recipient
+   @sara - ⏳ Pending confirmation
 ```
 
 Example timeline entry (public mode):
@@ -569,9 +587,9 @@ Example timeline entry (public mode):
 📅 December 2024 Payout
    Pool: $4,000 (10% of $40k net profit)
 
-   @jane — 250 pts (25%) — $1,000 — ✓ Confirmed received
-   @mike — 150 pts (15%) — $600  — ✓ Confirmed received
-   @sara — 100 pts (10%) — $400  — ⏳ Pending confirmation
+   @jane - 250 pts (25%) - $1,000 - ✓ Confirmed received
+   @mike - 150 pts (15%) - $600  - ✓ Confirmed received
+   @sara - 100 pts (10%) - $400  - ⏳ Pending confirmation
 ```
 
 #### Visibility Rules
@@ -597,7 +615,7 @@ Here's how the full cycle works:
 ```
 1. WORK PHASE
    └─ Contributor claims bounty, does work, submits proof
-   └─ Founder approves → Points awarded immediately
+   └─ Founder approves -> Points awarded immediately
    └─ Points accumulate through the payout period
 
 2. PAYOUT PERIOD ENDS (monthly/quarterly, set by founder)
@@ -611,23 +629,23 @@ Here's how the full cycle works:
    └─ Optional: add payment reference ("PayPal txn #12345")
 
 4. CONTRIBUTOR CONFIRMS RECEIPT
-   └─ Contributor gets notified: "Payout sent—please confirm"
+   └─ Contributor gets notified: "Payout sent-please confirm"
    └─ Contributor clicks "✓ Received" (or "⚠️ Not received")
    └─ Optional: add note ("Received via Wise, thanks!")
 
 5. VERIFICATION WINDOW (30 days)
-   └─ If confirmed → payout marked as "Verified ✓"
-   └─ If disputed → founder notified, flagged for resolution
-   └─ If no response after 30 days → marked "Unconfirmed ⏳"
+   └─ If confirmed -> payout marked as "Verified ✓"
+   └─ If disputed -> founder notified, flagged for resolution
+   └─ If no response after 30 days -> marked "Unconfirmed ⏳"
 ```
 
 #### What "Unconfirmed after 30 days" Means
 
-- **Not a penalty**, just visibility—contributor may have forgotten
+- **Not a penalty**, just visibility-contributor may have forgotten
 - Shows on payout history: "⏳ Awaiting confirmation (35 days)"
 - Affects project's trust score on Discover page
 - Founder can nudge contributor to confirm
-- If pattern of unconfirmed payouts → red flag for new contributors
+- If pattern of unconfirmed payouts -> red flag for new contributors
 
 #### Dispute Flow (simple for MVP)
 
@@ -644,10 +662,10 @@ If contributor clicks "⚠️ Not received":
 - **"X of Y contributors confirmed receipt"** shown on each payout
 - **"This project has Z verified payouts totaling $X"** on Discover page
 - **Unconfirmed payouts** visible but not damning (life happens)
-- **Disputed payouts** are a red flag—shown prominently
+- **Disputed payouts** are a red flag-shown prominently
 - Contributors can leave optional note: "Received via PayPal" / "Received via Wise"
 
-This creates a public record that payouts actually happen—critical for attracting new contributors.
+This creates a public record that payouts actually happen-critical for attracting new contributors.
 
 ---
 
@@ -661,23 +679,23 @@ This is what we're optimizing for:
 ├─────────────────────────────────────────────────────────────┤
 │                                                             │
 │   1. FOUNDER posts Bounty                                   │
-│      "Bring in a new clinic (90-day retention) → 100 pts"   │
+│      "Bring in a new clinic (90-day retention) -> 100 pts"   │
 │                           ↓                                 │
 │   2. CONTRIBUTOR claims Bounty, does the work               │
 │                           ↓                                 │
 │   3. CONTRIBUTOR submits proof                              │
 │      "Closed Clinic ABC, here's the contract"               │
 │                           ↓                                 │
-│   4. FOUNDER approves → Points awarded                      │
+│   4. FOUNDER approves -> Points awarded                      │
 │      Contributor now holds 100 pts                          │
 │                           ↓                                 │
 │   5. PAYOUT PERIOD ends (monthly/quarterly)                 │
 │      Pool = 10% of $40k profit = $4,000                     │
-│      Contributor has 25% of points → receives $1,000        │
+│      Contributor has 25% of points -> receives $1,000        │
 │                           ↓                                 │
 │   6. VISIBILITY: Earnings shown publicly                    │
-│      → Attracts more contributors                           │
-│      → Loop repeats                                         │
+│      -> Attracts more contributors                           │
+│      -> Loop repeats                                         │
 │                                                             │
 └─────────────────────────────────────────────────────────────┘
 ```
@@ -715,145 +733,171 @@ The loop only works if people can SEE that it works.
 
 ---
 
-## 9. Pool Expansion, Dilution & Fairness
+## 9. Pool Capacity, Points & Dilution
 
-This section explains how contributor “dilution” works, why it’s acceptable (and often positive), and how founders should structure goals/milestones to keep everyone focused on real revenue and outcomes.
+This section explains how points work, what "pool capacity" means, how dilution happens, and how the system maintains transparency.
 
-### 9.1 Mental Model
+### 9.1 The Core Mental Model
 
-- Each Project has a **Reward Pool** (e.g. “10% of net profit from Oath Notes”).
+**Points have a fixed value:**
 
-- Contributors earn **Points** for delivering verified outcomes.
+- Each Reward Pool has a **capacity** (default: 1,000 points)
+- 1 point = 0.1% of the pool (1/1000th)
+- A 50-point bounty = 5% of the pool, always
 
-- Each payout period, the Reward Pool is split **pro-rata by points**:
+**The payout formula:**
 
-  > `User Share = Pool Amount × (User Points / Total Points)`
+```
+Your Payout = (Your Points / Pool Capacity) x Pool Amount
+```
 
-- When new points are granted to new contributors, **existing contributors’ percentage share decreases** (dilution) but **their absolute payout can still increase** if the pie (revenue/profit) grows enough.
+**Example:**
 
-**Key principle:**
+- Pool: 10% of profit, Capacity: 1,000 points
+- Profit this quarter: $100,000 -> Pool Amount = $10,000
+- You earned 50 points -> (50 / 1000) x $10,000 = **$500**
 
-> **Dilution is acceptable when expanding the contributor pool creates more total value than it subtracts in percentage ownership.**
-> If new contributors grow revenue/profit, existing contributors should earn _more money_, even if their share of the pool shrinks.
+**Key insight:** If only 300 points are earned out of 1,000 capacity, only 30% of the pool is distributed. The founder keeps the rest. This ensures:
 
-### 9.2 What “Expanding the Pool” Means
+- Contributors get exactly what their work is worth
+- Founders only pay for work actually completed
+- A 30-point blog post doesn't accidentally get 100% of the pool
 
-In Earn A Slice v1:
+### 9.2 Pool Capacity & Expansion
 
-- The **Reward Pool %** (e.g. 10% of profit) is set by the founder and only changed explicitly.
-- “Expanding the pool” normally means:
-  - Adding **new contributors** and
-  - Granting **new points** when they produce verified, revenue-linked outcomes.
+**What is Pool Capacity?**
 
-This **does not** retroactively change past payouts; it only affects **future periods**.
+Pool capacity is the total points that represent 100% of the reward pool. Default is 1,000 points, but founders can expand it.
 
-### 9.3 When Dilution Is Fair vs. Unfair
+**When to expand:**
+
+- You want to create more bounties than current capacity allows
+- You're scaling up and bringing in more contributors
+- The project has grown and you want to offer more opportunities
+
+**Auto-expand with warning:**
+
+When creating a bounty that would exceed capacity, the system shows a warning with dilution impact and options to cancel, proceed, or reduce points.
+
+This makes dilution **visible and intentional**, not accidental. Expansion does not retroactively change past payouts; it only affects future periods.
+
+### 9.3 How Dilution Works
+
+**Dilution happens when pool capacity increases:**
+
+| Scenario         | Your Points | Capacity | Your Share |
+| ---------------- | ----------- | -------- | ---------- |
+| Before expansion | 100 pts     | 1,000    | 10%        |
+| After expansion  | 100 pts     | 1,500    | 6.7%       |
+
+**But absolute payouts can still rise if profit grows:**
+
+| Period        | Profit | Pool (10%) | Your Share      | Your Payout |
+| ------------- | ------ | ---------- | --------------- | ----------- |
+| Q1            | $40k   | $4k        | 10% (100/1000)  | $400        |
+| Q2 (expanded) | $120k  | $12k       | 6.7% (100/1500) | $800        |
+
+> "Your percentage went down, but your payout doubled because the product grew."
+
+### 9.4 Transparency: The Expansion Timeline
+
+All pool expansions are logged and visible on the **Payouts tab**:
+
+```
+Pool Expansion Timeline
+
+Dec 15, 2024 - Pool expanded: 1,000 -> 1,200 pts
+  Reason: "Adding sales bounties for Q1 push"
+  Impact: All contributors diluted by 16.7%
+
+Oct 1, 2024 - Pool created: 1,000 pts
+  Initial capacity set
+```
+
+This creates a public audit trail so contributors can see:
+
+- When dilution happened
+- Why it happened (founder provides reason)
+- How it affected their share
+
+### 9.5 When Dilution Is Fair vs. Unfair
 
 **Fair dilution (intended case):**
 
-- New contributors:
-  - Bring in more clinics, customers, revenue, or durable growth.
-  - Hit well-defined, pre-agreed milestones.
+- New bounties are tied to measurable outcomes
+- Expansion is communicated with reason
+- New contributors bring in more revenue/customers
+- Result: Everyone's absolute payouts can grow
 
-- Result:
-  - Total profit/revenue increases.
-  - Reward Pool in dollar terms grows.
-  - Existing contributors’ percentage share shrinks, but their **payouts stay flat or rise**.
+**Unfair dilution (what the system discourages):**
 
-**Unfair dilution (what the system should avoid):**
-
-- Points are granted:
-  - For vague or unmeasured work.
-  - For contributions that don’t drive durable value.
-  - Without clear rules communicated up front.
-
-- Result:
-  - New people dilute the pool **without** growing the pie.
+- Expansion without clear reason
+- Points for vague or unmeasured work
+- Expanding just to bring in friends without clear contribution criteria
 
 **Product stance:**
-Earn A Slice's UX and defaults should **strongly encourage / nudge** founders toward fair dilution by:
 
-- Making **performance-based Bounties** the default.
-- Requiring clear **verification criteria** for each Bounty.
-- Emphasizing that **no verified outcome = no points = no dilution**.
+- Require a reason when expanding capacity
+- Show dilution impact before confirming
+- Log all expansions publicly on the Payouts tab
 
-### 9.4 Guidance for Founders: How to Expand the Pool
+### 9.6 Contributor-Facing Messaging
 
-When founders want to bring in more people (e.g. more growth partners, designers, etc.), the product should guide them to:
+Clear messaging for contributors:
 
-1. **Announce expansion clearly**
-   - Example copy in UI:
+> **How points work:**
+>
+> - Each point = 0.1% of the reward pool
+> - A 50-point bounty pays you 5% of the pool each payout period
+> - Your payout = (your points / pool capacity) x pool amount
+>
+> **About dilution:**
+>
+> - If the founder expands the pool capacity, your percentage decreases
+> - All expansions are logged publicly so you can see when/why
+> - Goal: expansion should grow the pie so your absolute payout rises
 
-     > "You're adding new Bounties and allowing new contributors to earn points. Existing contributors' percentage share may decrease, but the goal is for the overall pie (revenue/profit) to grow enough that everyone benefits."
+### 9.7 Example Scenarios
 
-2. **Tie new points strictly to performance**
-   - Every new Bounty should:
-     - Be linked to a measurable outcome (MRR, active clinics, activated accounts, etc.).
-     - Have a **verification window** (e.g. 90-day retention).
-     - Award points only on confirmation of that outcome.
+**Scenario 1: Partial pool distribution**
 
-3. **Avoid “fluffy” point grants**
-   - Avoid awarding points for:
-     - Ideas without implementation.
-     - One-off artifacts (a slide deck, an email draft) without evidence of impact.
+- Pool: 10% of $50k profit = $5,000
+- Capacity: 1,000 pts
+- Only 200 pts earned by contributors
+- Distributed: (200/1000) x $5,000 = $1,000
+- Remaining $4,000 stays with founder
 
-   - Where necessary, label such work as **fixed-fee** instead of point-based.
+**Scenario 2: Expansion for growth**
 
-4. **Use examples to calibrate**
-   - In the UI, provide templates such as:
-     - “New clinic active 90 days → 100 points.”
-     - “Case study that leads to a clinic within 120 days → 50 points.”
-     - “Hit $10k net-new MRR this quarter → 500 point bonus.”
+- Pool capacity: 1,000 pts -> expanded to 1,500 pts
+- Reason: "Hiring 3 sales contributors for enterprise push"
+- Existing contributor (100 pts): 10% -> 6.7%
+- If enterprise push doubles profit: payout still increases
 
-### 9.5 Contributor-Facing Fairness Messaging
+**Scenario 3: Over-subscription (earned > capacity)**
 
-Earn A Slice should include a concise, reused block of copy explaining fairness and dilution to contributors. For example:
+If contributors somehow earn more than capacity (rare edge case):
 
-> - You earn **points** when you deliver verified outcomes (like new customers, revenue, or key milestones).
-> - Each payout period, a fixed % of the product’s revenue/profit is shared among contributors proportional to their points.
-> - As new contributors join and earn points, your **percentage** of the pool may decrease, but our goal is that the **total pool grows** because of everyone’s work.
-> - If new contributors don’t generate results, they don’t earn points—and can’t dilute you.
-> - Rules for earning points are public and defined before you do the work.
+- Cap distribution at 100% of pool
+- Everyone shares proportionally within that 100%
+- Example: 1,200 pts earned on 1,000 capacity -> everyone gets (their pts / 1200) x pool
 
-This should be visible on:
+### 9.8 Guardrails & Defaults
 
-- Project onboarding pages.
-- The “How this pool works” modal.
-- Contributor terms/FAQ.
+To maintain fairness:
 
-### 9.6 Example Scenario (for UX copy / education)
+- **Default capacity: 1,000 points** (covers most early-stage projects)
+- **Expansion requires reason** (logged publicly)
+- **Show dilution preview** before confirming expansion
+- **No retroactive changes** to past payouts
+- **All expansions visible** on Payouts tab timeline
 
-**Before expansion:**
+Best practices for founders:
 
-- Pool: 10% of net profit.
-- Profit this quarter: $40,000 → Pool = $4,000.
-- Total points: 4,000.
-- Early contributor holds 1,000 points (25%) → receives **$1,000**.
-
-**After expansion:**
-
-- New contributors join and are awarded points only after landing net-new clinics and growth.
-- Profit next quarter: $120,000 → Pool = $12,000.
-- Total points: 6,000.
-- Early contributor still has 1,000 points (now ~16.7% of pool) → receives **$2,000**.
-
-**Message to users:**
-
-> “Your percentage of the pool went down, but your payout doubled because the product grew. Pool expansion is designed to be positive-sum when new contributions create real revenue.”
-
-### 9.7 Guardrails & Defaults
-
-To keep everyone reward/revenue-focused, Earn A Slice should:
-
-- Default new Bounties to **outcome-based templates** (e.g., revenue, active users, retained customers).
-- Encourage **verification windows** (90–120 days for revenue-linked work).
-- Make **manual point grants** (not tied to any Bounty) an explicit advanced action with warnings:
-  - “This may dilute existing contributors without clear performance criteria.”
-
-- Provide a short “Best Practices for Founders” guide when they first create a Reward Pool, emphasizing:
-  - Pay for results, not hours.
-  - Don’t grant points retroactively without explaining to current contributors.
-  - Consider separate pools for distinct products/initiatives to avoid cross-dilution.
+- Only expand when adding meaningful new work
+- Tie new bounties to measurable outcomes
+- Communicate with contributors before big expansions
+- Consider: will this expansion grow profit enough to offset dilution?
 
 # 10. MVP vs. Later Phases
 
@@ -861,18 +905,21 @@ To keep everyone reward/revenue-focused, Earn A Slice should:
 
 **Core surfaces:**
 
-- Project Page with 3 tabs: Readme, Bounties, Contributors
+- Project Page with 4 tabs: Readme, Bounties, Contributors, Payouts
 - Simple Discover page (browse public projects)
 - Contributor Dashboard (my points, my earnings, my submissions)
 - Founder Dashboard (review submissions, run payouts, manage bounties)
 
 **Core mechanics:**
 
+- Pool capacity (default 1,000 pts) with auto-expand on overflow
 - Bounty creation with point rewards and tags
-- Claim → Submit → Approve flow
-- Points auto-computed per contributor
+- Claim -> Submit -> Approve flow
+- Points = fixed % of pool (1 pt = 0.1% of pool)
+- Payout = (earned pts / capacity) x pool amount
 - Manual payout flow (founder enters profit, sees split, pays externally)
 - Payout verification (contributors confirm receipt, builds trust)
+- Expansion timeline visible on Payouts tab for transparency
 
 **Scope constraints:**
 
@@ -923,13 +970,13 @@ To keep everyone reward/revenue-focused, Earn A Slice should:
 
 **Tagline options:**
 
-- “Open-source your startup’s growth. Pay by results, share the upside.”
-- “Build together, share the revenue.”
-- “For founders who can ship product but need help shipping traction.”
+- "Open-source your startup's growth. Pay by results, share the upside."
+- "Build together, share the revenue."
+- "For founders who can ship product but need help shipping traction."
 
 **How to explain it in one paragraph:**
 
-> Earn A Slice lets you run your startup like an open-source project for growth. You define a small slice of your revenue or profit as a Reward Pool, post Bounties (like "bring in a clinic" or "write a case study that converts"), and contributors who deliver real results earn points that translate into recurring payouts. No messy equity grants, no vague promises—just performance-based rewards that keep everyone aligned.
+> Earn A Slice lets you run your startup like an open-source project for growth. You define a small slice of your revenue or profit as a Reward Pool, post Bounties (like "bring in a clinic" or "write a case study that converts"), and contributors who deliver real results earn points that translate into recurring payouts. No messy equity grants, no vague promises-just performance-based rewards that keep everyone aligned.
 
 ---
 
@@ -945,7 +992,7 @@ This section addresses known risks, legal considerations, platform sustainabilit
 
 ### Structure: Commission/Bonus, Not Equity
 
-Earn A Slice pools are structured as **contractual profit-sharing arrangements**—similar to sales commissions, affiliate payouts, or performance bonuses. This is explicitly **not equity**:
+Earn A Slice pools are structured as **contractual profit-sharing arrangements**-similar to sales commissions, affiliate payouts, or performance bonuses. This is explicitly **not equity**:
 
 - No cap table entry
 - No voting rights
@@ -995,7 +1042,7 @@ Earn A Slice sustains itself by participating in the same model it enables:
 1. **Platform share of profit pools**
    - Earn A Slice takes a percentage of each project's reward pool (e.g., 10% of the pool)
    - Example: Founder sets pool at 10% of profit. On a $3k/mo profit project, pool = $300. EAS takes $30, contributors share $270.
-   - We get paid when contributors get paid—fully aligned incentives
+   - We get paid when contributors get paid-fully aligned incentives
 
 2. **Platform fee (optional, later)**
    - Monthly subscription for premium features (private projects, advanced analytics, integrations)
@@ -1022,7 +1069,7 @@ Pool share alone requires significant scale. These additional revenue streams ca
    - Founders/contributors can sell full app templates, starter kits, or "franchise packages"
    - Buyer gets a working codebase + optional ongoing support
    - Platform takes 15-20% of each sale
-   - Example: AI transcription SaaS template sells for $500 × 50 buyers = $25k GMV → $5k to EAS
+   - Example: AI transcription SaaS template sells for $500 × 50 buyers = $25k GMV -> $5k to EAS
 
 2. **Feature Marketplace**
    - Pre-built features (auth, billing, AI integrations, admin dashboards) sold as drop-in modules
@@ -1050,7 +1097,7 @@ Pool share alone requires significant scale. These additional revenue streams ca
 
 ### Alignment
 
-**We only get paid when value is delivered.** Earn A Slice takes nothing at pool creation—our cut comes from actual payouts after:
+**We only get paid when value is delivered.** Earn A Slice takes nothing at pool creation-our cut comes from actual payouts after:
 
 1. A contributor claims and completes a bounty
 2. The founder approves the submission
@@ -1074,10 +1121,10 @@ Bounty claiming determines who can work on a task and how conflicts are resolved
 
 Founders can configure each bounty as:
 
-| Mode                | How it works                                                                  | Best for                                                                     |
-| ------------------- | ----------------------------------------------------------------------------- | ---------------------------------------------------------------------------- |
-| **Single claim**    | One contributor claims → others locked out until they submit or claim expires | Tasks requiring coordination, exclusive relationships, sensitive work        |
-| **Multiple claims** | Anyone can work on it → first approved submission wins                        | Competitive tasks, leads/referrals, content where multiple attempts are fine |
+| Mode                | How it works                                                                   | Best for                                                                     |
+| ------------------- | ------------------------------------------------------------------------------ | ---------------------------------------------------------------------------- |
+| **Single claim**    | One contributor claims -> others locked out until they submit or claim expires | Tasks requiring coordination, exclusive relationships, sensitive work        |
+| **Multiple claims** | Anyone can work on it -> first approved submission wins                        | Competitive tasks, leads/referrals, content where multiple attempts are fine |
 
 ### Claim Expiry
 
@@ -1219,7 +1266,7 @@ Pools have a **defined commitment period** set at creation. This protects contri
 
 **Extending the pool:**
 
-- Founders can extend the pool at any time—no need to wait until the end
+- Founders can extend the pool at any time-no need to wait until the end
 - Extension adds another commitment period (6mo/1yr/2yr/3yr) from current date
 - Existing contributors and their points carry forward seamlessly
 - Great for founders who are happy with their team and want to keep the momentum
@@ -1235,7 +1282,7 @@ Pools have a **defined commitment period** set at creation. This protects contri
 
 - Pool end date is displayed prominently on every bounty
 - Before claiming, contributors see: _"This pool runs through June 2025 (3 months remaining)"_
-- Contributors make an informed choice—if 3 months of payouts isn't worth the work, they can skip it
+- Contributors make an informed choice-if 3 months of payouts isn't worth the work, they can skip it
 - If founder extends, everyone keeps earning
 
 **Why this matters:**
@@ -1303,9 +1350,9 @@ Mission: "Reduce burnout, increase joy" for healthcare providers.
 
 **Bounties**
 
-- Bring in new clinics that stay 90+ days → 100 pts
-- Publish case studies that convert → 50 pts
-- Reach MRR milestones → 500 pts
+- Bring in new clinics that stay 90+ days -> 100 pts
+- Publish case studies that convert -> 50 pts
+- Reach MRR milestones -> 500 pts
 
 **Contributors**
 

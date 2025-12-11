@@ -168,10 +168,10 @@ export default function ProjectSubmissionsPage() {
                             >
                               {status.label}
                             </Badge>
-                            {submission.messages.length > 0 && (
+                            {submission.events.length > 0 && (
                               <span className="flex items-center gap-1 text-xs text-muted-foreground">
                                 <MessageTextSquare02 className="size-3" />
-                                {submission.messages.length}
+                                {submission.events.length}
                               </span>
                             )}
                           </div>

@@ -29,7 +29,7 @@ Building the MVP for Earn A Slice - a platform where contributors earn ongoing r
 
 ## Phase 3: Project Pages ✅
 
-- [x] **Project Page Layout** - 3-tab layout (Readme, Bounties, Contributors)
+- [x] **Project Page Layout** - 4-tab layout (Readme, Bounties, Contributors, Payouts)
 - [x] **Readme Tab** - Description, links, pool info
 - [x] **Bounties Tab** - List of bounties with filters, claim button
 - [x] **Contributors Tab** - Auto-computed list with points and % of pool
@@ -85,7 +85,22 @@ Building the MVP for Earn A Slice - a platform where contributors earn ongoing r
 
 ---
 
-## Phase 9: Polish & Trust Signals
+## Phase 9: Pool Capacity & Points Model
+
+Implement the capacity-based points system where 1 point = 0.1% of the pool.
+
+- [ ] **Schema Updates** - Add `poolCapacity` to RewardPool (default 1000), add `PoolExpansionEvent` model
+- [ ] **Migration** - Create migration for new fields
+- [ ] **Payout Calculation** - Update formula: payout = (earned pts / capacity) x pool amount
+- [ ] **Bounty Creation Warning** - Show dilution impact when exceeding capacity
+- [ ] **Auto-Expand Flow** - Allow creating bounties beyond capacity with warning
+- [ ] **Expansion Timeline** - Add to Payouts tab showing all capacity changes
+- [ ] **Payouts Tab** - Add as 4th tab on Project Page (already done, needs expansion timeline)
+- [ ] **Pool Stats Display** - Show capacity, allocated, earned, available on project dashboard
+
+---
+
+## Phase 10: Polish & Trust Signals
 
 - [ ] **Trust Indicators** - Verified payouts, confirmation rates
 - [ ] **Zero-Profit Warnings** - Surface patterns
@@ -124,7 +139,7 @@ Building the MVP for Earn A Slice - a platform where contributors earn ongoing r
 - ✅ Home (landing page)
 - ✅ Sign In / Sign Up
 - ✅ Discover (project list)
-- ✅ Project Page (3 tabs)
+- ✅ Project Page (4 tabs: Readme, Bounties, Contributors, Payouts)
 - ✅ Contributor Dashboard
 - ✅ Founder Dashboard
 - ✅ Create Project

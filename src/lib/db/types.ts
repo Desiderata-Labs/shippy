@@ -66,6 +66,11 @@ export enum SubmissionStatus {
   REJECTED = 'REJECTED', // Not accepted
 }
 
+export enum SubmissionEventType {
+  COMMENT = 'COMMENT', // Regular user comment
+  STATUS_CHANGE = 'STATUS_CHANGE', // Status transition (approve, reject, request info)
+}
+
 // ================================
 // Payout Enums
 // ================================
@@ -81,6 +86,11 @@ export enum PayoutRecipientStatus {
   CONFIRMED = 'CONFIRMED', // Contributor confirmed receipt
   DISPUTED = 'DISPUTED', // Contributor says not received
   UNCONFIRMED = 'UNCONFIRMED', // No response after 30 days
+}
+
+export enum PayoutVisibility {
+  PRIVATE = 'PRIVATE', // Only show confirmation status, hide amounts
+  PUBLIC = 'PUBLIC', // Show all amounts publicly
 }
 
 // ================================

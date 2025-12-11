@@ -27,11 +27,11 @@ model User {
   accounts      Account[]
 
   // Earn A Slice relations
-  ownedProjects      Project[]
-  bountyClaims       BountyClaim[]
-  submissions        Submission[]
-  submissionMessages SubmissionMessage[]
-  payoutRecipients   PayoutRecipient[]
+  ownedProjects    Project[]
+  bountyClaims     BountyClaim[]
+  submissions      Submission[]
+  submissionEvents SubmissionEvent[]
+  payoutRecipients PayoutRecipient[]
 
   @@index([username])
   @@map("user")
@@ -126,6 +126,7 @@ model RewardPool {
 
   // Pool configuration
   poolPercentage   Int // Percentage of profit/revenue (e.g., 10 = 10%)
+  poolCapacity     Int      @default(1000) // Total points representing 100% of pool (1 pt = 0.1%)
   payoutFrequency  String // "MONTHLY" | "QUARTERLY" - stored as string, typed via TS
   profitBasis      String   @default("NET_PROFIT") // "NET_PROFIT" | "GROSS_REVENUE"
   commitmentMonths Int      @default(12) // Commitment period in months
@@ -137,7 +138,28 @@ model RewardPool {
   createdAt DateTime @default(now()) @db.Timestamptz(3)
   updatedAt DateTime @updatedAt @db.Timestamptz(3)
 
+  // Relations
+  expansionEvents PoolExpansionEvent[]
+
   @@map("reward_pool")
+}
+
+/// Tracks pool capacity expansions for transparency
+model PoolExpansionEvent {
+  id           String     @id @default(uuid())
+  rewardPoolId String
+  rewardPool   RewardPool @relation(fields: [rewardPoolId], references: [id], onDelete: Cascade)
+
+  // Expansion details
+  previousCapacity Int // Capacity before expansion
+  newCapacity      Int // Capacity after expansion
+  reason           String  @db.Text // Founder-provided reason for expansion
+  dilutionPercent  Decimal @db.Decimal(5, 2) // Calculated dilution (e.g., 16.7%)
+
+  createdAt DateTime @default(now()) @db.Timestamptz(3)
+
+  @@index([rewardPoolId])
+  @@map("pool_expansion_event")
 }
 
 /// A bounty is a specific task with point rewards
@@ -214,7 +236,7 @@ model Submission {
   updatedAt DateTime @updatedAt @db.Timestamptz(3)
 
   // Relations
-  messages    SubmissionMessage[]
+  events      SubmissionEvent[]
   attachments SubmissionAttachment[]
 
   @@index([bountyId])
@@ -223,21 +245,31 @@ model Submission {
   @@map("submission")
 }
 
-/// Messages in a submission thread (like GitHub PR comments)
-model SubmissionMessage {
+/// Timeline events for submissions (comments + status changes, like GitHub PR activity)
+model SubmissionEvent {
   id           String     @id @default(uuid())
   submissionId String
   submission   Submission @relation(fields: [submissionId], references: [id], onDelete: Cascade)
   userId       String
   user         User       @relation(fields: [userId], references: [id], onDelete: Cascade)
 
-  content   String   @db.Text
+  // Event type: "COMMENT" | "STATUS_CHANGE"
+  type String
+
+  // For COMMENT events
+  content String? @db.Text
+
+  // For STATUS_CHANGE events
+  fromStatus String? // Previous status (null for initial submission)
+  toStatus   String? // New status
+  note       String? @db.Text // Optional note accompanying status change (e.g., rejection reason)
+
   createdAt DateTime @default(now()) @db.Timestamptz(3)
   updatedAt DateTime @updatedAt @db.Timestamptz(3)
 
   @@index([submissionId])
   @@index([userId])
-  @@map("submission_message")
+  @@map("submission_event")
 }
 
 /// File attachments for submissions (stored in R2)

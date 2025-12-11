@@ -118,9 +118,9 @@ export function FeaturesSection() {
               See exactly how points translate to payouts.
             </p>
             <div className="mt-5 flex flex-col gap-1.5">
-              <VisibilityRow label="Your points" value="1,250" />
-              <VisibilityRow label="Pool share" value="8.3%" />
-              <VisibilityRow label="Your payout" value="$415" highlight />
+              <VisibilityRow label="Your points" value="125 pts" />
+              <VisibilityRow label="Pool capacity" value="1,000 pts" />
+              <VisibilityRow label="Your payout" value="$625" highlight />
             </div>
           </GlassCard>
 

@@ -33,6 +33,13 @@ export default function NewBountyPage() {
       { enabled: !!params.slug },
     )
 
+  // Fetch pool stats
+  const { data: poolStats, isLoading: poolStatsLoading } =
+    trpc.project.getPoolStats.useQuery(
+      { projectId: project?.id ?? '' },
+      { enabled: !!project?.id },
+    )
+
   const utils = trpc.useUtils()
 
   const createBounty = trpc.bounty.create.useMutation({
@@ -49,7 +56,7 @@ export default function NewBountyPage() {
   })
 
   // Loading states
-  if (sessionLoading || projectLoading) {
+  if (sessionLoading || projectLoading || poolStatsLoading) {
     return (
       <AppBackground>
         <div className="container flex max-w-2xl items-center justify-center px-4 py-16">
@@ -120,7 +127,8 @@ export default function NewBountyPage() {
         <div className="mb-8">
           <h1 className="text-3xl font-bold tracking-tight">Create Bounty</h1>
           <p className="mt-2 text-muted-foreground">
-            Define a task for contributors to earn points
+            Define a task with a point reward. Each point = 0.1% of your reward
+            pool.
           </p>
         </div>
 
@@ -129,6 +137,7 @@ export default function NewBountyPage() {
           isLoading={isLoading}
           onSubmit={handleSubmit}
           onCancel={handleCancel}
+          poolStats={poolStats}
         />
       </div>
     </AppBackground>

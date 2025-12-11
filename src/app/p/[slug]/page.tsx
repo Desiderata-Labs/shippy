@@ -6,6 +6,7 @@ import {
   BountyStatus,
   PayoutRecipientStatus,
   PayoutStatus,
+  SubmissionStatus,
 } from '@/lib/db/types'
 import { ProjectBackground } from './_components/project-background'
 import { ProjectHeader } from './_components/project-header'
@@ -31,6 +32,14 @@ async function getProject(slug: string) {
         include: {
           _count: {
             select: { claims: true, submissions: true },
+          },
+          submissions: {
+            where: {
+              status: {
+                in: [SubmissionStatus.PENDING, SubmissionStatus.NEEDS_INFO],
+              },
+            },
+            select: { id: true },
           },
         },
       },
@@ -76,8 +85,19 @@ async function getProject(slug: string) {
       p.status === PayoutStatus.COMPLETED || p.status === PayoutStatus.SENT,
   ).length
 
+  // Transform bounties to include pendingSubmissions count
+  const bountiesWithPendingCount = project.bounties.map((bounty) => ({
+    ...bounty,
+    _count: {
+      ...bounty._count,
+      pendingSubmissions: bounty.submissions.length,
+    },
+  }))
+
   return {
     ...project,
+    bounties: bountiesWithPendingCount,
+    payoutVisibility: project.payoutVisibility,
     stats: {
       contributorCount,
       totalPaidOutCents,

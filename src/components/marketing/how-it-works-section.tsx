@@ -37,8 +37,8 @@ export function HowItWorksSection() {
             <StepNumber>01</StepNumber>
             <CardHeader icon={Target01} title="Post bounties" />
             <p className="mb-6 text-sm leading-relaxed text-muted-foreground">
-              Create specific tasks with point rewards. Each point represents a
-              share of your reward pool.
+              Create specific tasks with point rewards. Each point = 0.1% of
+              your reward pool. Only pay for work that gets done.
             </p>
             <div className="flex flex-col gap-2">
               <BountyRow title="SEO blog post" points={50} />
@@ -88,8 +88,8 @@ export function HowItWorksSection() {
             <StepNumber>03</StepNumber>
             <CardHeader icon={BankNote01} title="Split profits" />
             <p className="mb-6 text-sm leading-relaxed text-muted-foreground">
-              When you profit, the pool gets distributed. Points determine each
-              contributor&apos;s share.
+              When you profit, contributors get paid based on their points.
+              Founders only pay out what was actually earned.
             </p>
             <div>
               <div className="mb-3 flex items-center justify-between text-sm">

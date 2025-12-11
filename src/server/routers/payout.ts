@@ -130,8 +130,9 @@ export const payoutRouter = router({
         input.projectId,
       )
 
-      // Calculate amounts
+      // Calculate amounts using capacity-based model
       const poolPercentage = project.rewardPool.poolPercentage
+      const poolCapacity = project.rewardPool.poolCapacity
       const platformFeePercentage = project.rewardPool.platformFeePercentage
 
       const poolAmountCents = Math.floor(
@@ -140,30 +141,49 @@ export const payoutRouter = router({
       const platformFeeCents = Math.floor(
         (poolAmountCents * platformFeePercentage) / 100,
       )
-      const distributedAmountCents = poolAmountCents - platformFeeCents
+      const maxDistributableCents = poolAmountCents - platformFeeCents
 
-      const totalPoints = contributors.reduce((sum, c) => sum + c.points, 0)
+      const totalEarnedPoints = contributors.reduce(
+        (sum, c) => sum + c.points,
+        0,
+      )
+
+      // Use capacity as denominator, but cap at 100% if earned > capacity
+      const effectiveDenominator = Math.max(poolCapacity, totalEarnedPoints)
+
+      // Only distribute for earned points (not full capacity)
+      const distributedAmountCents = Math.floor(
+        (maxDistributableCents * Math.min(totalEarnedPoints, poolCapacity)) /
+          poolCapacity,
+      )
 
       const breakdown = contributors.map((c) => ({
         userId: c.userId,
         userName: c.userName,
         userImage: c.userImage,
         points: c.points,
-        sharePercent: totalPoints > 0 ? (c.points / totalPoints) * 100 : 0,
+        sharePercent:
+          effectiveDenominator > 0
+            ? (c.points / effectiveDenominator) * 100
+            : 0,
         amountCents:
-          totalPoints > 0
-            ? Math.floor((distributedAmountCents * c.points) / totalPoints)
+          effectiveDenominator > 0
+            ? Math.floor(
+                (distributedAmountCents * c.points) / totalEarnedPoints,
+              )
             : 0,
       }))
 
       return {
         reportedProfitCents: input.reportedProfitCents,
         poolPercentage,
+        poolCapacity,
         poolAmountCents,
         platformFeePercentage,
         platformFeeCents,
+        maxDistributableCents,
         distributedAmountCents,
-        totalPoints,
+        totalEarnedPoints,
         breakdown,
       }
     }),
@@ -204,8 +224,9 @@ export const payoutRouter = router({
         })
       }
 
-      // Calculate amounts
+      // Calculate amounts using capacity-based model
       const poolPercentage = project.rewardPool.poolPercentage
+      const poolCapacity = project.rewardPool.poolCapacity
       const platformFeePercentage = project.rewardPool.platformFeePercentage
 
       const poolAmountCents = Math.floor(
@@ -214,8 +235,21 @@ export const payoutRouter = router({
       const platformFeeCents = Math.floor(
         (poolAmountCents * platformFeePercentage) / 100,
       )
-      const distributedAmountCents = poolAmountCents - platformFeeCents
-      const totalPoints = contributors.reduce((sum, c) => sum + c.points, 0)
+      const maxDistributableCents = poolAmountCents - platformFeeCents
+
+      const totalEarnedPoints = contributors.reduce(
+        (sum, c) => sum + c.points,
+        0,
+      )
+
+      // Use capacity as denominator, but cap at 100% if earned > capacity
+      const effectiveDenominator = Math.max(poolCapacity, totalEarnedPoints)
+
+      // Only distribute for earned points (not full capacity)
+      const distributedAmountCents = Math.floor(
+        (maxDistributableCents * Math.min(totalEarnedPoints, poolCapacity)) /
+          poolCapacity,
+      )
 
       // Create payout with recipients
       const payout = await ctx.prisma.payout.create({
@@ -227,12 +261,12 @@ export const payoutRouter = router({
           reportedProfitCents: input.reportedProfitCents,
           poolAmountCents,
           platformFeeCents,
-          totalPointsAtPayout: totalPoints,
+          totalPointsAtPayout: totalEarnedPoints,
           recipients: {
             create: contributors.map((c) => {
-              const sharePercent = (c.points / totalPoints) * 100
+              const sharePercent = (c.points / effectiveDenominator) * 100
               const amountCents = Math.floor(
-                (distributedAmountCents * c.points) / totalPoints,
+                (distributedAmountCents * c.points) / totalEarnedPoints,
               )
               return {
                 userId: c.userId,

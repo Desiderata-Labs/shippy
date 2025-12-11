@@ -1,4 +1,9 @@
-import { BountyStatus, ClaimStatus, SubmissionStatus } from '@/lib/db/types'
+import {
+  BountyStatus,
+  ClaimStatus,
+  SubmissionEventType,
+  SubmissionStatus,
+} from '@/lib/db/types'
 import { protectedProcedure, router } from '@/server/trpc'
 import { TRPCError } from '@trpc/server'
 import { z } from 'zod/v4'
@@ -16,12 +21,26 @@ const updateSubmissionSchema = z.object({
   status: z.enum([SubmissionStatus.DRAFT, SubmissionStatus.PENDING]).optional(),
 })
 
-const reviewSubmissionSchema = z.object({
-  id: z.string().uuid(),
-  action: z.enum(['approve', 'reject', 'requestInfo']),
-  note: z.string().optional(),
-  pointsAwarded: z.number().int().min(0).optional(), // Can override default points
-})
+const reviewSubmissionSchema = z
+  .object({
+    id: z.string().uuid(),
+    action: z.enum(['approve', 'reject', 'requestInfo']),
+    note: z.string().optional(),
+    pointsAwarded: z.number().int().min(0).optional(), // Can override default points
+  })
+  .refine(
+    (data) => {
+      // Require note for reject and requestInfo actions
+      if (data.action === 'reject' || data.action === 'requestInfo') {
+        return data.note && data.note.trim().length > 0
+      }
+      return true
+    },
+    {
+      message: 'A comment is required when rejecting or requesting more info',
+      path: ['note'],
+    },
+  )
 
 const addMessageSchema = z.object({
   submissionId: z.string().uuid(),
@@ -53,7 +72,7 @@ export const submissionRouter = router({
               project: { select: { id: true, name: true, slug: true } },
             },
           },
-          _count: { select: { messages: true } },
+          _count: { select: { events: true } },
         },
       })
     }),
@@ -85,7 +104,7 @@ export const submissionRouter = router({
         include: {
           user: { select: { id: true, name: true, image: true, email: true } },
           bounty: true,
-          messages: {
+          events: {
             orderBy: { createdAt: 'asc' },
             include: {
               user: { select: { id: true, name: true, image: true } },
@@ -116,7 +135,7 @@ export const submissionRouter = router({
               },
             },
           },
-          messages: {
+          events: {
             orderBy: { createdAt: 'asc' },
             include: {
               user: { select: { id: true, name: true, image: true } },
@@ -289,17 +308,21 @@ export const submissionRouter = router({
 
       const now = new Date()
 
+      const previousStatus = submission.status
+
       switch (input.action) {
         case 'approve': {
           const pointsAwarded = input.pointsAwarded ?? submission.bounty.points
 
-          // Update submission
+          // Update submission (clear any previous rejection data)
           await ctx.prisma.submission.update({
             where: { id: input.id },
             data: {
               status: SubmissionStatus.APPROVED,
               pointsAwarded,
               approvedAt: now,
+              rejectedAt: null,
+              rejectionNote: null,
             },
           })
 
@@ -312,16 +335,17 @@ export const submissionRouter = router({
             data: { status: ClaimStatus.COMPLETED },
           })
 
-          // Add approval message if note provided
-          if (input.note) {
-            await ctx.prisma.submissionMessage.create({
-              data: {
-                submissionId: input.id,
-                userId: ctx.user.id,
-                content: `✅ Approved — ${pointsAwarded} points awarded\n\n${input.note}`,
-              },
-            })
-          }
+          // Add approval event to timeline
+          await ctx.prisma.submissionEvent.create({
+            data: {
+              submissionId: input.id,
+              userId: ctx.user.id,
+              type: SubmissionEventType.STATUS_CHANGE,
+              fromStatus: previousStatus,
+              toStatus: SubmissionStatus.APPROVED,
+              note: input.note || null,
+            },
+          })
 
           // Check if bounty should be marked as completed
           // (For SINGLE mode or if all claims are completed)
@@ -352,16 +376,17 @@ export const submissionRouter = router({
             },
           })
 
-          // Add rejection message
-          if (input.note) {
-            await ctx.prisma.submissionMessage.create({
-              data: {
-                submissionId: input.id,
-                userId: ctx.user.id,
-                content: `❌ Rejected\n\n${input.note}`,
-              },
-            })
-          }
+          // Add rejection event to timeline
+          await ctx.prisma.submissionEvent.create({
+            data: {
+              submissionId: input.id,
+              userId: ctx.user.id,
+              type: SubmissionEventType.STATUS_CHANGE,
+              fromStatus: previousStatus,
+              toStatus: SubmissionStatus.REJECTED,
+              note: input.note,
+            },
+          })
 
           break
         }
@@ -372,16 +397,17 @@ export const submissionRouter = router({
             data: { status: SubmissionStatus.NEEDS_INFO },
           })
 
-          // Add info request message
-          if (input.note) {
-            await ctx.prisma.submissionMessage.create({
-              data: {
-                submissionId: input.id,
-                userId: ctx.user.id,
-                content: `ℹ️ More information needed\n\n${input.note}`,
-              },
-            })
-          }
+          // Add info request event to timeline
+          await ctx.prisma.submissionEvent.create({
+            data: {
+              submissionId: input.id,
+              userId: ctx.user.id,
+              type: SubmissionEventType.STATUS_CHANGE,
+              fromStatus: previousStatus,
+              toStatus: SubmissionStatus.NEEDS_INFO,
+              note: input.note,
+            },
+          })
 
           break
         }
@@ -391,9 +417,9 @@ export const submissionRouter = router({
     }),
 
   /**
-   * Add a message to a submission thread
+   * Add a comment to a submission thread
    */
-  addMessage: protectedProcedure
+  addComment: protectedProcedure
     .input(addMessageSchema)
     .mutation(async ({ ctx, input }) => {
       const submission = await ctx.prisma.submission.findUnique({
@@ -410,7 +436,7 @@ export const submissionRouter = router({
         })
       }
 
-      // Only submitter or founder can add messages
+      // Only submitter or founder can add comments
       const isSubmitter = submission.userId === ctx.user.id
       const isFounder = submission.bounty.project.founderId === ctx.user.id
 
@@ -418,10 +444,11 @@ export const submissionRouter = router({
         throw new TRPCError({ code: 'FORBIDDEN', message: 'Access denied' })
       }
 
-      return ctx.prisma.submissionMessage.create({
+      return ctx.prisma.submissionEvent.create({
         data: {
           submissionId: input.submissionId,
           userId: ctx.user.id,
+          type: SubmissionEventType.COMMENT,
           content: input.content,
         },
         include: {

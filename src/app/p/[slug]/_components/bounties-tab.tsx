@@ -3,15 +3,24 @@
 import {
   ArrowRight,
   Clock,
+  FileCheck02,
   Plus,
   Target01,
   Users01,
 } from '@untitled-ui/icons-react'
+import { useState } from 'react'
 import Link from 'next/link'
 import { routes } from '@/lib/routes'
 import { cn } from '@/lib/utils'
 import { Button } from '@/components/ui/button'
 import { GlassCard } from './glass-card'
+
+enum BountyFilter {
+  All = 'all',
+  Open = 'open',
+  InProgress = 'in_progress',
+  NeedsReview = 'needs_review',
+}
 
 interface BountiesTabProps {
   projectSlug: string
@@ -28,6 +37,7 @@ interface BountiesTabProps {
     _count: {
       claims: number
       submissions: number
+      pendingSubmissions: number
     }
   }>
   isFounder: boolean
@@ -46,8 +56,31 @@ export function BountiesTab({
   bounties,
   isFounder,
 }: BountiesTabProps) {
+  const [filter, setFilter] = useState<BountyFilter>(BountyFilter.All)
+
   const openBounties = bounties.filter((b) => b.status === 'OPEN')
-  const claimedBounties = bounties.filter((b) => b.status === 'CLAIMED')
+  // Needs Review: has pending submissions (takes priority over "In Progress")
+  const needsReviewBounties = bounties.filter(
+    (b) => b._count.pendingSubmissions > 0,
+  )
+  // In Progress: claimed but NO pending submissions (those go to Needs Review)
+  const inProgressBounties = bounties.filter(
+    (b) => b.status === 'CLAIMED' && b._count.pendingSubmissions === 0,
+  )
+
+  // Apply filter
+  const filteredBounties = (() => {
+    switch (filter) {
+      case BountyFilter.Open:
+        return openBounties
+      case BountyFilter.InProgress:
+        return inProgressBounties
+      case BountyFilter.NeedsReview:
+        return needsReviewBounties
+      default:
+        return bounties
+    }
+  })()
 
   if (bounties.length === 0) {
     return (
@@ -76,63 +109,83 @@ export function BountiesTab({
   }
 
   return (
-    <div className="space-y-6">
-      {/* Header with action */}
-      {isFounder && (
-        <div className="flex items-center justify-between">
-          <p className="text-xs text-muted-foreground">
-            {openBounties.length} open, {claimedBounties.length} in progress
-          </p>
+    <div className="space-y-4">
+      {/* Filter buttons and action */}
+      <div className="flex flex-wrap items-center justify-between gap-3">
+        <div className="flex flex-wrap items-center gap-2">
+          <Button
+            variant={filter === BountyFilter.All ? 'secondary' : 'ghost'}
+            size="sm"
+            onClick={() => setFilter(BountyFilter.All)}
+            className="h-7 cursor-pointer px-2.5 text-xs"
+          >
+            All ({bounties.length})
+          </Button>
+          <Button
+            variant={filter === BountyFilter.Open ? 'secondary' : 'ghost'}
+            size="sm"
+            onClick={() => setFilter(BountyFilter.Open)}
+            className="h-7 cursor-pointer px-2.5 text-xs"
+            disabled={openBounties.length === 0}
+          >
+            <div className="mr-1.5 size-2 rounded-full bg-green-500" />
+            {openBounties.length} open
+          </Button>
+          <Button
+            variant={filter === BountyFilter.InProgress ? 'secondary' : 'ghost'}
+            size="sm"
+            onClick={() => setFilter(BountyFilter.InProgress)}
+            className="h-7 cursor-pointer px-2.5 text-xs"
+            disabled={inProgressBounties.length === 0}
+          >
+            <div className="mr-1.5 size-2 rounded-full bg-yellow-500" />
+            {inProgressBounties.length} in progress
+          </Button>
+          {isFounder && (
+            <Button
+              variant={
+                filter === BountyFilter.NeedsReview ? 'secondary' : 'ghost'
+              }
+              size="sm"
+              onClick={() => setFilter(BountyFilter.NeedsReview)}
+              className="h-7 cursor-pointer px-2.5 text-xs"
+              disabled={needsReviewBounties.length === 0}
+            >
+              <FileCheck02 className="mr-1.5 size-3 text-purple-500" />
+              {needsReviewBounties.length} needs review
+            </Button>
+          )}
+        </div>
+        {isFounder && (
           <Button size="sm" asChild className="cursor-pointer gap-1.5">
             <Link href={routes.project.newBounty({ slug: projectSlug })}>
               <Plus className="size-3.5" />
               Create Bounty
             </Link>
           </Button>
+        )}
+      </div>
+
+      {/* Bounty List */}
+      {filteredBounties.length === 0 ? (
+        <GlassCard className="py-8 text-center">
+          <p className="text-sm text-muted-foreground">
+            No bounties match this filter
+          </p>
+        </GlassCard>
+      ) : (
+        <div className="grid gap-2">
+          {filteredBounties.map((bounty) => (
+            <BountyCard
+              key={bounty.id}
+              bounty={bounty}
+              projectSlug={projectSlug}
+              showNeedsReview={
+                isFounder && bounty._count.pendingSubmissions > 0
+              }
+            />
+          ))}
         </div>
-      )}
-
-      {/* Open Bounties */}
-      {openBounties.length > 0 && (
-        <section>
-          <div className="mb-3 flex items-center gap-1.5">
-            <div className="size-1.5 rounded-full bg-green-500" />
-            <h3 className="text-xs font-medium tracking-wider text-muted-foreground uppercase">
-              Open ({openBounties.length})
-            </h3>
-          </div>
-          <div className="grid gap-2">
-            {openBounties.map((bounty) => (
-              <BountyCard
-                key={bounty.id}
-                bounty={bounty}
-                projectSlug={projectSlug}
-              />
-            ))}
-          </div>
-        </section>
-      )}
-
-      {/* In Progress Bounties */}
-      {claimedBounties.length > 0 && (
-        <section>
-          <div className="mb-3 flex items-center gap-1.5">
-            <div className="size-1.5 rounded-full bg-yellow-500" />
-            <h3 className="text-xs font-medium tracking-wider text-muted-foreground uppercase">
-              In Progress ({claimedBounties.length})
-            </h3>
-          </div>
-          <div className="grid gap-2">
-            {claimedBounties.map((bounty) => (
-              <BountyCard
-                key={bounty.id}
-                bounty={bounty}
-                projectSlug={projectSlug}
-                muted
-              />
-            ))}
-          </div>
-        </section>
       )}
     </div>
   )
@@ -141,11 +194,11 @@ export function BountiesTab({
 interface BountyCardProps {
   bounty: BountiesTabProps['bounties'][number]
   projectSlug: string
-  muted?: boolean
+  showNeedsReview?: boolean
 }
 
-function BountyCard({ bounty, projectSlug, muted }: BountyCardProps) {
-  const isOpen = bounty.status === 'OPEN'
+function BountyCard({ bounty, projectSlug, showNeedsReview }: BountyCardProps) {
+  const isClaimed = bounty.status === 'CLAIMED'
 
   return (
     <Link
@@ -157,21 +210,26 @@ function BountyCard({ bounty, projectSlug, muted }: BountyCardProps) {
     >
       <GlassCard
         className={cn(
-          'p-4 transition-all duration-200',
-          muted && 'opacity-60 hover:opacity-80',
-          !muted && 'hover:ring-1 hover:ring-primary/20',
+          'p-4 transition-all duration-200 hover:ring-1 hover:ring-primary/20',
+          showNeedsReview && 'ring-1 ring-purple-500/30',
         )}
       >
         <div className="flex flex-col gap-3 sm:flex-row sm:items-start sm:justify-between">
           {/* Left: Title and description */}
           <div className="min-w-0 flex-1">
-            <div className="flex items-center gap-2">
+            <div className="flex flex-wrap items-center gap-2">
               <h4 className="text-sm font-medium transition-colors group-hover:text-primary">
                 {bounty.title}
               </h4>
-              {!isOpen && (
+              {isClaimed && (
                 <span className="rounded-full border border-yellow-500/20 bg-yellow-500/10 px-1.5 py-0.5 text-[10px] font-medium text-yellow-500">
                   Claimed
+                </span>
+              )}
+              {showNeedsReview && (
+                <span className="flex items-center gap-1 rounded-full border border-purple-500/20 bg-purple-500/10 px-1.5 py-0.5 text-[10px] font-medium text-purple-500">
+                  <FileCheck02 className="size-2.5" />
+                  {bounty._count.pendingSubmissions} to review
                 </span>
               )}
             </div>

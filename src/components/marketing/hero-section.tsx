@@ -9,7 +9,7 @@ export function HeroSection() {
   return (
     <section className="relative min-h-[90vh] overflow-hidden bg-gradient-to-b from-background via-background to-muted/20">
       {/* Background grid pattern */}
-      <div className="bg-grid-pattern pointer-events-none absolute inset-0" />
+      <div className="bg-grid-pattern-fade pointer-events-none absolute inset-0" />
 
       {/* Gradient orbs */}
       <div className="animate-glow-pulse pointer-events-none absolute -top-40 left-1/4 h-96 w-96 rounded-full bg-primary/20 blur-[100px]" />
@@ -82,7 +82,7 @@ export function HeroSection() {
               </Button>
             </div>
 
-            {/* Stats */}
+            {/* Stats - hidden until we have real metrics
             <div
               className="animate-fade-in-blur mt-12 flex gap-8 border-t border-border/50 pt-8"
               style={{ animationDelay: '400ms' }}
@@ -106,6 +106,7 @@ export function HeroSection() {
                 </div>
               </div>
             </div>
+            */}
           </div>
 
           {/* Right: Interactive visualization */}

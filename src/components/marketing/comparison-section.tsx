@@ -76,8 +76,7 @@ export function ComparisonSection() {
       className="relative overflow-hidden py-24 md:py-32"
     >
       {/* Background */}
-      <div className="bg-grid-pattern pointer-events-none absolute inset-0 opacity-50" />
-      <div className="pointer-events-none absolute inset-0 bg-gradient-to-br from-primary/5 via-transparent to-accent/5" />
+      <div className="bg-grid-pattern-fade pointer-events-none absolute inset-0" />
 
       <div className="relative mx-auto max-w-5xl px-6">
         <div

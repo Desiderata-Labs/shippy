@@ -1,39 +1,41 @@
 'use client'
 
-import { CheckVerified02, ShieldTick } from '@untitled-ui/icons-react'
+// Hidden until we have real metrics - uncomment when ready
+// import { CheckVerified02, ShieldTick } from '@untitled-ui/icons-react'
 
-const trustStats = [
-  { value: '$127K+', label: 'Paid to contributors' },
-  { value: '98%', label: 'Payout verification rate' },
-  { value: '52', label: 'Active projects' },
-  { value: '340+', label: 'Contributors earning' },
-]
+// const trustStats = [
+//   { value: '$127K+', label: 'Paid to contributors' },
+//   { value: '98%', label: 'Payout verification rate' },
+//   { value: '52', label: 'Active projects' },
+//   { value: '340+', label: 'Contributors earning' },
+// ]
 
-const projectTypes = [
-  'SaaS',
-  'E-commerce',
-  'Developer Tools',
-  'Content Platforms',
-  'AI/ML Products',
-  'Mobile Apps',
-  'Marketplaces',
-  'Analytics',
-]
+// const projectTypes = [
+//   'SaaS',
+//   'E-commerce',
+//   'Developer Tools',
+//   'Content Platforms',
+//   'AI/ML Products',
+//   'Mobile Apps',
+//   'Marketplaces',
+//   'Analytics',
+// ]
 
 export function TrustSection() {
+  // Hidden until we have real metrics - uncomment when ready
+  return null
+
+  /*
   return (
     <section className="relative overflow-hidden border-y border-border/40 bg-muted/20 py-16">
-      {/* Background accent */}
       <div className="pointer-events-none absolute inset-0 bg-gradient-to-r from-transparent via-primary/5 to-transparent" />
 
       <div className="relative mx-auto max-w-6xl px-6">
-        {/* Header */}
         <div className="mb-10 flex items-center justify-center gap-2 text-sm text-muted-foreground">
           <ShieldTick className="size-4 text-primary" />
           <span>Trusted by founders and contributors worldwide</span>
         </div>
 
-        {/* Stats grid */}
         <div className="mb-12 grid grid-cols-2 gap-6 sm:grid-cols-4">
           {trustStats.map((stat) => (
             <div
@@ -48,13 +50,10 @@ export function TrustSection() {
           ))}
         </div>
 
-        {/* Scrolling project types */}
         <div className="relative">
-          {/* Gradient masks */}
           <div className="pointer-events-none absolute top-0 left-0 z-10 h-full w-24 bg-gradient-to-r from-muted/80 to-transparent" />
           <div className="pointer-events-none absolute top-0 right-0 z-10 h-full w-24 bg-gradient-to-l from-muted/80 to-transparent" />
 
-          {/* Scrolling content */}
           <div className="flex overflow-hidden">
             <div className="animate-scroll-left flex shrink-0 items-center gap-8">
               {[...projectTypes, ...projectTypes].map((type, index) => (
@@ -70,7 +69,6 @@ export function TrustSection() {
           </div>
         </div>
 
-        {/* Verification badge */}
         <div className="mt-10 flex items-center justify-center gap-4">
           <div className="flex items-center gap-2 text-sm text-muted-foreground">
             <div className="flex -space-x-2">
@@ -94,4 +92,5 @@ export function TrustSection() {
       </div>
     </section>
   )
+  */
 }

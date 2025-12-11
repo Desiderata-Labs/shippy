@@ -255,18 +255,38 @@
   background-clip: text;
 }
 
-/* Grid pattern background */
+/* Grid pattern background - refined small grid */
 .bg-grid-pattern {
   background-image:
-    linear-gradient(to right, oklch(0.5 0 0 / 0.05) 1px, transparent 1px),
-    linear-gradient(to bottom, oklch(0.5 0 0 / 0.05) 1px, transparent 1px);
-  background-size: 40px 40px;
+    linear-gradient(to right, oklch(0.5 0 0 / 0.035) 1px, transparent 1px),
+    linear-gradient(to bottom, oklch(0.5 0 0 / 0.035) 1px, transparent 1px);
+  background-size: 24px 24px;
 }
 
 .dark .bg-grid-pattern {
   background-image:
-    linear-gradient(to right, oklch(1 0 0 / 0.03) 1px, transparent 1px),
-    linear-gradient(to bottom, oklch(1 0 0 / 0.03) 1px, transparent 1px);
+    linear-gradient(to right, oklch(1 0 0 / 0.02) 1px, transparent 1px),
+    linear-gradient(to bottom, oklch(1 0 0 / 0.02) 1px, transparent 1px);
+  background-size: 24px 24px;
+}
+
+/* Grid with radial fade - for sections that need a vignette effect */
+.bg-grid-pattern-fade {
+  background-image:
+    linear-gradient(to right, oklch(0.5 0 0 / 0.035) 1px, transparent 1px),
+    linear-gradient(to bottom, oklch(0.5 0 0 / 0.035) 1px, transparent 1px);
+  background-size: 24px 24px;
+  mask-image: radial-gradient(
+    ellipse 80% 60% at 50% 40%,
+    black 20%,
+    transparent 100%
+  );
+}
+
+.dark .bg-grid-pattern-fade {
+  background-image:
+    linear-gradient(to right, oklch(1 0 0 / 0.02) 1px, transparent 1px),
+    linear-gradient(to bottom, oklch(1 0 0 / 0.02) 1px, transparent 1px);
 }
 
 /* Noise texture overlay */

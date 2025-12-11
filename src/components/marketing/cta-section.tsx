@@ -51,7 +51,7 @@ export function CtaSection() {
             transition: 'opacity 0.6s ease-out, transform 0.6s ease-out',
           }}
         >
-          <div className="bg-grid-pattern relative p-8 md:p-12">
+          <div className="relative p-8 md:p-12">
             {/* Content */}
             <div className="relative z-10 text-center">
               <h2 className="text-3xl font-bold tracking-tight md:text-4xl lg:text-5xl">
@@ -110,7 +110,7 @@ export function CtaSection() {
                 </div>
               </div>
 
-              {/* Trust note */}
+              {/* Trust note - hidden until we have real metrics
               <p className="mt-8 text-sm text-muted-foreground">
                 Join{' '}
                 <span className="font-medium text-foreground">
@@ -119,6 +119,7 @@ export function CtaSection() {
                 already earning across{' '}
                 <span className="font-medium text-foreground">52 projects</span>
               </p>
+              */}
             </div>
           </div>
         </div>

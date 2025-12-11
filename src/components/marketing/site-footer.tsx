@@ -62,7 +62,7 @@ export function SiteFooter() {
               helping startups grow. Ship work. Share the upside.
             </p>
 
-            {/* Stats */}
+            {/* Stats - hidden until we have real metrics
             <div className="mt-6 flex gap-6">
               <div>
                 <div className="text-lg font-bold text-primary">$127K+</div>
@@ -79,6 +79,7 @@ export function SiteFooter() {
                 <div className="text-xs text-muted-foreground">Projects</div>
               </div>
             </div>
+            */}
           </div>
 
           {/* Link columns */}

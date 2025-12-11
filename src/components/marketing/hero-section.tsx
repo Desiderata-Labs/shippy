@@ -3,6 +3,7 @@
 import { ArrowRight, Plus, SearchSm } from '@untitled-ui/icons-react'
 import { useState } from 'react'
 import Link from 'next/link'
+import { routes } from '@/lib/routes'
 import { Button } from '@/components/ui/button'
 import { HeroEffects } from './hero-effects'
 
@@ -60,7 +61,7 @@ export function HeroSection() {
                 className="group h-12 cursor-pointer gap-2 rounded-xl px-6 text-base"
                 asChild
               >
-                <Link href="/sign-up">
+                <Link href={routes.auth.signUp()}>
                   <Plus className="size-4" />
                   Create a Project
                   <ArrowRight className="size-4 transition-transform group-hover:translate-x-1" />
@@ -72,7 +73,7 @@ export function HeroSection() {
                 className="h-12 cursor-pointer gap-2 rounded-xl border-white/10 bg-white/5 px-6 text-base hover:bg-white/10 dark:border-white/10 dark:bg-white/5 dark:hover:bg-white/10"
                 asChild
               >
-                <Link href="/discover">
+                <Link href={routes.discover.root()}>
                   <SearchSm className="size-4" />
                   Find Bounties
                 </Link>

@@ -1,4 +1,5 @@
 import { prisma } from '@/lib/db/server'
+import { generateUniqueUsername } from '@/lib/username/server'
 import { BetterAuthOptions, betterAuth } from 'better-auth'
 import { prismaAdapter } from 'better-auth/adapters/prisma'
 import { nextCookies } from 'better-auth/next-js'
@@ -15,6 +16,26 @@ function getBaseUrl(): string {
   )
 }
 
+/**
+ * Auto-generate a username for new users based on their name.
+ * If the user's name is not available or conflicts exist, username will be null
+ * and they'll be redirected to onboarding to set it manually.
+ */
+async function generateUsernameForNewUser(userId: string, name: string | null) {
+  try {
+    const username = await generateUniqueUsername(name)
+    if (username) {
+      await prisma.user.update({
+        where: { id: userId },
+        data: { username },
+      })
+    }
+  } catch (error) {
+    // Log but don't fail user creation - they can set username during onboarding
+    console.error('Failed to auto-generate username:', error)
+  }
+}
+
 // Trusted origins for CORS/CSRF validation
 const trustedOrigins = (process.env.TRUSTED_ORIGINS || '')
   .split(',')
@@ -26,6 +47,15 @@ const authConfig = {
   database: prismaAdapter(prisma, {
     provider: 'postgresql',
   }),
+  user: {
+    additionalFields: {
+      username: {
+        type: 'string',
+        required: false,
+        input: true, // Allow setting via signUp
+      },
+    },
+  },
   advanced: {
     cookiePrefix: 'eas',
     useSecureCookies: process.env.NODE_ENV === 'production',
@@ -58,6 +88,16 @@ const authConfig = {
   session: {
     expiresIn: 60 * 60 * 24 * 14, // 14 days
     updateAge: 60 * 60 * 24, // Update session every 24 hours
+  },
+  databaseHooks: {
+    user: {
+      create: {
+        after: async (user) => {
+          // Auto-generate username for new users
+          await generateUsernameForNewUser(user.id, user.name)
+        },
+      },
+    },
   },
   plugins: [nextCookies()], // Must be last plugin
 } satisfies BetterAuthOptions

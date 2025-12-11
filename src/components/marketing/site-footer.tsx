@@ -1,14 +1,15 @@
 import Link from 'next/link'
+import { routes } from '@/lib/routes'
 import { Logo } from '@/components/ui/logo'
 
 const footerSections = [
   {
     heading: 'Product',
     links: [
-      { label: 'Discover Projects', href: '/discover' },
+      { label: 'Discover Projects', href: routes.discover.root() },
       { label: 'How It Works', href: '/#how-it-works' },
-      { label: 'For Founders', href: '/sign-up' },
-      { label: 'For Contributors', href: '/discover' },
+      { label: 'For Founders', href: routes.auth.signUp() },
+      { label: 'For Contributors', href: routes.discover.root() },
     ],
   },
   {
@@ -30,7 +31,7 @@ export function SiteFooter() {
         <div className="grid gap-12 md:grid-cols-4">
           {/* Brand column */}
           <div className="md:col-span-2">
-            <Link href="/" className="inline-block">
+            <Link href={routes.home()} className="inline-block">
               <Logo size="md" />
             </Link>
             <p className="mt-4 max-w-xs text-sm text-muted-foreground">

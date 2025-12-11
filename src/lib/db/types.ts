@@ -89,6 +89,17 @@ export enum PayoutRecipientStatus {
 
 /**
  * Commitment period options (in months)
+ * Using string values for form compatibility
+ */
+export enum CommitmentMonths {
+  SIX_MONTHS = '6',
+  ONE_YEAR = '12',
+  TWO_YEARS = '24',
+  THREE_YEARS = '36',
+}
+
+/**
+ * Commitment period options as numbers (for database storage)
  */
 export const COMMITMENT_PERIODS = [6, 12, 24, 36] as const
 export type CommitmentPeriod = (typeof COMMITMENT_PERIODS)[number]

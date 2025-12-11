@@ -61,7 +61,7 @@ export function BountiesTab({
           </p>
           {isFounder && (
             <Button asChild className="mt-4 cursor-pointer">
-              <Link href={`/founder/${projectId}/bounties/new`}>
+              <Link href={`/project/${projectId}/bounties/new`}>
                 Create Bounty
               </Link>
             </Button>
@@ -76,7 +76,7 @@ export function BountiesTab({
       {isFounder && (
         <div className="flex justify-end">
           <Button asChild className="cursor-pointer">
-            <Link href={`/founder/${projectId}/bounties/new`}>
+            <Link href={`/project/${projectId}/bounties/new`}>
               Create Bounty
             </Link>
           </Button>

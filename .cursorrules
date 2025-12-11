@@ -161,7 +161,7 @@ import { getUser } from "@/lib/auth";
 - Always use TypeScript with strict mode enabled
 - Define proper interfaces for all data structures
 - Avoid using `any` type
-- **Prefer enums over union string types** for states, modes, and fixed value sets
+- **Strongly prefer enums over union string types** for states, modes, and fixed value sets; avoid stringly typed values whenever possible
 - Use Prisma-generated types for database models
 - Use Zod for input validation in tRPC procedures
 

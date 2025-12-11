@@ -3,6 +3,7 @@
 import { ArrowRight, Plus, SearchSm } from '@untitled-ui/icons-react'
 import { useEffect, useRef, useState } from 'react'
 import Link from 'next/link'
+import { routes } from '@/lib/routes'
 import { Button } from '@/components/ui/button'
 import { ParticleBackground, ParticleIntensity } from './particle-background'
 
@@ -103,7 +104,7 @@ export function CtaSection() {
                     className="group/btn w-full cursor-pointer gap-2 rounded-lg"
                     asChild
                   >
-                    <Link href="/sign-up">
+                    <Link href={routes.auth.signUp()}>
                       <Plus className="size-4" />
                       Create Your Project
                       <ArrowRight className="size-4 transition-transform group-hover/btn:translate-x-1" />
@@ -141,7 +142,7 @@ export function CtaSection() {
                     className="group/btn w-full cursor-pointer gap-2 rounded-lg border-white/10 bg-white/5 hover:bg-white/10 dark:border-white/10 dark:bg-white/5 dark:hover:bg-white/10"
                     asChild
                   >
-                    <Link href="/discover">
+                    <Link href={routes.discover.root()}>
                       <SearchSm className="size-4" />
                       Find Bounties
                       <ArrowRight className="size-4 transition-transform group-hover/btn:translate-x-1" />

@@ -1,0 +1,62 @@
+import { NextRequest, NextResponse } from 'next/server'
+import { paths, routes } from '@/lib/routes'
+
+/**
+ * Routes that require authentication
+ * Note: User profile routes will be under /u/[username] when added
+ */
+const protectedRoutes = [paths.dashboard.root]
+
+/**
+ * Routes that should redirect to dashboard if already authenticated
+ */
+const authRoutePaths = [paths.auth.signIn, paths.auth.signUp]
+
+/**
+ * Check if a path matches any of the routes (prefix match)
+ */
+function matchesRoute(path: string, routesList: string[]): boolean {
+  return routesList.some(
+    (route) => path === route || path.startsWith(`${route}/`),
+  )
+}
+
+export default function proxy(request: NextRequest) {
+  const { pathname } = request.nextUrl
+
+  // Get the session cookie (BetterAuth uses 'eas.session_token' with prefix)
+  const sessionCookie =
+    request.cookies.get('eas.session_token') ||
+    request.cookies.get('eas.session_token.0') || // Chunked cookie support
+    request.cookies.get('__Secure-eas.session_token') // Secure cookie in prod
+
+  const isAuthenticated = !!sessionCookie?.value
+
+  // If user is on auth routes and is authenticated, redirect to dashboard
+  if (isAuthenticated && matchesRoute(pathname, authRoutePaths)) {
+    return NextResponse.redirect(new URL(routes.dashboard.root(), request.url))
+  }
+
+  // If user is on protected routes and is not authenticated, redirect to sign-in
+  if (!isAuthenticated && matchesRoute(pathname, protectedRoutes)) {
+    const signInUrl = new URL(routes.auth.signIn(), request.url)
+    signInUrl.searchParams.set('callbackUrl', pathname)
+    return NextResponse.redirect(signInUrl)
+  }
+
+  return NextResponse.next()
+}
+
+export const config = {
+  matcher: [
+    /*
+     * Match all request paths except:
+     * - _next/static (static files)
+     * - _next/image (image optimization files)
+     * - favicon.ico (favicon file)
+     * - public folder
+     * - api routes (handled separately)
+     */
+    '/((?!_next/static|_next/image|favicon.ico|.*\\.(?:svg|png|jpg|jpeg|gif|webp|ico)$).*)',
+  ],
+}

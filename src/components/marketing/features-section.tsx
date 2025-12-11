@@ -12,6 +12,7 @@ import {
   Users01,
 } from '@untitled-ui/icons-react'
 import Link from 'next/link'
+import { routes } from '@/lib/routes'
 import { Button } from '@/components/ui/button'
 import { ParticleBackground, ParticleIntensity } from './particle-background'
 
@@ -162,7 +163,7 @@ export function FeaturesSection() {
             className="group h-12 cursor-pointer gap-2 rounded-xl px-6 text-base"
             asChild
           >
-            <Link href="/discover">
+            <Link href={routes.discover.root()}>
               <SearchSm className="size-4" />
               Browse Projects
               <ArrowRight className="size-4 transition-transform group-hover:translate-x-1" />

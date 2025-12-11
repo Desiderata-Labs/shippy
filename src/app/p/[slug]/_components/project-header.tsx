@@ -6,6 +6,7 @@ import {
 } from '@untitled-ui/icons-react'
 import Image from 'next/image'
 import Link from 'next/link'
+import { routes } from '@/lib/routes'
 import { Avatar, AvatarFallback, AvatarImage } from '@/components/ui/avatar'
 import { Button } from '@/components/ui/button'
 
@@ -88,7 +89,7 @@ export function ProjectHeader({ project, isFounder }: ProjectHeaderProps) {
 
         {isFounder && (
           <Button variant="outline" asChild className="cursor-pointer">
-            <Link href={`/founder/${project.slug}/settings`}>
+            <Link href={routes.project.settings({ slug: project.slug })}>
               <Settings01 className="mr-2 size-4" />
               Manage Project
             </Link>

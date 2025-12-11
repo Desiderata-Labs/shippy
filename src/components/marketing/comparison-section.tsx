@@ -4,6 +4,7 @@ import { ArrowRight, BankNote01, CheckCircle } from '@untitled-ui/icons-react'
 import { X } from 'lucide-react'
 import { useEffect, useRef, useState } from 'react'
 import Link from 'next/link'
+import { routes } from '@/lib/routes'
 import { Button } from '@/components/ui/button'
 import { ParticleBackground, ParticleIntensity } from './particle-background'
 
@@ -217,7 +218,7 @@ export function ComparisonSection() {
             className="group h-12 cursor-pointer gap-2 rounded-xl px-6 text-base"
             asChild
           >
-            <Link href="/sign-up">
+            <Link href={routes.auth.signUp()}>
               <BankNote01 className="size-4" />
               Start Earning
               <ArrowRight className="size-4 transition-transform group-hover:translate-x-1" />

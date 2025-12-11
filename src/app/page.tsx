@@ -1,3 +1,4 @@
+import { Header } from '@/components/layout/header'
 import { ComparisonSection } from '@/components/marketing/comparison-section'
 import { CtaSection } from '@/components/marketing/cta-section'
 import { FeaturesSection } from '@/components/marketing/features-section'
@@ -9,6 +10,7 @@ import { TrustSection } from '@/components/marketing/trust-section'
 export default function HomePage() {
   return (
     <main className="flex flex-col overflow-x-clip">
+      <Header />
       <HeroSection />
       <TrustSection />
       <HowItWorksSection />

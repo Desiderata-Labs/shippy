@@ -3,6 +3,7 @@ import { notFound } from 'next/navigation'
 import { auth } from '@/lib/auth/server'
 import { prisma } from '@/lib/db/server'
 import { BountyStatus } from '@/lib/db/types'
+import { ProjectBackground } from './_components/project-background'
 import { ProjectHeader } from './_components/project-header'
 import { ProjectTabs } from './_components/project-tabs'
 
@@ -61,9 +62,11 @@ export default async function ProjectPage({ params }: ProjectPageProps) {
   }
 
   return (
-    <div className="container px-4 py-8">
-      <ProjectHeader project={project} isFounder={isFounder} />
-      <ProjectTabs project={project} isFounder={isFounder} />
-    </div>
+    <ProjectBackground>
+      <div className="container px-4 py-8">
+        <ProjectHeader project={project} isFounder={isFounder} />
+        <ProjectTabs project={project} isFounder={isFounder} />
+      </div>
+    </ProjectBackground>
   )
 }

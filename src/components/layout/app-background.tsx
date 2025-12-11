@@ -23,7 +23,7 @@ export function AppBackground({
   return (
     <div className="relative min-h-screen">
       {/* Background gradient */}
-      <div className="pointer-events-none fixed inset-0 -z-20 bg-gradient-to-b from-background via-background to-muted/20" />
+      <div className="pointer-events-none fixed inset-0 -z-20 bg-linear-to-b from-background via-background to-muted/20" />
 
       {/* Subtle grid pattern */}
       <div className="bg-grid-pattern-fade pointer-events-none fixed inset-0 -z-10 opacity-50" />

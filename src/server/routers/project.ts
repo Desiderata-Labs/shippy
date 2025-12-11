@@ -230,11 +230,13 @@ export const projectRouter = router({
       where: { founderId: ctx.user.id },
       orderBy: { createdAt: 'desc' },
       include: {
+        founder: {
+          select: { id: true, name: true, image: true },
+        },
         rewardPool: true,
         _count: {
           select: {
             bounties: true,
-            payouts: true,
           },
         },
       },

@@ -80,7 +80,7 @@ export function AppHeader() {
             </nav>
 
             {/* Separator */}
-            <div className="mx-4 h-8 w-px bg-gradient-to-b from-transparent via-white/15 to-transparent" />
+            <div className="mx-4 h-8 w-px bg-linear-to-b from-transparent via-white/15 to-transparent" />
 
             {/* Auth */}
             <div className="flex items-center space-x-2">

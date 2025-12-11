@@ -2,26 +2,16 @@
 
 import { useSession } from '@/lib/auth/react'
 import { trpc } from '@/lib/trpc/react'
-import {
-  ArrowRight,
-  CoinsStacked01,
-  Plus,
-  Target01,
-} from '@untitled-ui/icons-react'
+import { Plus, Target01 } from '@untitled-ui/icons-react'
 import Link from 'next/link'
 import { redirect, useParams } from 'next/navigation'
 import { routes } from '@/lib/routes'
-import {
-  AppButton,
-  AppCard,
-  AppCardContent,
-  AppCardDescription,
-  AppCardHeader,
-  AppCardTitle,
-} from '@/components/app'
+import { AppButton, AppCard, AppCardContent } from '@/components/app'
 import { AppBackground } from '@/components/layout/app-background'
-import { Badge } from '@/components/ui/badge'
-import { Button } from '@/components/ui/button'
+import {
+  ProjectCard,
+  ProjectCardSkeleton,
+} from '@/components/project/project-card'
 import { Skeleton } from '@/components/ui/skeleton'
 
 export default function UserProjectsPage() {
@@ -100,65 +90,11 @@ export default function UserProjectsPage() {
         ) : (
           <div className="grid gap-6 sm:grid-cols-2 lg:grid-cols-3">
             {projects.map((project) => (
-              <Link
+              <ProjectCard
                 key={project.id}
-                href={routes.project.detail({ slug: project.slug })}
-              >
-                <AppCard className="h-full cursor-pointer transition-all hover:border-primary/50">
-                  <AppCardHeader>
-                    <div className="flex items-start justify-between">
-                      <div>
-                        <AppCardTitle>{project.name}</AppCardTitle>
-                        <AppCardDescription className="mt-1">
-                          {project.tagline || 'No description'}
-                        </AppCardDescription>
-                      </div>
-                      {project.rewardPool && (
-                        <Badge variant="secondary">
-                          {project.rewardPool.poolPercentage}% pool
-                        </Badge>
-                      )}
-                    </div>
-                  </AppCardHeader>
-                  <AppCardContent>
-                    <div className="grid grid-cols-2 gap-4 text-sm">
-                      <div className="flex items-center gap-2">
-                        <div className="flex size-6 items-center justify-center rounded-md bg-primary/10">
-                          <Target01 className="size-3.5 text-primary" />
-                        </div>
-                        <span>{project._count.bounties} bounties</span>
-                      </div>
-                      <div className="flex items-center gap-2">
-                        <div className="flex size-6 items-center justify-center rounded-md bg-primary/10">
-                          <CoinsStacked01 className="size-3.5 text-primary" />
-                        </div>
-                        <span>{project._count.payouts} payouts</span>
-                      </div>
-                    </div>
-                    <div className="mt-4 flex items-center justify-between">
-                      <span className="text-xs text-muted-foreground">
-                        Created{' '}
-                        {new Date(project.createdAt).toLocaleDateString(
-                          'en-US',
-                          {
-                            month: 'short',
-                            day: 'numeric',
-                            year: 'numeric',
-                          },
-                        )}
-                      </span>
-                      <Button
-                        variant="ghost"
-                        size="sm"
-                        className="cursor-pointer"
-                      >
-                        Manage
-                        <ArrowRight className="ml-1 size-4" />
-                      </Button>
-                    </div>
-                  </AppCardContent>
-                </AppCard>
-              </Link>
+                project={project}
+                showManageButton
+              />
             ))}
           </div>
         )}
@@ -180,18 +116,7 @@ function ProjectsSkeleton() {
         </div>
         <div className="grid gap-6 sm:grid-cols-2 lg:grid-cols-3">
           {Array.from({ length: 3 }).map((_, i) => (
-            <AppCard key={i}>
-              <AppCardHeader>
-                <Skeleton className="h-6 w-32" />
-                <Skeleton className="mt-1 h-4 w-48" />
-              </AppCardHeader>
-              <AppCardContent>
-                <div className="grid grid-cols-2 gap-4">
-                  <Skeleton className="h-5 w-24" />
-                  <Skeleton className="h-5 w-24" />
-                </div>
-              </AppCardContent>
-            </AppCard>
+            <ProjectCardSkeleton key={i} />
           ))}
         </div>
       </div>

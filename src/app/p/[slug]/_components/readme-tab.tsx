@@ -202,7 +202,7 @@ function LinkButton({
       target="_blank"
       rel="noopener noreferrer"
       className={cn(
-        'group flex items-center justify-between rounded border border-border bg-muted px-3 py-2',
+        'group flex items-center justify-between rounded-sm border border-border bg-muted px-3 py-2',
         'transition-colors hover:bg-accent',
       )}
     >
@@ -230,7 +230,7 @@ function PoolDetail({
     <div className="flex items-center gap-2.5">
       <div
         className={cn(
-          'flex size-6 items-center justify-center rounded',
+          'flex size-6 items-center justify-center rounded-sm',
           highlight ? 'bg-primary/10' : 'bg-muted',
         )}
       >

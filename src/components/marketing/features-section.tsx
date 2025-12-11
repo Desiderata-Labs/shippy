@@ -87,7 +87,7 @@ export function FeaturesSection() {
               See pool commitment, payout history, and verification.
             </p>
             <div className="mt-5">
-              <div className="flex h-4 overflow-hidden rounded">
+              <div className="flex h-4 overflow-hidden rounded-sm">
                 <div className="w-[45%] bg-primary" />
                 <div className="w-[30%] bg-primary/70" />
                 <div className="w-[15%] bg-primary/50" />
@@ -185,7 +185,7 @@ function GlassCard({
 }) {
   return (
     <div
-      className={`relative overflow-hidden rounded-xl bg-linear-to-br from-white/8 via-white/2 to-transparent p-5 backdrop-blur-sm before:pointer-events-none before:absolute before:inset-0 before:rounded-xl before:border before:border-white/8 before:bg-linear-to-br before:from-white/12 before:to-transparent before:opacity-0 before:transition-opacity before:duration-300 hover:before:opacity-100 dark:from-white/8 dark:via-white/2 dark:to-transparent dark:before:border-white/8 ${className} `}
+      className={`relative overflow-hidden rounded-xl bg-linear-to-br from-white/8 via-white/2 to-transparent p-5 backdrop-blur-sm before:pointer-events-none before:absolute before:inset-0 before:rounded-xl before:border before:border-white/8 before:bg-linear-to-br before:from-white/12 before:to-transparent before:opacity-0 before:transition-opacity before:duration-300 hover:before:opacity-100 dark:from-white/8 dark:via-white/2 dark:to-transparent dark:before:border-white/8 ${className}`}
     >
       {/* Gradient border overlay */}
       <div
@@ -236,7 +236,7 @@ function BountyItem({
 }) {
   return (
     <div
-      className={`flex items-center justify-between rounded-lg border border-white/5 bg-white/3 px-3 py-2.5 transition-colors duration-150 hover:bg-white/6 dark:border-white/5 dark:bg-white/3 dark:hover:bg-white/6 ${status === 'claimed' ? 'opacity-60' : ''} `}
+      className={`flex items-center justify-between rounded-lg border border-white/5 bg-white/3 px-3 py-2.5 transition-colors duration-150 hover:bg-white/6 dark:border-white/5 dark:bg-white/3 dark:hover:bg-white/6 ${status === 'claimed' ? 'opacity-60' : ''}`}
     >
       <div className="flex items-center gap-3">
         <div className="flex size-6 items-center justify-center rounded-full bg-white/10 text-xs font-medium text-muted-foreground uppercase">

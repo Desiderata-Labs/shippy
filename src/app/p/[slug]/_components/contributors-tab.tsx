@@ -149,7 +149,7 @@ function StatCard({
       <div className="flex items-center gap-2">
         <div
           className={cn(
-            'flex size-6 items-center justify-center rounded',
+            'flex size-6 items-center justify-center rounded-sm',
             highlight ? 'bg-green-500/10' : 'bg-muted',
           )}
         >

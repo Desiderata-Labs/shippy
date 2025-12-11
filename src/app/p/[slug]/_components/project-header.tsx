@@ -112,10 +112,10 @@ export function ProjectHeader({ project, isFounder }: ProjectHeaderProps) {
                   alt={project.name}
                   width={20}
                   height={20}
-                  className="size-5 rounded object-cover ring-1 ring-border"
+                  className="size-5 rounded-sm object-cover ring-1 ring-border"
                 />
               ) : (
-                <div className="flex size-5 items-center justify-center rounded bg-primary/10 text-xs font-bold text-primary ring-1 ring-border">
+                <div className="flex size-5 items-center justify-center rounded-sm bg-primary/10 text-xs font-bold text-primary ring-1 ring-border">
                   {project.name.charAt(0).toUpperCase()}
                 </div>
               )}
@@ -141,7 +141,7 @@ export function ProjectHeader({ project, isFounder }: ProjectHeaderProps) {
                         href={project.websiteUrl}
                         target="_blank"
                         rel="noopener noreferrer"
-                        className="flex items-center gap-1 rounded border border-border bg-secondary px-2 py-1 text-[11px] text-muted-foreground transition-colors hover:bg-accent hover:text-foreground"
+                        className="flex items-center gap-1 rounded-sm border border-border bg-secondary px-2 py-1 text-[11px] text-muted-foreground transition-colors hover:bg-accent hover:text-foreground"
                       >
                         <Globe01 className="size-3" />
                         Website
@@ -159,7 +159,7 @@ export function ProjectHeader({ project, isFounder }: ProjectHeaderProps) {
                         href={project.discordUrl}
                         target="_blank"
                         rel="noopener noreferrer"
-                        className="flex items-center gap-1 rounded border border-border bg-secondary px-2 py-1 text-[11px] text-muted-foreground transition-colors hover:bg-accent hover:text-foreground"
+                        className="flex items-center gap-1 rounded-sm border border-border bg-secondary px-2 py-1 text-[11px] text-muted-foreground transition-colors hover:bg-accent hover:text-foreground"
                       >
                         <MessageSquare01 className="size-3" />
                         Discord
@@ -306,7 +306,7 @@ function StatItem({
   return (
     <div className="flex items-center gap-2">
       <div
-        className={`flex size-6 items-center justify-center rounded ${iconBg}`}
+        className={`flex size-6 items-center justify-center rounded-sm ${iconBg}`}
       >
         <Icon className={`size-3.5 ${iconColor}`} />
       </div>

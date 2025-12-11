@@ -45,7 +45,7 @@ export function GlassCardHeader({
     <div className="flex items-start justify-between gap-3">
       <div className="flex items-center gap-2">
         {Icon && (
-          <div className="flex size-6 items-center justify-center rounded bg-primary/10">
+          <div className="flex size-6 items-center justify-center rounded-sm bg-primary/10">
             <Icon className="size-3.5 text-primary" />
           </div>
         )}

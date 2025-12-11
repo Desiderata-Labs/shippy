@@ -1,49 +1,16 @@
 'use client'
 
 import { trpc } from '@/lib/trpc/react'
-import {
-  Calendar,
-  CoinsStacked01,
-  Target01,
-  Users01,
-} from '@untitled-ui/icons-react'
+import { Target01 } from '@untitled-ui/icons-react'
 import { Loader2 } from 'lucide-react'
-import Image from 'next/image'
 import Link from 'next/link'
 import { routes } from '@/lib/routes'
-import {
-  AppButton,
-  AppCard,
-  AppCardContent,
-  AppCardDescription,
-  AppCardHeader,
-  AppCardTitle,
-} from '@/components/app'
+import { AppButton } from '@/components/app'
 import { AppBackground } from '@/components/layout/app-background'
-import { Badge } from '@/components/ui/badge'
-import { Skeleton } from '@/components/ui/skeleton'
-
-function ProjectCardSkeleton() {
-  return (
-    <AppCard>
-      <AppCardHeader>
-        <div className="flex items-start gap-3">
-          <Skeleton className="size-12 rounded-lg" />
-          <div className="flex-1 space-y-2">
-            <Skeleton className="h-5 w-32" />
-            <Skeleton className="h-4 w-full" />
-          </div>
-        </div>
-      </AppCardHeader>
-      <AppCardContent>
-        <div className="grid grid-cols-2 gap-4">
-          <Skeleton className="h-12" />
-          <Skeleton className="h-12" />
-        </div>
-      </AppCardContent>
-    </AppCard>
-  )
-}
+import {
+  ProjectCard,
+  ProjectCardSkeleton,
+} from '@/components/project/project-card'
 
 export default function DiscoverPage() {
   const { data, isLoading, error } = trpc.project.discover.useQuery({
@@ -98,79 +65,7 @@ export default function DiscoverPage() {
         ) : (
           <div className="grid gap-6 sm:grid-cols-2 lg:grid-cols-3">
             {data?.projects.map((project) => (
-              <Link
-                key={project.id}
-                href={routes.project.detail({ slug: project.slug })}
-              >
-                <AppCard className="h-full cursor-pointer transition-all hover:border-primary/50">
-                  <AppCardHeader>
-                    <div className="flex items-start gap-3">
-                      {project.logoUrl ? (
-                        <Image
-                          src={project.logoUrl}
-                          alt={project.name}
-                          width={48}
-                          height={48}
-                          className="size-12 rounded-lg object-cover"
-                        />
-                      ) : (
-                        <div className="flex size-12 items-center justify-center rounded-lg bg-primary/10 text-lg font-bold text-primary">
-                          {project.name.charAt(0).toUpperCase()}
-                        </div>
-                      )}
-                      <div className="min-w-0 flex-1">
-                        <AppCardTitle className="truncate text-lg">
-                          {project.name}
-                        </AppCardTitle>
-                        <AppCardDescription className="line-clamp-2">
-                          {project.tagline || 'No description'}
-                        </AppCardDescription>
-                      </div>
-                    </div>
-                  </AppCardHeader>
-                  <AppCardContent>
-                    <div className="grid grid-cols-2 gap-4 text-sm">
-                      <div className="flex items-center gap-2">
-                        <CoinsStacked01 className="size-4 text-muted-foreground" />
-                        <span>
-                          {project.rewardPool
-                            ? `${project.rewardPool.poolPercentage}% pool`
-                            : 'No pool'}
-                        </span>
-                      </div>
-                      <div className="flex items-center gap-2">
-                        <Target01 className="size-4 text-muted-foreground" />
-                        <span>{project._count.bounties} bounties</span>
-                      </div>
-                      <div className="flex items-center gap-2">
-                        <Users01 className="size-4 text-muted-foreground" />
-                        <span>By {project.founder.name}</span>
-                      </div>
-                      <div className="flex items-center gap-2">
-                        <Calendar className="size-4 text-muted-foreground" />
-                        <span>
-                          {project.rewardPool?.payoutFrequency === 'MONTHLY'
-                            ? 'Monthly'
-                            : 'Quarterly'}
-                        </span>
-                      </div>
-                    </div>
-                    {project.rewardPool && (
-                      <div className="mt-4 flex items-center gap-2">
-                        <Badge variant="secondary">
-                          Pool ends{' '}
-                          {new Date(
-                            project.rewardPool.commitmentEndsAt,
-                          ).toLocaleDateString('en-US', {
-                            month: 'short',
-                            year: 'numeric',
-                          })}
-                        </Badge>
-                      </div>
-                    )}
-                  </AppCardContent>
-                </AppCard>
-              </Link>
+              <ProjectCard key={project.id} project={project} />
             ))}
           </div>
         )}

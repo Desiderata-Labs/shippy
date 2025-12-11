@@ -5,8 +5,8 @@ import { memo } from 'react'
 
 const BountyCardPreviewComponent = () => {
   return (
-    <div className="absolute inset-0 flex items-center justify-center bg-gradient-to-br from-background via-background to-muted/25 px-6 pt-6">
-      <div className="flex h-full w-full max-w-[360px] flex-col gap-4 overflow-hidden rounded-t-[28px] rounded-b-none border border-border/40 bg-background/98 shadow-[0_24px_48px_rgba(15,23,42,0.12)] ring-1 ring-black/5">
+    <div className="absolute inset-0 flex items-center justify-center bg-linear-to-br from-background via-background to-muted/25 px-6 pt-6">
+      <div className="flex size-full max-w-[360px] flex-col gap-4 overflow-hidden rounded-t-[28px] rounded-b-none border border-border/40 bg-background/98 shadow-[0_24px_48px_rgba(15,23,42,0.12)] ring-1 ring-black/5">
         {/* Header */}
         <div className="flex items-center justify-between border-b border-border/40 px-5 py-4">
           <div className="flex items-center gap-2">

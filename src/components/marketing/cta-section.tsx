@@ -4,6 +4,7 @@ import { ArrowRight, Plus, SearchSm } from '@untitled-ui/icons-react'
 import { useEffect, useRef, useState } from 'react'
 import Link from 'next/link'
 import { Button } from '@/components/ui/button'
+import { ParticleBackground, ParticleIntensity } from './particle-background'
 
 export function CtaSection() {
   const [isVisible, setIsVisible] = useState(false)
@@ -36,13 +37,12 @@ export function CtaSection() {
       className="relative overflow-hidden py-24 md:py-32"
     >
       {/* Background effects */}
-      <div className="pointer-events-none absolute inset-0 bg-gradient-to-b from-transparent via-primary/5 to-transparent" />
-      <div className="animate-glow-pulse pointer-events-none absolute top-1/2 left-1/2 h-96 w-96 -translate-x-1/2 -translate-y-1/2 rounded-full bg-primary/10 blur-[100px]" />
+      <ParticleBackground intensity={ParticleIntensity.Subtle} />
 
       <div className="relative mx-auto max-w-4xl px-6">
-        {/* Main CTA card */}
+        {/* Main CTA card - Glass style */}
         <div
-          className="overflow-hidden rounded-3xl border border-border bg-card shadow-2xl"
+          className="relative overflow-hidden rounded-2xl bg-linear-to-br from-white/10 via-white/5 to-transparent p-8 backdrop-blur-xl md:rounded-3xl md:p-12 dark:from-white/10 dark:via-white/5 dark:to-transparent"
           style={{
             opacity: isVisible ? 1 : 0,
             transform: isVisible
@@ -51,75 +51,104 @@ export function CtaSection() {
             transition: 'opacity 0.6s ease-out, transform 0.6s ease-out',
           }}
         >
-          <div className="relative p-8 md:p-12">
-            {/* Content */}
-            <div className="relative z-10 text-center">
-              <h2 className="text-3xl font-bold tracking-tight md:text-4xl lg:text-5xl">
-                Ready to build together?
-              </h2>
+          {/* Gradient border overlay */}
+          <div
+            className="pointer-events-none absolute inset-0 rounded-2xl md:rounded-3xl"
+            style={{
+              padding: '1px',
+              background:
+                'linear-gradient(to bottom right, rgba(255,255,255,0.2), transparent 50%)',
+              mask: 'linear-gradient(#fff 0 0) content-box, linear-gradient(#fff 0 0)',
+              maskComposite: 'exclude',
+              WebkitMaskComposite: 'xor',
+            }}
+          />
 
-              <p className="mx-auto mt-4 max-w-xl text-lg text-muted-foreground">
-                Whether you&apos;re a founder who needs help or a contributor
-                seeking real upside, there&apos;s a place for you here.
-              </p>
+          {/* Content */}
+          <div className="relative z-10 text-center">
+            <h2 className="text-3xl font-semibold tracking-tight md:text-4xl lg:text-5xl">
+              Ready to build together?
+            </h2>
 
-              {/* Two paths */}
-              <div className="mt-10 grid gap-6 sm:grid-cols-2">
-                {/* For Founders */}
-                <div className="rounded-2xl border border-border bg-background/80 p-6 text-left backdrop-blur-sm transition-all hover:-translate-y-1 hover:shadow-lg">
-                  <div className="mb-4 flex size-12 items-center justify-center rounded-xl bg-primary/10 text-2xl">
+            <p className="mx-auto mt-4 max-w-xl text-lg text-muted-foreground">
+              Whether you&apos;re a founder who needs help or a contributor
+              seeking real upside, there&apos;s a place for you here.
+            </p>
+
+            {/* Two paths */}
+            <div className="mt-10 grid gap-4 sm:grid-cols-2">
+              {/* For Founders */}
+              <div className="group relative overflow-hidden rounded-xl border border-white/8 bg-white/5 p-6 text-left backdrop-blur-sm transition-all duration-300 hover:-translate-y-1 hover:border-white/15 hover:bg-white/8 dark:border-white/8 dark:bg-white/5 dark:hover:border-white/15 dark:hover:bg-white/8">
+                <div
+                  className="pointer-events-none absolute inset-0 rounded-xl opacity-0 transition-opacity duration-300 group-hover:opacity-100"
+                  style={{
+                    padding: '1px',
+                    background:
+                      'linear-gradient(to bottom right, rgba(255,255,255,0.12), transparent 50%)',
+                    mask: 'linear-gradient(#fff 0 0) content-box, linear-gradient(#fff 0 0)',
+                    maskComposite: 'exclude',
+                    WebkitMaskComposite: 'xor',
+                  }}
+                />
+                <div className="relative">
+                  <div className="mb-4 flex size-10 items-center justify-center rounded-lg bg-primary/10 text-xl">
                     🚀
                   </div>
-                  <h3 className="mb-2 text-lg font-semibold">For Founders</h3>
-                  <p className="mb-4 text-sm text-muted-foreground">
+                  <h3 className="mb-2 text-base font-semibold">For Founders</h3>
+                  <p className="mb-5 text-sm text-muted-foreground">
                     Post bounties and get help from motivated contributors who
                     are invested in your success.
                   </p>
-                  <Button className="group w-full gap-2 rounded-xl" asChild>
+                  <Button
+                    className="group/btn w-full cursor-pointer gap-2 rounded-lg"
+                    asChild
+                  >
                     <Link href="/sign-up">
                       <Plus className="size-4" />
                       Create Your Project
-                      <ArrowRight className="size-4 transition-transform group-hover:translate-x-1" />
-                    </Link>
-                  </Button>
-                </div>
-
-                {/* For Contributors */}
-                <div className="rounded-2xl border border-border bg-background/80 p-6 text-left backdrop-blur-sm transition-all hover:-translate-y-1 hover:shadow-lg">
-                  <div className="mb-4 flex size-12 items-center justify-center rounded-xl bg-accent/10 text-2xl">
-                    💰
-                  </div>
-                  <h3 className="mb-2 text-lg font-semibold">
-                    For Contributors
-                  </h3>
-                  <p className="mb-4 text-sm text-muted-foreground">
-                    Find bounties that match your skills and earn recurring
-                    royalties from successful projects.
-                  </p>
-                  <Button
-                    variant="outline"
-                    className="group w-full gap-2 rounded-xl"
-                    asChild
-                  >
-                    <Link href="/discover">
-                      <SearchSm className="size-4" />
-                      Find Bounties
-                      <ArrowRight className="size-4 transition-transform group-hover:translate-x-1" />
+                      <ArrowRight className="size-4 transition-transform group-hover/btn:translate-x-1" />
                     </Link>
                   </Button>
                 </div>
               </div>
 
-              {/* Trust note - hidden until we have real metrics
-              <p className="mt-8 text-sm text-muted-foreground">
-                Join{' '}
-                <span className="font-medium text-foreground">
-                  340+ contributors
-                </span>{' '}
-                already earning across{' '}
-                <span className="font-medium text-foreground">52 projects</span>
-              </p>
-              */}
+              {/* For Contributors */}
+              <div className="group relative overflow-hidden rounded-xl border border-white/8 bg-white/5 p-6 text-left backdrop-blur-sm transition-all duration-300 hover:-translate-y-1 hover:border-white/15 hover:bg-white/8 dark:border-white/8 dark:bg-white/5 dark:hover:border-white/15 dark:hover:bg-white/8">
+                <div
+                  className="pointer-events-none absolute inset-0 rounded-xl opacity-0 transition-opacity duration-300 group-hover:opacity-100"
+                  style={{
+                    padding: '1px',
+                    background:
+                      'linear-gradient(to bottom right, rgba(255,255,255,0.12), transparent 50%)',
+                    mask: 'linear-gradient(#fff 0 0) content-box, linear-gradient(#fff 0 0)',
+                    maskComposite: 'exclude',
+                    WebkitMaskComposite: 'xor',
+                  }}
+                />
+                <div className="relative">
+                  <div className="mb-4 flex size-10 items-center justify-center rounded-lg bg-accent/10 text-xl">
+                    💰
+                  </div>
+                  <h3 className="mb-2 text-base font-semibold">
+                    For Contributors
+                  </h3>
+                  <p className="mb-5 text-sm text-muted-foreground">
+                    Find bounties that match your skills and earn recurring
+                    royalties from successful projects.
+                  </p>
+                  <Button
+                    variant="outline"
+                    className="group/btn w-full cursor-pointer gap-2 rounded-lg border-white/10 bg-white/5 hover:bg-white/10 dark:border-white/10 dark:bg-white/5 dark:hover:bg-white/10"
+                    asChild
+                  >
+                    <Link href="/discover">
+                      <SearchSm className="size-4" />
+                      Find Bounties
+                      <ArrowRight className="size-4 transition-transform group-hover/btn:translate-x-1" />
+                    </Link>
+                  </Button>
+                </div>
+              </div>
             </div>
           </div>
         </div>

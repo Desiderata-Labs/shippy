@@ -5,6 +5,7 @@ import { X } from 'lucide-react'
 import { useEffect, useRef, useState } from 'react'
 import Link from 'next/link'
 import { Button } from '@/components/ui/button'
+import { ParticleBackground, ParticleIntensity } from './particle-background'
 
 const comparisons = [
   {
@@ -77,6 +78,7 @@ export function ComparisonSection() {
     >
       {/* Background */}
       <div className="bg-grid-pattern-fade pointer-events-none absolute inset-0" />
+      <ParticleBackground intensity={ParticleIntensity.Subtle} />
 
       <div className="relative mx-auto max-w-5xl px-6">
         <div
@@ -87,11 +89,11 @@ export function ComparisonSection() {
             transition: 'opacity 0.6s ease-out, transform 0.6s ease-out',
           }}
         >
-          <div className="mb-4 inline-flex items-center gap-2 rounded-full border border-border bg-background/80 px-4 py-2 text-sm font-medium backdrop-blur-sm">
+          <div className="mb-4 inline-flex items-center gap-2 rounded-full border border-white/10 bg-white/5 px-4 py-2 text-sm font-medium backdrop-blur-sm dark:border-white/10 dark:bg-white/5">
             <span className="text-primary">⚡</span>
             Best of both worlds
           </div>
-          <h2 className="text-3xl font-bold tracking-tight md:text-5xl">
+          <h2 className="text-3xl font-semibold tracking-tight md:text-5xl">
             Freelance flexibility.
             <br />
             <span className="text-gradient">Equity-like upside.</span>
@@ -101,9 +103,9 @@ export function ComparisonSection() {
           </p>
         </div>
 
-        {/* Comparison table */}
+        {/* Comparison table - Glass style */}
         <div
-          className="overflow-hidden rounded-3xl border border-border bg-card shadow-xl"
+          className="relative overflow-hidden rounded-2xl bg-linear-to-br from-white/10 via-white/5 to-transparent backdrop-blur-xl dark:from-white/10 dark:via-white/5 dark:to-transparent"
           style={{
             opacity: isVisible ? 1 : 0,
             transform: isVisible ? 'translateY(0)' : 'translateY(20px)',
@@ -111,10 +113,23 @@ export function ComparisonSection() {
               'opacity 0.6s ease-out 0.2s, transform 0.6s ease-out 0.2s',
           }}
         >
-          <div className="overflow-x-auto">
+          {/* Gradient border overlay */}
+          <div
+            className="pointer-events-none absolute inset-0 rounded-2xl"
+            style={{
+              padding: '1px',
+              background:
+                'linear-gradient(to bottom right, rgba(255,255,255,0.2), transparent 50%)',
+              mask: 'linear-gradient(#fff 0 0) content-box, linear-gradient(#fff 0 0)',
+              maskComposite: 'exclude',
+              WebkitMaskComposite: 'xor',
+            }}
+          />
+
+          <div className="relative overflow-x-auto">
             <table className="w-full">
               <thead>
-                <tr className="border-b border-border">
+                <tr className="border-b border-white/8 dark:border-white/8">
                   <th className="px-6 py-5 text-left text-sm font-semibold"></th>
                   <th className="px-6 py-5 text-center">
                     <div className="text-sm font-medium text-muted-foreground">
@@ -134,7 +149,7 @@ export function ComparisonSection() {
                       </span>
                     </div>
                   </th>
-                  <th className="bg-primary/5 px-6 py-5 text-center">
+                  <th className="bg-primary/10 px-6 py-5 text-center">
                     <div className="text-sm font-medium text-muted-foreground">
                       Earn A
                       <br />
@@ -143,11 +158,11 @@ export function ComparisonSection() {
                   </th>
                 </tr>
               </thead>
-              <tbody className="divide-y divide-border">
+              <tbody className="divide-y divide-white/5 dark:divide-white/5">
                 {comparisons.map((row, idx) => (
                   <tr
                     key={idx}
-                    className="transition-colors hover:bg-muted/30"
+                    className="transition-colors hover:bg-white/5 dark:hover:bg-white/5"
                     style={{
                       opacity: isVisible ? 1 : 0,
                       transform: isVisible
@@ -173,7 +188,7 @@ export function ComparisonSection() {
                         <X className="mx-auto size-5 text-muted-foreground/30" />
                       )}
                     </td>
-                    <td className="bg-primary/5 px-6 py-4 text-center">
+                    <td className="bg-primary/10 px-6 py-4 text-center">
                       {row.earnASlice ? (
                         <CheckCircle className="mx-auto size-5 text-primary" />
                       ) : (
@@ -199,7 +214,7 @@ export function ComparisonSection() {
         >
           <Button
             size="lg"
-            className="group h-12 gap-2 rounded-xl px-6 text-base"
+            className="group h-12 cursor-pointer gap-2 rounded-xl px-6 text-base"
             asChild
           >
             <Link href="/sign-up">

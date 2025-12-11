@@ -13,18 +13,20 @@ import {
 } from '@untitled-ui/icons-react'
 import Link from 'next/link'
 import { Button } from '@/components/ui/button'
+import { ParticleBackground, ParticleIntensity } from './particle-background'
 
 export function FeaturesSection() {
   return (
-    <section className="relative py-24 md:py-32">
+    <section className="relative overflow-hidden py-24 md:py-32">
+      <ParticleBackground intensity={ParticleIntensity.Subtle} />
       <div className="mx-auto max-w-6xl px-6">
         {/* Header */}
         <div className="mb-12 text-center md:mb-16">
-          <div className="mb-4 inline-flex items-center gap-2 rounded-full border border-border bg-muted/50 px-4 py-2 text-sm font-medium">
+          <div className="mb-4 inline-flex items-center gap-2 rounded-full border border-white/10 bg-white/5 px-4 py-2 text-sm font-medium backdrop-blur-sm dark:border-white/10 dark:bg-white/5">
             <PieChart01 className="size-4 text-primary" />
             The Core Loop
           </div>
-          <h2 className="text-3xl font-bold tracking-tight md:text-5xl">
+          <h2 className="text-3xl font-semibold tracking-tight md:text-5xl">
             Bounty → Ship → Earn → Repeat
           </h2>
           <p className="mx-auto mt-4 max-w-2xl text-lg text-muted-foreground">
@@ -32,170 +34,125 @@ export function FeaturesSection() {
           </p>
         </div>
 
-        {/* Bento grid - 6 columns for precise control */}
-        <div className="grid grid-cols-1 gap-3 md:grid-cols-6 md:gap-4">
+        {/* Bento grid - Linear style */}
+        <div className="grid grid-cols-1 gap-4 md:grid-cols-6">
           {/* Row 1: Claim bounties (4 cols) + Earn royalties (2 cols) */}
-          <div className="group rounded-2xl border border-border bg-card p-6 md:col-span-4">
-            <div className="mb-3 flex size-10 items-center justify-center rounded-xl bg-primary/10 text-primary">
-              <Target01 className="size-5" />
-            </div>
-            <h3 className="mb-2 text-lg font-semibold">
-              Claim bounties, ship results
-            </h3>
-            <p className="text-sm text-muted-foreground">
-              Browse open tasks with clear requirements and point rewards. Claim
-              what matches your skills and deliver.
+          <GlassCard className="md:col-span-4">
+            <CardHeader icon={Target01} title="Claim bounties, ship results" />
+            <p className="mt-2 text-sm text-muted-foreground">
+              Browse open tasks with clear requirements and point rewards.
             </p>
-            <div className="mt-5 grid gap-3 sm:grid-cols-2">
-              <BountyCard
+            <div className="mt-5 flex flex-col gap-2">
+              <BountyItem
                 title="SEO Blog Article"
                 points={50}
                 status="open"
-                skills={['Content', 'SEO']}
+                avatar="S"
+                assignee="sarah"
               />
-              <BountyCard
+              <BountyItem
                 title="Product Demo Video"
                 points={100}
                 status="claimed"
-                skills={['Video', 'Marketing']}
+                avatar="M"
+                assignee="marcus"
+              />
+              <BountyItem
+                title="Onboarding Email Sequence"
+                points={75}
+                status="open"
+                avatar="J"
+                assignee="julia"
               />
             </div>
-          </div>
+          </GlassCard>
 
-          <div className="group rounded-2xl border border-border bg-card p-6 md:col-span-2">
-            <div className="mb-3 flex size-10 items-center justify-center rounded-xl bg-primary/10 text-primary">
-              <BankNote01 className="size-5" />
-            </div>
-            <h3 className="mb-2 text-lg font-semibold">
-              Earn recurring royalties
-            </h3>
-            <p className="text-sm text-muted-foreground">
-              Every time the project profits, you get paid. Ongoing income
-              proportional to your contribution.
+          <GlassCard className="md:col-span-2">
+            <CardHeader icon={BankNote01} title="Recurring royalties" />
+            <p className="mt-2 text-sm text-muted-foreground">
+              Every time the project profits, you get paid.
             </p>
-            <div className="mt-5 space-y-2">
-              <PayoutRow month="March" amount={480} verified />
-              <PayoutRow month="February" amount={420} verified />
-              <PayoutRow month="January" amount={380} verified />
+            <div className="mt-5 flex flex-col gap-2">
+              <PayoutItem month="March" amount={480} verified />
+              <PayoutItem month="February" amount={420} verified />
+              <PayoutItem month="January" amount={380} verified />
             </div>
-          </div>
+          </GlassCard>
 
-          {/* Row 2: Transparent pools (2 cols) + Build reputation (2 cols) + Full visibility (2 cols) */}
-          <div className="group rounded-2xl border border-border bg-card p-6 md:col-span-2">
-            <div className="mb-3 flex size-10 items-center justify-center rounded-xl bg-primary/10 text-primary">
-              <PieChart01 className="size-5" />
-            </div>
-            <h3 className="mb-2 text-lg font-semibold">Transparent pools</h3>
-            <p className="text-sm text-muted-foreground">
-              Every project shows its reward pool commitment, payout history,
-              and verification status.
+          {/* Row 2: Three equal columns */}
+          <GlassCard className="md:col-span-2">
+            <CardHeader icon={PieChart01} title="Transparent pools" />
+            <p className="mt-2 text-sm text-muted-foreground">
+              See pool commitment, payout history, and verification.
             </p>
             <div className="mt-5">
-              <div className="flex h-5 overflow-hidden rounded-md">
+              <div className="flex h-4 overflow-hidden rounded">
                 <div className="w-[45%] bg-primary" />
                 <div className="w-[30%] bg-primary/70" />
                 <div className="w-[15%] bg-primary/50" />
                 <div className="w-[10%] bg-primary/30" />
               </div>
-              <div className="mt-2 flex justify-between text-xs text-muted-foreground">
-                <span>4 contributors</span>
+              <div className="mt-3 flex items-center justify-between text-xs">
+                <span className="text-muted-foreground">4 contributors</span>
                 <span className="font-medium text-primary">10% pool</span>
               </div>
             </div>
-          </div>
+          </GlassCard>
 
-          <div className="group rounded-2xl border border-border bg-card p-6 md:col-span-2">
-            <div className="mb-3 flex size-10 items-center justify-center rounded-xl bg-primary/10 text-primary">
-              <Users01 className="size-5" />
-            </div>
-            <h3 className="mb-2 text-lg font-semibold">
-              Build your reputation
-            </h3>
-            <p className="text-sm text-muted-foreground">
-              Track earnings across projects. Build a verified payout history.
+          <GlassCard className="md:col-span-2">
+            <CardHeader icon={Users01} title="Build reputation" />
+            <p className="mt-2 text-sm text-muted-foreground">
+              Track earnings across projects.
             </p>
-            <div className="mt-5 flex items-center justify-between">
-              <div className="text-center">
-                <div className="text-xl font-bold">$2.4K</div>
-                <div className="text-xs text-muted-foreground">Earned</div>
-              </div>
-              <div className="h-8 w-px bg-border" />
-              <div className="text-center">
-                <div className="text-xl font-bold">12</div>
-                <div className="text-xs text-muted-foreground">Bounties</div>
-              </div>
-              <div className="h-8 w-px bg-border" />
-              <div className="text-center">
-                <div className="text-xl font-bold text-green-600">98%</div>
-                <div className="text-xs text-muted-foreground">Verified</div>
-              </div>
+            <div className="mt-5 grid grid-cols-3 gap-3">
+              <StatBlock value="$2.4K" label="Earned" />
+              <StatBlock value="12" label="Bounties" />
+              <StatBlock value="98%" label="Verified" highlight />
             </div>
-          </div>
+          </GlassCard>
 
-          <div className="group rounded-2xl border border-border bg-card p-6 md:col-span-2">
-            <div className="mb-3 flex size-10 items-center justify-center rounded-xl bg-primary/10 text-primary">
-              <Eye className="size-5" />
-            </div>
-            <h3 className="mb-2 text-lg font-semibold">Full visibility</h3>
-            <p className="text-sm text-muted-foreground">
-              See exactly how points translate to payouts. No surprises, no
-              hidden calculations.
+          <GlassCard className="md:col-span-2">
+            <CardHeader icon={Eye} title="Full visibility" />
+            <p className="mt-2 text-sm text-muted-foreground">
+              See exactly how points translate to payouts.
             </p>
-            <div className="mt-5 space-y-1.5 text-sm">
-              <div className="flex items-center justify-between rounded-md bg-muted/50 px-3 py-1.5">
-                <span className="text-muted-foreground">Your points</span>
-                <span className="font-medium">1,250</span>
-              </div>
-              <div className="flex items-center justify-between rounded-md bg-muted/50 px-3 py-1.5">
-                <span className="text-muted-foreground">Pool share</span>
-                <span className="font-medium">8.3%</span>
-              </div>
-              <div className="flex items-center justify-between rounded-md bg-primary/10 px-3 py-1.5">
-                <span className="text-muted-foreground">Your payout</span>
-                <span className="font-semibold text-primary">$415</span>
-              </div>
+            <div className="mt-5 flex flex-col gap-1.5">
+              <VisibilityRow label="Your points" value="1,250" />
+              <VisibilityRow label="Pool share" value="8.3%" />
+              <VisibilityRow label="Your payout" value="$415" highlight />
             </div>
-          </div>
+          </GlassCard>
 
-          {/* Row 3: Trust transparency (4 cols) + Real-time tracking (2 cols) */}
-          <div className="group rounded-2xl border border-border bg-card p-6 md:col-span-4">
-            <div className="mb-3 flex size-10 items-center justify-center rounded-xl bg-primary/10 text-primary">
-              <ShieldTick className="size-5" />
-            </div>
-            <h3 className="mb-2 text-lg font-semibold">
-              Trust through transparency
-            </h3>
-            <p className="text-sm text-muted-foreground">
+          {/* Row 3: Trust + Tracking */}
+          <GlassCard className="md:col-span-4">
+            <CardHeader icon={ShieldTick} title="Trust through transparency" />
+            <p className="mt-2 text-sm text-muted-foreground">
               Public contributor lists, visible payout history, and verification
               badges.
             </p>
-            <div className="mt-5 flex flex-wrap items-center gap-2">
-              <Badge variant="success">✓ Verified payouts</Badge>
-              <Badge variant="primary">340+ contributors</Badge>
-              <Badge variant="muted">Public history</Badge>
-              <Badge variant="muted">No hidden terms</Badge>
+            <div className="mt-5 flex flex-wrap gap-2">
+              <Pill variant="success">✓ Verified payouts</Pill>
+              <Pill variant="primary">340+ contributors</Pill>
+              <Pill variant="default">Public history</Pill>
+              <Pill variant="default">No hidden terms</Pill>
             </div>
-          </div>
+          </GlassCard>
 
-          <div className="group rounded-2xl border border-border bg-card p-6 md:col-span-2">
-            <div className="mb-3 flex size-10 items-center justify-center rounded-xl bg-primary/10 text-primary">
-              <ChartBreakoutSquare className="size-5" />
-            </div>
-            <h3 className="mb-2 text-lg font-semibold">Real-time tracking</h3>
-            <p className="text-sm text-muted-foreground">
-              Watch your earnings grow as the project succeeds. Dashboard shows
-              all activity.
+          <GlassCard className="md:col-span-2">
+            <CardHeader icon={ChartBreakoutSquare} title="Real-time tracking" />
+            <p className="mt-2 text-sm text-muted-foreground">
+              Watch your earnings grow.
             </p>
             <div className="mt-5 flex items-end gap-1">
               {[35, 45, 38, 52, 48, 65, 72].map((height, i) => (
                 <div
                   key={i}
-                  className="flex-1 rounded-t bg-primary/20 transition-all hover:bg-primary/40"
+                  className="flex-1 rounded-sm bg-primary/30 transition-all duration-200 hover:bg-primary/60"
                   style={{ height: `${height}px` }}
                 />
               ))}
             </div>
-          </div>
+          </GlassCard>
         </div>
 
         {/* CTA */}
@@ -217,51 +174,91 @@ export function FeaturesSection() {
   )
 }
 
-function BountyCard({
+// Glass card component with Linear-style gradient border
+function GlassCard({
+  children,
+  className = '',
+}: {
+  children: React.ReactNode
+  className?: string
+}) {
+  return (
+    <div
+      className={`relative overflow-hidden rounded-xl bg-linear-to-br from-white/8 via-white/2 to-transparent p-5 backdrop-blur-sm before:pointer-events-none before:absolute before:inset-0 before:rounded-xl before:border before:border-white/8 before:bg-linear-to-br before:from-white/12 before:to-transparent before:opacity-0 before:transition-opacity before:duration-300 hover:before:opacity-100 dark:from-white/8 dark:via-white/2 dark:to-transparent dark:before:border-white/8 ${className} `}
+    >
+      {/* Gradient border overlay */}
+      <div
+        className="pointer-events-none absolute inset-0 rounded-xl"
+        style={{
+          padding: '1px',
+          background:
+            'linear-gradient(to bottom right, rgba(255,255,255,0.15), transparent 50%)',
+          mask: 'linear-gradient(#fff 0 0) content-box, linear-gradient(#fff 0 0)',
+          maskComposite: 'exclude',
+          WebkitMaskComposite: 'xor',
+        }}
+      />
+      <div className="relative">{children}</div>
+    </div>
+  )
+}
+
+function CardHeader({
+  icon: Icon,
+  title,
+}: {
+  icon: React.ComponentType<{ className?: string }>
+  title: string
+}) {
+  return (
+    <div className="flex items-center gap-3">
+      <div className="flex size-8 items-center justify-center rounded-lg bg-primary/10">
+        <Icon className="size-4 text-primary" />
+      </div>
+      <h3 className="text-base font-semibold">{title}</h3>
+    </div>
+  )
+}
+
+function BountyItem({
   title,
   points,
   status,
-  skills,
+  avatar,
+  assignee,
 }: {
   title: string
   points: number
   status: 'open' | 'claimed'
-  skills: string[]
+  avatar: string
+  assignee: string
 }) {
   return (
-    <div className="rounded-lg border border-border bg-muted/50 p-3">
-      <div className="mb-2 flex items-start justify-between">
-        <span className="text-sm font-medium">{title}</span>
+    <div
+      className={`flex items-center justify-between rounded-lg border border-white/5 bg-white/3 px-3 py-2.5 transition-colors duration-150 hover:bg-white/6 dark:border-white/5 dark:bg-white/3 dark:hover:bg-white/6 ${status === 'claimed' ? 'opacity-60' : ''} `}
+    >
+      <div className="flex items-center gap-3">
+        <div className="flex size-6 items-center justify-center rounded-full bg-white/10 text-xs font-medium text-muted-foreground uppercase">
+          {avatar}
+        </div>
+        <div className="flex flex-col gap-0.5">
+          <span className="text-sm font-medium">{title}</span>
+          <span className="text-xs text-muted-foreground">{assignee}</span>
+        </div>
+      </div>
+      <div className="flex items-center gap-2">
         <span
-          className={`rounded-full px-2 py-0.5 text-xs font-medium ${
-            status === 'open'
-              ? 'bg-green-500/10 text-green-600 dark:text-green-400'
-              : 'bg-yellow-500/10 text-yellow-600 dark:text-yellow-400'
-          }`}
+          className={`text-xs font-medium ${status === 'open' ? 'text-green-400' : 'text-muted-foreground'}`}
         >
           {status === 'open' ? 'Open' : 'Claimed'}
         </span>
-      </div>
-      <div className="flex items-center justify-between">
-        <div className="flex gap-1">
-          {skills.map((skill) => (
-            <span
-              key={skill}
-              className="rounded bg-background px-1.5 py-0.5 text-xs text-muted-foreground"
-            >
-              {skill}
-            </span>
-          ))}
-        </div>
-        <span className="text-sm font-semibold text-primary">
-          +{points} pts
-        </span>
+        <span className="text-sm font-semibold text-primary">+{points}</span>
       </div>
     </div>
   )
 }
 
-function PayoutRow({
+function PayoutItem({
   month,
   amount,
   verified,
@@ -271,34 +268,81 @@ function PayoutRow({
   verified?: boolean
 }) {
   return (
-    <div className="flex items-center justify-between rounded-lg bg-muted/50 px-3 py-2">
+    <div className="flex items-center justify-between rounded-lg border border-white/5 bg-white/3 px-3 py-2.5 transition-colors duration-150 hover:bg-white/6 dark:border-white/5 dark:bg-white/3 dark:hover:bg-white/6">
       <span className="text-sm text-muted-foreground">{month}</span>
       <div className="flex items-center gap-2">
         <span className="text-sm font-semibold">${amount}</span>
-        {verified && (
-          <ShieldTick className="size-4 text-green-600 dark:text-green-400" />
-        )}
+        {verified && <ShieldTick className="size-3.5 text-green-400" />}
       </div>
     </div>
   )
 }
 
-function Badge({
+function StatBlock({
+  value,
+  label,
+  highlight,
+}: {
+  value: string
+  label: string
+  highlight?: boolean
+}) {
+  return (
+    <div className="rounded-lg border border-white/5 bg-white/3 px-3 py-2.5 text-center dark:border-white/5 dark:bg-white/3">
+      <div
+        className={`text-lg font-semibold ${highlight ? 'text-green-400' : ''}`}
+      >
+        {value}
+      </div>
+      <div className="text-xs text-muted-foreground">{label}</div>
+    </div>
+  )
+}
+
+function VisibilityRow({
+  label,
+  value,
+  highlight,
+}: {
+  label: string
+  value: string
+  highlight?: boolean
+}) {
+  return (
+    <div
+      className={`flex items-center justify-between rounded-lg px-3 py-2 ${
+        highlight
+          ? 'border border-primary/20 bg-primary/10'
+          : 'border border-white/5 bg-white/3 dark:border-white/5 dark:bg-white/3'
+      }`}
+    >
+      <span className="text-sm text-muted-foreground">{label}</span>
+      <span
+        className={`text-sm font-semibold ${highlight ? 'text-primary' : ''}`}
+      >
+        {value}
+      </span>
+    </div>
+  )
+}
+
+function Pill({
   children,
   variant,
 }: {
   children: React.ReactNode
-  variant: 'success' | 'primary' | 'muted'
+  variant: 'success' | 'primary' | 'default'
 }) {
   const variantClasses = {
-    success: 'bg-green-500/10 text-green-700 dark:text-green-400',
-    primary: 'bg-primary/10 text-primary',
-    muted: 'bg-muted text-muted-foreground',
+    success: 'border-green-500/20 bg-green-500/10 text-green-400',
+    primary: 'border-primary/20 bg-primary/10 text-primary',
+    default:
+      'border-white/8 bg-white/5 text-muted-foreground dark:border-white/8 dark:bg-white/5',
   }
 
   return (
     <span
-      className={`rounded-full px-3 py-1 text-xs font-medium ${variantClasses[variant]}`}
+      className={`rounded-full border px-3 py-1 text-xs font-medium ${variantClasses[variant]}`}
     >
       {children}
     </span>

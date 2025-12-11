@@ -1,5 +1,5 @@
-import { PieChart01 } from '@untitled-ui/icons-react'
 import Link from 'next/link'
+import { Logo } from '@/components/ui/logo'
 
 const footerSections = [
   {
@@ -12,29 +12,10 @@ const footerSections = [
     ],
   },
   {
-    heading: 'Resources',
-    links: [
-      { label: 'Documentation', href: '/docs' },
-      { label: 'API Reference', href: '/docs/api' },
-      { label: 'Blog', href: '/blog' },
-      { label: 'Changelog', href: '/changelog' },
-    ],
-  },
-  {
-    heading: 'Company',
-    links: [
-      { label: 'About', href: '/about' },
-      { label: 'Careers', href: '/careers' },
-      { label: 'Contact', href: '/contact' },
-      { label: 'Press', href: '/press' },
-    ],
-  },
-  {
     heading: 'Legal',
     links: [
       { label: 'Terms of Service', href: '/terms' },
       { label: 'Privacy Policy', href: '/privacy' },
-      { label: 'Cookie Policy', href: '/cookies' },
     ],
   },
 ]
@@ -46,16 +27,11 @@ export function SiteFooter() {
     <footer className="border-t border-border bg-muted/30">
       <div className="mx-auto max-w-6xl px-6 pt-16 pb-8">
         {/* Main footer content */}
-        <div className="grid gap-12 md:grid-cols-2 lg:grid-cols-6">
+        <div className="grid gap-12 md:grid-cols-4">
           {/* Brand column */}
-          <div className="lg:col-span-2">
-            <Link href="/" className="inline-flex items-center gap-2">
-              <div className="flex size-9 items-center justify-center rounded-xl bg-primary">
-                <PieChart01 className="size-5 text-primary-foreground" />
-              </div>
-              <span className="font-logo text-lg tracking-wide uppercase">
-                Earn A <span className="text-primary">Slice</span>
-              </span>
+          <div className="md:col-span-2">
+            <Link href="/" className="inline-block">
+              <Logo size="md" />
             </Link>
             <p className="mt-4 max-w-xs text-sm text-muted-foreground">
               The platform where contributors earn recurring royalties for

@@ -69,7 +69,7 @@ export default function SignUpPage() {
           </Link>
 
           {/* Card container */}
-          <div className="rounded-2xl border border-border/50 bg-card p-8 shadow-lg dark:border-white/10">
+          <div className="rounded-2xl border border-border bg-card p-8 shadow-lg">
             <div className="flex flex-col space-y-2 text-center">
               <h1 className="text-2xl font-semibold tracking-tight">
                 Create an account
@@ -125,7 +125,7 @@ export default function SignUpPage() {
 
             <div className="relative my-6">
               <div className="absolute inset-0 flex items-center">
-                <span className="w-full border-t border-border/50 dark:border-white/10" />
+                <span className="w-full border-t border-border" />
               </div>
               <div className="relative flex justify-center text-xs uppercase">
                 <span className="bg-card px-2 text-muted-foreground">

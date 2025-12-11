@@ -15,8 +15,7 @@ const AppButton = React.forwardRef<
     className={cn(
       'cursor-pointer rounded-lg',
       // Override outline variant border styling
-      variant === 'outline' &&
-        'border-border/50 dark:border-white/10 dark:bg-card dark:hover:bg-white/5',
+      variant === 'outline' && 'border-border bg-card hover:bg-accent',
       className,
     )}
     {...props}

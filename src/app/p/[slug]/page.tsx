@@ -2,7 +2,11 @@ import { headers } from 'next/headers'
 import { notFound } from 'next/navigation'
 import { auth } from '@/lib/auth/server'
 import { prisma } from '@/lib/db/server'
-import { BountyStatus } from '@/lib/db/types'
+import {
+  BountyStatus,
+  PayoutRecipientStatus,
+  PayoutStatus,
+} from '@/lib/db/types'
 import { ProjectBackground } from './_components/project-background'
 import { ProjectHeader } from './_components/project-header'
 import { ProjectTabs } from './_components/project-tabs'
@@ -30,6 +34,19 @@ async function getProject(slug: string) {
           },
         },
       },
+      payouts: {
+        select: {
+          id: true,
+          status: true,
+          recipients: {
+            select: {
+              userId: true,
+              amountCents: true,
+              status: true,
+            },
+          },
+        },
+      },
       _count: {
         select: {
           bounties: true,
@@ -39,7 +56,34 @@ async function getProject(slug: string) {
     },
   })
 
-  return project
+  if (!project) return null
+
+  // Calculate stats from payouts
+  const allRecipients = project.payouts.flatMap((p) => p.recipients)
+  const uniqueContributorIds = new Set(allRecipients.map((r) => r.userId))
+  const contributorCount = uniqueContributorIds.size
+
+  const confirmedRecipients = allRecipients.filter(
+    (r) => r.status === PayoutRecipientStatus.CONFIRMED,
+  )
+  const totalPaidOutCents = confirmedRecipients.reduce(
+    (sum, r) => sum + r.amountCents,
+    0,
+  )
+
+  const verifiedPayoutCount = project.payouts.filter(
+    (p) =>
+      p.status === PayoutStatus.COMPLETED || p.status === PayoutStatus.SENT,
+  ).length
+
+  return {
+    ...project,
+    stats: {
+      contributorCount,
+      totalPaidOutCents,
+      verifiedPayoutCount,
+    },
+  }
 }
 
 export default async function ProjectPage({ params }: ProjectPageProps) {

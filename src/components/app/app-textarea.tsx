@@ -11,10 +11,7 @@ const AppTextarea = React.forwardRef<
 >(({ className, ...props }, ref) => (
   <Textarea
     ref={ref}
-    className={cn(
-      'rounded-xl border-border/50 px-4 py-3 dark:border-white/10 dark:bg-card',
-      className,
-    )}
+    className={cn('rounded-xl border-border bg-card px-4 py-3', className)}
     {...props}
   />
 ))

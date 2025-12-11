@@ -40,7 +40,7 @@ export function AppHeader() {
       {/* Outer wrapper - uses container to match page width */}
       <div className="container px-4 pt-4">
         {/* Clean floating header */}
-        <div className="rounded-xl border border-border/50 bg-background/80 shadow-lg shadow-black/5 backdrop-blur-md dark:border-white/10 dark:bg-background/60">
+        <div className="rounded-xl border border-border bg-background/80 shadow-lg shadow-black/5 backdrop-blur-md">
           {/* Inner content */}
           <div className="flex h-12 items-center px-4">
             {/* Logo */}
@@ -93,7 +93,7 @@ export function AppHeader() {
                       variant="outline"
                       size="sm"
                       asChild
-                      className="hidden cursor-pointer border-border/50 bg-background/50 backdrop-blur-sm transition-colors hover:bg-accent sm:flex dark:border-white/10 dark:bg-white/5 dark:hover:bg-white/10"
+                      className="hidden cursor-pointer border-border bg-secondary backdrop-blur-sm transition-colors hover:bg-accent sm:flex"
                     >
                       <Link href={newProjectUrl}>
                         <Plus className="mr-1 size-4" />
@@ -112,7 +112,7 @@ export function AppHeader() {
                             src={session.user.image ?? undefined}
                             alt={session.user.name}
                           />
-                          <AvatarFallback className="bg-white/10 text-xs">
+                          <AvatarFallback className="bg-muted text-xs">
                             {session.user.name
                               ?.split(' ')
                               .map((n) => n[0])
@@ -124,7 +124,7 @@ export function AppHeader() {
                     </DropdownMenuTrigger>
                     <DropdownMenuContent
                       align="end"
-                      className="w-56 border-border/50 bg-background/95 backdrop-blur-xl dark:border-white/10"
+                      className="w-56 border-border bg-background/95 backdrop-blur-xl"
                     >
                       <div className="flex items-center justify-start gap-2 p-2">
                         <div className="flex flex-col space-y-1 leading-none">
@@ -134,14 +134,14 @@ export function AppHeader() {
                           </p>
                         </div>
                       </div>
-                      <DropdownMenuSeparator className="bg-border/50 dark:bg-white/8" />
+                      <DropdownMenuSeparator className="bg-border" />
                       <DropdownMenuItem asChild className="cursor-pointer">
                         <Link href={settingsUrl}>
                           <Settings01 className="mr-2 size-4" />
                           Settings
                         </Link>
                       </DropdownMenuItem>
-                      <DropdownMenuSeparator className="bg-border/50 dark:bg-white/8" />
+                      <DropdownMenuSeparator className="bg-border" />
                       <DropdownMenuItem
                         className="cursor-pointer"
                         onClick={() => signOut()}

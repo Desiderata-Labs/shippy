@@ -10,7 +10,7 @@ import {
 } from '@/components/ui/card'
 
 /**
- * App-styled card extending shadcn Card with subtle borders.
+ * App-styled card with glassmorphism effect.
  */
 const AppCard = React.forwardRef<
   HTMLDivElement,
@@ -18,7 +18,10 @@ const AppCard = React.forwardRef<
 >(({ className, ...props }, ref) => (
   <Card
     ref={ref}
-    className={cn('border-border/50 dark:border-white/10', className)}
+    className={cn(
+      'isolate border-0 bg-card/50 shadow-lg ring-1 ring-border backdrop-blur-xl',
+      className,
+    )}
     {...props}
   />
 ))

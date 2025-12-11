@@ -11,10 +11,7 @@ const AppInput = React.forwardRef<
 >(({ className, ...props }, ref) => (
   <Input
     ref={ref}
-    className={cn(
-      'h-10 rounded-xl border-border/50 px-4 dark:border-white/10 dark:bg-card',
-      className,
-    )}
+    className={cn('h-10 rounded-xl border-border bg-card px-4', className)}
     {...props}
   />
 ))

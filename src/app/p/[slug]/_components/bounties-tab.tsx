@@ -1,19 +1,20 @@
 'use client'
 
-import { Clock, Target01, Users01 } from '@untitled-ui/icons-react'
-import Link from 'next/link'
-import { Badge } from '@/components/ui/badge'
-import { Button } from '@/components/ui/button'
 import {
-  Card,
-  CardContent,
-  CardDescription,
-  CardHeader,
-  CardTitle,
-} from '@/components/ui/card'
+  ArrowRight,
+  Clock,
+  Plus,
+  Target01,
+  Users01,
+} from '@untitled-ui/icons-react'
+import Link from 'next/link'
+import { routes } from '@/lib/routes'
+import { cn } from '@/lib/utils'
+import { Button } from '@/components/ui/button'
+import { GlassCard } from './glass-card'
 
 interface BountiesTabProps {
-  projectId: string
+  projectSlug: string
   bounties: Array<{
     id: string
     title: string
@@ -33,15 +34,15 @@ interface BountiesTabProps {
 }
 
 const tagColors: Record<string, string> = {
-  GROWTH: 'bg-green-500/10 text-green-600 dark:text-green-400',
-  SALES: 'bg-blue-500/10 text-blue-600 dark:text-blue-400',
-  CONTENT: 'bg-purple-500/10 text-purple-600 dark:text-purple-400',
-  DESIGN: 'bg-pink-500/10 text-pink-600 dark:text-pink-400',
-  DEV: 'bg-orange-500/10 text-orange-600 dark:text-orange-400',
+  GROWTH: 'border-green-500/20 bg-green-500/10 text-green-500',
+  SALES: 'border-blue-500/20 bg-blue-500/10 text-blue-500',
+  CONTENT: 'border-purple-500/20 bg-purple-500/10 text-purple-500',
+  DESIGN: 'border-pink-500/20 bg-pink-500/10 text-pink-500',
+  DEV: 'border-orange-500/20 bg-orange-500/10 text-orange-500',
 }
 
 export function BountiesTab({
-  projectId,
+  projectSlug,
   bounties,
   isFounder,
 }: BountiesTabProps) {
@@ -50,33 +51,41 @@ export function BountiesTab({
 
   if (bounties.length === 0) {
     return (
-      <Card>
-        <CardContent className="flex flex-col items-center justify-center py-16 text-center">
-          <Target01 className="mb-4 size-12 text-muted-foreground" />
-          <h3 className="text-xl font-semibold">No bounties yet</h3>
-          <p className="mt-2 max-w-sm text-muted-foreground">
+      <GlassCard className="py-12 text-center">
+        <div className="mx-auto flex max-w-xs flex-col items-center">
+          <div className="mb-3 flex size-12 items-center justify-center rounded-xl bg-primary/10">
+            <Target01 className="size-6 text-primary" />
+          </div>
+          <h3 className="text-base font-semibold">No bounties yet</h3>
+          <p className="mt-1.5 text-sm text-muted-foreground">
             {isFounder
               ? 'Create your first bounty to attract contributors.'
               : 'Check back later for new opportunities.'}
           </p>
           {isFounder && (
-            <Button asChild className="mt-4 cursor-pointer">
-              <Link href={`/project/${projectId}/bounties/new`}>
+            <Button size="sm" asChild className="mt-4 cursor-pointer gap-1.5">
+              <Link href={routes.project.newBounty({ slug: projectSlug })}>
+                <Plus className="size-3.5" />
                 Create Bounty
               </Link>
             </Button>
           )}
-        </CardContent>
-      </Card>
+        </div>
+      </GlassCard>
     )
   }
 
   return (
     <div className="space-y-6">
+      {/* Header with action */}
       {isFounder && (
-        <div className="flex justify-end">
-          <Button asChild className="cursor-pointer">
-            <Link href={`/project/${projectId}/bounties/new`}>
+        <div className="flex items-center justify-between">
+          <p className="text-xs text-muted-foreground">
+            {openBounties.length} open, {claimedBounties.length} in progress
+          </p>
+          <Button size="sm" asChild className="cursor-pointer gap-1.5">
+            <Link href={routes.project.newBounty({ slug: projectSlug })}>
+              <Plus className="size-3.5" />
               Create Bounty
             </Link>
           </Button>
@@ -85,110 +94,146 @@ export function BountiesTab({
 
       {/* Open Bounties */}
       {openBounties.length > 0 && (
-        <div>
-          <h3 className="mb-4 text-lg font-semibold">
-            Open Bounties ({openBounties.length})
-          </h3>
-          <div className="grid gap-4">
+        <section>
+          <div className="mb-3 flex items-center gap-1.5">
+            <div className="size-1.5 rounded-full bg-green-500" />
+            <h3 className="text-xs font-medium tracking-wider text-muted-foreground uppercase">
+              Open ({openBounties.length})
+            </h3>
+          </div>
+          <div className="grid gap-2">
             {openBounties.map((bounty) => (
-              <BountyCard key={bounty.id} bounty={bounty} />
+              <BountyCard
+                key={bounty.id}
+                bounty={bounty}
+                projectSlug={projectSlug}
+              />
             ))}
           </div>
-        </div>
+        </section>
       )}
 
-      {/* Claimed Bounties */}
+      {/* In Progress Bounties */}
       {claimedBounties.length > 0 && (
-        <div>
-          <h3 className="mb-4 text-lg font-semibold text-muted-foreground">
-            In Progress ({claimedBounties.length})
-          </h3>
-          <div className="grid gap-4">
+        <section>
+          <div className="mb-3 flex items-center gap-1.5">
+            <div className="size-1.5 rounded-full bg-yellow-500" />
+            <h3 className="text-xs font-medium tracking-wider text-muted-foreground uppercase">
+              In Progress ({claimedBounties.length})
+            </h3>
+          </div>
+          <div className="grid gap-2">
             {claimedBounties.map((bounty) => (
-              <BountyCard key={bounty.id} bounty={bounty} />
+              <BountyCard
+                key={bounty.id}
+                bounty={bounty}
+                projectSlug={projectSlug}
+                muted
+              />
             ))}
           </div>
-        </div>
+        </section>
       )}
     </div>
   )
 }
 
-function BountyCard({
-  bounty,
-}: {
+interface BountyCardProps {
   bounty: BountiesTabProps['bounties'][number]
-}) {
+  projectSlug: string
+  muted?: boolean
+}
+
+function BountyCard({ bounty, projectSlug, muted }: BountyCardProps) {
   const isOpen = bounty.status === 'OPEN'
 
   return (
-    <Card className={!isOpen ? 'opacity-75' : ''}>
-      <CardHeader>
-        <div className="flex items-start justify-between gap-4">
+    <Link
+      href={routes.project.bountyDetail({
+        slug: projectSlug,
+        bountyId: bounty.id,
+      })}
+      className="group block"
+    >
+      <GlassCard
+        className={cn(
+          'p-4 transition-all duration-200',
+          muted && 'opacity-60 hover:opacity-80',
+          !muted && 'hover:ring-1 hover:ring-primary/20',
+        )}
+      >
+        <div className="flex flex-col gap-3 sm:flex-row sm:items-start sm:justify-between">
+          {/* Left: Title and description */}
           <div className="min-w-0 flex-1">
             <div className="flex items-center gap-2">
-              <CardTitle className="text-lg">{bounty.title}</CardTitle>
+              <h4 className="text-sm font-medium transition-colors group-hover:text-primary">
+                {bounty.title}
+              </h4>
               {!isOpen && (
-                <Badge variant="secondary" className="shrink-0">
+                <span className="rounded-full border border-yellow-500/20 bg-yellow-500/10 px-1.5 py-0.5 text-[10px] font-medium text-yellow-500">
                   Claimed
-                </Badge>
+                </span>
               )}
             </div>
-            <CardDescription className="mt-1 line-clamp-2">
+            <p className="mt-1 line-clamp-2 text-xs text-muted-foreground">
               {bounty.description}
-            </CardDescription>
-          </div>
-          <div className="shrink-0 rounded-lg bg-primary/10 px-3 py-2 text-center text-primary">
-            <p className="text-lg font-bold">+{bounty.points}</p>
-            <p className="text-xs">points</p>
-          </div>
-        </div>
-      </CardHeader>
-      <CardContent>
-        <div className="flex flex-wrap items-center gap-4">
-          {/* Tags */}
-          <div className="flex flex-wrap gap-2">
-            {bounty.tags.map((tag) => (
-              <span
-                key={tag}
-                className={`rounded-full px-2 py-0.5 text-xs font-medium ${tagColors[tag] || 'bg-secondary text-secondary-foreground'}`}
-              >
-                {tag.toLowerCase()}
-              </span>
-            ))}
-          </div>
+            </p>
 
-          <div className="flex-1" />
-
-          {/* Stats */}
-          <div className="flex items-center gap-4 text-sm text-muted-foreground">
-            {bounty.claimMode === 'SINGLE' ? (
-              <span className="flex items-center gap-1">
-                <Users01 className="size-4" />
-                Single claim
-              </span>
-            ) : (
-              <span className="flex items-center gap-1">
-                <Users01 className="size-4" />
-                {bounty._count.claims} claimed
-              </span>
+            {/* Tags */}
+            {bounty.tags.length > 0 && (
+              <div className="mt-2 flex flex-wrap gap-1.5">
+                {bounty.tags.map((tag) => (
+                  <span
+                    key={tag}
+                    className={cn(
+                      'rounded-full border px-2 py-0.5 text-[10px] font-medium',
+                      tagColors[tag] ||
+                        'border-border bg-muted text-muted-foreground',
+                    )}
+                  >
+                    {tag.toLowerCase()}
+                  </span>
+                ))}
+              </div>
             )}
-            <span className="flex items-center gap-1">
-              <Clock className="size-4" />
-              {new Date(bounty.createdAt).toLocaleDateString('en-US', {
-                month: 'short',
-                day: 'numeric',
-              })}
-            </span>
           </div>
 
-          {isOpen && (
-            <Button size="sm" className="cursor-pointer">
-              Claim Bounty
-            </Button>
-          )}
+          {/* Right: Points badge */}
+          <div className="flex shrink-0 items-center gap-3">
+            <div className="rounded-lg bg-primary/10 px-3 py-1.5 text-center">
+              <p className="text-base font-bold text-primary">
+                +{bounty.points}
+              </p>
+              <p className="text-[10px] text-muted-foreground">points</p>
+            </div>
+
+            {/* Arrow on hover */}
+            <ArrowRight className="size-4 text-muted-foreground opacity-0 transition-all group-hover:translate-x-0.5 group-hover:text-primary group-hover:opacity-100" />
+          </div>
         </div>
-      </CardContent>
-    </Card>
+
+        {/* Footer meta */}
+        <div className="mt-3 flex items-center gap-3 border-t border-border pt-3 text-[10px] text-muted-foreground">
+          {bounty.claimMode === 'SINGLE' ? (
+            <span className="flex items-center gap-1">
+              <Users01 className="size-3" />
+              Single claim
+            </span>
+          ) : (
+            <span className="flex items-center gap-1">
+              <Users01 className="size-3" />
+              {bounty._count.claims} claimed
+            </span>
+          )}
+          <span className="flex items-center gap-1">
+            <Clock className="size-3" />
+            {new Date(bounty.createdAt).toLocaleDateString('en-US', {
+              month: 'short',
+              day: 'numeric',
+            })}
+          </span>
+        </div>
+      </GlassCard>
+    </Link>
   )
 }

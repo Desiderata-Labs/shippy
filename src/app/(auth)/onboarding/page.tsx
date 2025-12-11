@@ -101,7 +101,7 @@ function OnboardingForm({ suggestedUsername }: { suggestedUsername: string }) {
     availabilityData?.available
 
   return (
-    <div className="rounded-2xl border border-border/50 bg-card p-8 shadow-lg dark:border-white/10">
+    <div className="rounded-2xl border border-border bg-card p-8 shadow-lg">
       <div className="flex flex-col space-y-2 text-center">
         <h1 className="text-2xl font-semibold tracking-tight">
           Choose your username

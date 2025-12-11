@@ -165,6 +165,28 @@ import { getUser } from "@/lib/auth";
 - Use Prisma-generated types for database models
 - Use Zod for input validation in tRPC procedures
 
+### Routes
+
+- **NEVER use string literals for internal navigation URLs** (e.g., `/p/${slug}`, `/u/${username}`)
+- **ALWAYS use the `routes` helper** from `@/lib/routes` for all internal links and navigation
+- This ensures type-safe routing and makes refactoring easier
+
+```tsx
+// ✅ Correct - type-safe routes
+import { routes } from '@/lib/routes'
+
+<Link href={routes.project.detail({ slug: 'my-project' })}>View Project</Link>
+<Link href={routes.user.profile({ username: 'rob' })}>View Profile</Link>
+<Link href={routes.project.bountyDetail({ slug: 'my-project', bountyId: '123' })}>View Bounty</Link>
+
+// ❌ Wrong - stringly typed URLs
+<Link href={`/p/${slug}`}>View Project</Link>
+<Link href={`/u/${username}`}>View Profile</Link>
+```
+
+- When adding new routes, update the appropriate file in `src/lib/routes/` (e.g., `project.ts`, `user.ts`)
+- Export both `paths` (for Next.js app router matching) and `routes` (for navigation)
+
 ### UI Components (shadcn/ui)
 
 - Use shadcn/ui components for consistent design

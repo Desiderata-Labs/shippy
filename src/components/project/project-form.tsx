@@ -328,7 +328,7 @@ export function ProjectForm({
               >
                 <SelectTrigger
                   id="payoutFrequency"
-                  className="rounded-xl border-border/50 dark:border-white/10"
+                  className="rounded-xl border-border"
                 >
                   <SelectValue />
                 </SelectTrigger>
@@ -352,7 +352,7 @@ export function ProjectForm({
               >
                 <SelectTrigger
                   id="commitmentMonths"
-                  className="rounded-xl border-border/50 dark:border-white/10"
+                  className="rounded-xl border-border"
                 >
                   <SelectValue />
                 </SelectTrigger>

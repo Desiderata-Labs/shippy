@@ -4,13 +4,17 @@ import { useSession } from '@/lib/auth/react'
 import { trpc } from '@/lib/trpc/react'
 import {
   ArrowUpRight,
+  Check,
   Clock,
   CoinsStacked01,
   Target01,
+  X,
 } from '@untitled-ui/icons-react'
-import { useEffect } from 'react'
+import { Loader2 } from 'lucide-react'
+import { useEffect, useState } from 'react'
 import Link from 'next/link'
 import { redirect, useRouter } from 'next/navigation'
+import { PayoutRecipientStatus, PayoutStatus } from '@/lib/db/types'
 import { routes } from '@/lib/routes'
 import {
   AppButton,
@@ -19,10 +23,12 @@ import {
   AppCardDescription,
   AppCardHeader,
   AppCardTitle,
+  AppTextarea,
 } from '@/components/app'
 import { AppBackground } from '@/components/layout/app-background'
 import { Badge } from '@/components/ui/badge'
 import { Skeleton } from '@/components/ui/skeleton'
+import { toast } from 'sonner'
 
 function formatCurrency(cents: number): string {
   return new Intl.NumberFormat('en-US', {
@@ -36,8 +42,29 @@ function formatCurrency(cents: number): string {
 export default function ContributorDashboardPage() {
   const router = useRouter()
   const { data: session, isPending: sessionLoading } = useSession()
+  const [confirmingPayoutId, setConfirmingPayoutId] = useState<string | null>(
+    null,
+  )
+  const [showDisputeForm, setShowDisputeForm] = useState<string | null>(null)
+  const [disputeReason, setDisputeReason] = useState('')
+
   const { data, isLoading } = trpc.contributor.myDashboard.useQuery(undefined, {
     enabled: !!session,
+  })
+
+  const utils = trpc.useUtils()
+
+  const confirmReceipt = trpc.payout.confirmReceipt.useMutation({
+    onSuccess: () => {
+      toast.success('Receipt confirmed!')
+      utils.contributor.myDashboard.invalidate()
+      setConfirmingPayoutId(null)
+      setShowDisputeForm(null)
+      setDisputeReason('')
+    },
+    onError: (error) => {
+      toast.error(error.message)
+    },
   })
 
   // Check if user needs onboarding (no username set)
@@ -229,37 +256,157 @@ export default function ContributorDashboardPage() {
                 </div>
               ) : (
                 <div className="divide-y divide-border/50 dark:divide-white/10">
-                  {data.recentPayouts.map((recipient) => (
-                    <div
-                      key={recipient.id}
-                      className="flex items-center justify-between py-4 first:pt-0 last:pb-0"
-                    >
-                      <div>
-                        <p className="font-medium">
-                          {recipient.payout.project.name}
-                        </p>
-                        <p className="text-sm text-muted-foreground">
-                          {recipient.payout.periodLabel}
-                        </p>
+                  {data.recentPayouts.map((recipient) => {
+                    const needsConfirmation =
+                      recipient.status === PayoutRecipientStatus.PENDING &&
+                      recipient.payout.status === PayoutStatus.SENT
+
+                    const handleConfirm = async () => {
+                      setConfirmingPayoutId(recipient.payoutId)
+                      try {
+                        await confirmReceipt.mutateAsync({
+                          payoutId: recipient.payoutId,
+                          confirmed: true,
+                        })
+                      } finally {
+                        setConfirmingPayoutId(null)
+                      }
+                    }
+
+                    const handleDispute = async () => {
+                      setConfirmingPayoutId(recipient.payoutId)
+                      try {
+                        await confirmReceipt.mutateAsync({
+                          payoutId: recipient.payoutId,
+                          confirmed: false,
+                          disputeReason:
+                            disputeReason || 'Payment not received',
+                        })
+                      } finally {
+                        setConfirmingPayoutId(null)
+                      }
+                    }
+
+                    return (
+                      <div
+                        key={recipient.id}
+                        className="py-4 first:pt-0 last:pb-0"
+                      >
+                        <div className="flex items-center justify-between">
+                          <div>
+                            <p className="font-medium">
+                              {recipient.payout.project.name}
+                            </p>
+                            <p className="text-sm text-muted-foreground">
+                              {recipient.payout.periodLabel}
+                            </p>
+                          </div>
+                          <div className="text-right">
+                            <p className="font-medium">
+                              {formatCurrency(recipient.amountCents)}
+                            </p>
+                            <Badge
+                              variant={
+                                recipient.status ===
+                                PayoutRecipientStatus.CONFIRMED
+                                  ? 'default'
+                                  : recipient.status ===
+                                      PayoutRecipientStatus.DISPUTED
+                                    ? 'destructive'
+                                    : 'secondary'
+                              }
+                            >
+                              {recipient.status.toLowerCase()}
+                            </Badge>
+                          </div>
+                        </div>
+
+                        {/* Confirmation actions */}
+                        {needsConfirmation &&
+                          showDisputeForm !== recipient.payoutId && (
+                            <div className="mt-3 flex gap-2">
+                              <AppButton
+                                size="sm"
+                                onClick={handleConfirm}
+                                disabled={
+                                  confirmingPayoutId === recipient.payoutId
+                                }
+                                className="flex-1 bg-green-600 hover:bg-green-700"
+                              >
+                                {confirmingPayoutId === recipient.payoutId ? (
+                                  <Loader2 className="mr-2 size-3 animate-spin" />
+                                ) : (
+                                  <Check className="mr-2 size-3" />
+                                )}
+                                Confirm Received
+                              </AppButton>
+                              <AppButton
+                                size="sm"
+                                variant="outline"
+                                onClick={() =>
+                                  setShowDisputeForm(recipient.payoutId)
+                                }
+                                disabled={
+                                  confirmingPayoutId === recipient.payoutId
+                                }
+                                className="text-red-500 hover:bg-red-500/10"
+                              >
+                                <X className="mr-2 size-3" />
+                                Not Received
+                              </AppButton>
+                            </div>
+                          )}
+
+                        {/* Dispute form */}
+                        {showDisputeForm === recipient.payoutId && (
+                          <div className="mt-3 space-y-2 rounded-lg border border-red-500/20 bg-red-500/5 p-3">
+                            <p className="text-xs font-medium text-red-500">
+                              Report a problem with this payout
+                            </p>
+                            <AppTextarea
+                              value={disputeReason}
+                              onChange={(e) => setDisputeReason(e.target.value)}
+                              placeholder="Describe the issue..."
+                              rows={2}
+                              disabled={
+                                confirmingPayoutId === recipient.payoutId
+                              }
+                            />
+                            <div className="flex gap-2">
+                              <AppButton
+                                size="sm"
+                                variant="outline"
+                                onClick={() => {
+                                  setShowDisputeForm(null)
+                                  setDisputeReason('')
+                                }}
+                                disabled={
+                                  confirmingPayoutId === recipient.payoutId
+                                }
+                              >
+                                Cancel
+                              </AppButton>
+                              <AppButton
+                                size="sm"
+                                onClick={handleDispute}
+                                disabled={
+                                  confirmingPayoutId === recipient.payoutId
+                                }
+                                className="bg-red-600 hover:bg-red-700"
+                              >
+                                {confirmingPayoutId === recipient.payoutId ? (
+                                  <Loader2 className="mr-2 size-3 animate-spin" />
+                                ) : (
+                                  <X className="mr-2 size-3" />
+                                )}
+                                Submit Dispute
+                              </AppButton>
+                            </div>
+                          </div>
+                        )}
                       </div>
-                      <div className="text-right">
-                        <p className="font-medium">
-                          {formatCurrency(recipient.amountCents)}
-                        </p>
-                        <Badge
-                          variant={
-                            recipient.status === 'CONFIRMED'
-                              ? 'default'
-                              : recipient.status === 'DISPUTED'
-                                ? 'destructive'
-                                : 'secondary'
-                          }
-                        >
-                          {recipient.status.toLowerCase()}
-                        </Badge>
-                      </div>
-                    </div>
-                  ))}
+                    )
+                  })}
                 </div>
               )}
             </AppCardContent>

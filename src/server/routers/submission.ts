@@ -162,25 +162,16 @@ export const submissionRouter = router({
         throw new TRPCError({ code: 'NOT_FOUND', message: 'Bounty not found' })
       }
 
-      // Can't submit to your own project
-      if (bounty.project.founderId === ctx.user.id) {
-        throw new TRPCError({
-          code: 'FORBIDDEN',
-          message: 'You cannot submit to your own bounties',
-        })
-      }
-
       // Check if user has an active claim
-      const claim = await ctx.prisma.bountyClaim.findUnique({
+      const claim = await ctx.prisma.bountyClaim.findFirst({
         where: {
-          bountyId_userId: {
-            bountyId: input.bountyId,
-            userId: ctx.user.id,
-          },
+          bountyId: input.bountyId,
+          userId: ctx.user.id,
+          status: ClaimStatus.ACTIVE,
         },
       })
 
-      if (!claim || claim.status !== ClaimStatus.ACTIVE) {
+      if (!claim) {
         throw new TRPCError({
           code: 'BAD_REQUEST',
           message: 'You must claim this bounty before submitting',

@@ -251,9 +251,6 @@ CREATE INDEX "bounty_claim_userId_idx" ON "bounty_claim"("userId");
 CREATE INDEX "bounty_claim_status_idx" ON "bounty_claim"("status");
 
 -- CreateIndex
-CREATE UNIQUE INDEX "bounty_claim_bountyId_userId_key" ON "bounty_claim"("bountyId", "userId");
-
--- CreateIndex
 CREATE INDEX "submission_bountyId_idx" ON "submission"("bountyId");
 
 -- CreateIndex

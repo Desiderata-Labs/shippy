@@ -35,5 +35,10 @@ export type Routes = typeof routes
 export type Paths = typeof paths
 
 // Re-export types for convenience
-export type { BountyParams, ProjectParams } from './project'
+export type {
+  BountyParams,
+  PayoutParams,
+  ProjectParams,
+  SubmissionParams,
+} from './project'
 export type { UserParams } from './user'

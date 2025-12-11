@@ -3,9 +3,11 @@
 import {
   Calendar,
   CheckCircle,
+  Clock,
   CoinsStacked01,
   Globe01,
   MessageSquare01,
+  Plus,
   Settings01,
   Share07,
   ShieldTick,
@@ -18,6 +20,13 @@ import Link from 'next/link'
 import { routes } from '@/lib/routes'
 import { Avatar, AvatarFallback, AvatarImage } from '@/components/ui/avatar'
 import { Button } from '@/components/ui/button'
+import {
+  DropdownMenu,
+  DropdownMenuContent,
+  DropdownMenuItem,
+  DropdownMenuSeparator,
+  DropdownMenuTrigger,
+} from '@/components/ui/dropdown-menu'
 import {
   Tooltip,
   TooltipContent,
@@ -198,17 +207,47 @@ export function ProjectHeader({ project, isFounder }: ProjectHeaderProps) {
           </TooltipProvider>
 
           {isFounder && (
-            <Button
-              variant="outline"
-              size="sm"
-              className="cursor-pointer border-border bg-secondary hover:bg-accent"
-              asChild
-            >
-              <Link href={routes.project.settings({ slug: project.slug })}>
-                <Settings01 className="mr-1.5 size-3.5" />
-                Manage
-              </Link>
-            </Button>
+            <DropdownMenu>
+              <DropdownMenuTrigger asChild>
+                <Button
+                  variant="outline"
+                  size="sm"
+                  className="cursor-pointer border-border bg-secondary hover:bg-accent"
+                >
+                  <Settings01 className="mr-1.5 size-3.5" />
+                  Manage
+                </Button>
+              </DropdownMenuTrigger>
+              <DropdownMenuContent align="end" className="w-48">
+                <DropdownMenuItem asChild className="cursor-pointer">
+                  <Link href={routes.project.newBounty({ slug: project.slug })}>
+                    <Plus className="mr-2 size-4" />
+                    Create Bounty
+                  </Link>
+                </DropdownMenuItem>
+                <DropdownMenuItem asChild className="cursor-pointer">
+                  <Link
+                    href={routes.project.submissions({ slug: project.slug })}
+                  >
+                    <Clock className="mr-2 size-4" />
+                    Pending Submissions
+                  </Link>
+                </DropdownMenuItem>
+                <DropdownMenuItem asChild className="cursor-pointer">
+                  <Link href={routes.project.newPayout({ slug: project.slug })}>
+                    <CoinsStacked01 className="mr-2 size-4" />
+                    Create Payout
+                  </Link>
+                </DropdownMenuItem>
+                <DropdownMenuSeparator />
+                <DropdownMenuItem asChild className="cursor-pointer">
+                  <Link href={routes.project.settings({ slug: project.slug })}>
+                    <Settings01 className="mr-2 size-4" />
+                    Project Settings
+                  </Link>
+                </DropdownMenuItem>
+              </DropdownMenuContent>
+            </DropdownMenu>
           )}
         </div>
       </div>

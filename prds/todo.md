@@ -58,30 +58,30 @@ Building the MVP for Earn A Slice - a platform where contributors earn ongoing r
 
 - [x] **Dashboard Layout** - My projects list
 - [x] **Create Project** - Full form with pool configuration
-- [ ] **Pending Submissions** - Review and approve/reject flow
-- [ ] **Submission Thread** - Conversation UI like GitHub PR
-- [ ] **Manage Bounties** - Create, edit, close bounties
-- [ ] **Edit Project** - Update readme and settings
+- [x] **Pending Submissions** - Review and approve/reject flow
+- [x] **Submission Thread** - Conversation UI like GitHub PR
+- [x] **Manage Bounties** - Create, edit, close bounties
+- [x] **Edit Project** - Update readme and settings
 
 ---
 
-## Phase 7: Payout System 🔄
+## Phase 7: Payout System ✅
 
-- [ ] **Create Payout** - Founder enters profit for period
-- [ ] **Preview Split** - Show breakdown before confirming
-- [ ] **Mark Sent** - Founder marks payouts as sent
-- [ ] **Confirm Receipt** - Contributors confirm/dispute
-- [ ] **Payout History** - Timeline of all payouts
+- [x] **Create Payout** - Founder enters profit for period
+- [x] **Preview Split** - Show breakdown before confirming
+- [x] **Mark Sent** - Founder marks payouts as sent
+- [x] **Confirm Receipt** - Contributors confirm/dispute
+- [x] **Payout History** - Timeline of all payouts
 
 ---
 
-## Phase 8: Bounty Flow 🔄
+## Phase 8: Bounty Flow ✅
 
-- [ ] **Create Bounty** - Form with templates
-- [ ] **Claim Bounty** - Contributor claims with expiry
-- [ ] **Submit Work** - Description + attachments
-- [ ] **Review Submission** - Approve/reject with notes
-- [ ] **Release Claim** - Founder can release stale claims
+- [x] **Create Bounty** - Form with templates
+- [x] **Claim Bounty** - Contributor claims with expiry
+- [x] **Submit Work** - Description + attachments
+- [x] **Review Submission** - Approve/reject with notes
+- [x] **Release Claim** - Founder can release stale claims
 
 ---
 
@@ -128,6 +128,12 @@ Building the MVP for Earn A Slice - a platform where contributors earn ongoing r
 - ✅ Contributor Dashboard
 - ✅ Founder Dashboard
 - ✅ Create Project
+- ✅ Create Bounty (with templates)
+- ✅ Bounty Detail (claim, submit work)
+- ✅ Submission Detail (conversation thread)
+- ✅ Pending Submissions List
+- ✅ Create Payout (with preview)
+- ✅ Payout History
 
 ---
 

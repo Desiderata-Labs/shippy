@@ -190,14 +190,6 @@ export const bountyRouter = router({
         throw new TRPCError({ code: 'NOT_FOUND', message: 'Bounty not found' })
       }
 
-      // Can't claim your own project's bounties
-      if (bounty.project.founderId === ctx.user.id) {
-        throw new TRPCError({
-          code: 'FORBIDDEN',
-          message: 'You cannot claim your own bounties',
-        })
-      }
-
       // Check if bounty is open
       if (bounty.status !== BountyStatus.OPEN) {
         throw new TRPCError({
@@ -206,17 +198,16 @@ export const bountyRouter = router({
         })
       }
 
-      // Check existing claim
-      const existingClaim = await ctx.prisma.bountyClaim.findUnique({
+      // Check existing active claim
+      const existingActiveClaim = await ctx.prisma.bountyClaim.findFirst({
         where: {
-          bountyId_userId: {
-            bountyId: input.bountyId,
-            userId: ctx.user.id,
-          },
+          bountyId: input.bountyId,
+          userId: ctx.user.id,
+          status: ClaimStatus.ACTIVE,
         },
       })
 
-      if (existingClaim) {
+      if (existingActiveClaim) {
         throw new TRPCError({
           code: 'CONFLICT',
           message: 'You have already claimed this bounty',
@@ -246,7 +237,7 @@ export const bountyRouter = router({
       const expiresAt = new Date()
       expiresAt.setDate(expiresAt.getDate() + bounty.claimExpiryDays)
 
-      // Create claim
+      // Create new claim
       const claim = await ctx.prisma.bountyClaim.create({
         data: {
           bountyId: input.bountyId,

@@ -1,4 +1,4 @@
-# Earn A Slice Local Development
+# Shippy Local Development
 
 load("ext://uibutton", "cmd_button")
 
@@ -41,6 +41,6 @@ cmd_button(
 )
 
 print("PostgreSQL: localhost:5434 (postgres/postgres)")
-print("Database: earn_a_slice")
+print("Database: shippy")
 print("")
-print("Local DATABASE_URL: postgresql://postgres:postgres@localhost:5434/earn_a_slice")
+print("Local DATABASE_URL: postgresql://postgres:postgres@localhost:5434/shippy")

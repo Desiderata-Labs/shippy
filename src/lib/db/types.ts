@@ -1,5 +1,5 @@
 /**
- * Database type enums for Earn A Slice
+ * Database type enums for Shippy
  *
  * These enums are used in TypeScript code and correspond to string fields in the database.
  * This allows for type safety without relying on database enums.

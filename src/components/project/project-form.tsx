@@ -295,7 +295,7 @@ export function ProjectForm({
             <Label htmlFor="slug">URL Slug *</Label>
             <div className="flex items-center gap-2">
               <span className="shrink-0 text-sm text-muted-foreground">
-                earnaslice.com/p/
+                shippy.sh/p/
               </span>
               <div className="relative flex-1">
                 <AppInput

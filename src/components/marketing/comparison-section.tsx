@@ -13,37 +13,37 @@ const comparisons = [
     feature: 'Recurring income',
     freelance: false,
     equity: true,
-    earnASlice: true,
+    shippy: true,
   },
   {
     feature: 'No long-term commitment',
     freelance: true,
     equity: false,
-    earnASlice: true,
+    shippy: true,
   },
   {
     feature: 'Immediate value for work',
     freelance: true,
     equity: false,
-    earnASlice: true,
+    shippy: true,
   },
   {
     feature: 'Upside if company succeeds',
     freelance: false,
     equity: true,
-    earnASlice: true,
+    shippy: true,
   },
   {
     feature: 'Transparent payout calculation',
     freelance: true,
     equity: false,
-    earnASlice: true,
+    shippy: true,
   },
   {
     feature: 'Work across multiple projects',
     freelance: true,
     equity: false,
-    earnASlice: true,
+    shippy: true,
   },
 ]
 
@@ -152,9 +152,8 @@ export function ComparisonSection() {
                   </th>
                   <th className="bg-primary/10 px-6 py-5 text-center">
                     <div className="text-sm font-medium text-muted-foreground">
-                      Earn A
                       <br />
-                      <span className="font-semibold text-primary">Slice</span>
+                      <span className="font-semibold text-primary">Shippy</span>
                     </div>
                   </th>
                 </tr>
@@ -190,7 +189,7 @@ export function ComparisonSection() {
                       )}
                     </td>
                     <td className="bg-primary/10 px-6 py-4 text-center">
-                      {row.earnASlice ? (
+                      {row.shippy ? (
                         <CheckCircle className="mx-auto size-5 text-primary" />
                       ) : (
                         <X className="mx-auto size-5 text-muted-foreground/30" />

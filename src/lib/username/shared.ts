@@ -41,6 +41,7 @@ export const RESERVED_USERNAMES = new Set([
   // Brand protection
   'earnaslice',
   'earn-a-slice',
+  'shippy',
 ])
 
 /**

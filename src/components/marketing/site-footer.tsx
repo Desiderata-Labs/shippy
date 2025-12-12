@@ -42,7 +42,7 @@ export function SiteFooter() {
                 className="size-8"
                 aria-hidden="true"
               />
-              <Logo size="md" />
+              <Logo size="md" className="-translate-y-[2px]" />
             </Link>
             <p className="mt-4 max-w-xs text-sm text-muted-foreground">
               The platform where contributors earn recurring royalties for
@@ -92,7 +92,7 @@ export function SiteFooter() {
         {/* Bottom section */}
         <div className="mt-16 flex flex-col items-center justify-between gap-6 border-t border-border pt-8 sm:flex-row">
           <div className="text-sm text-muted-foreground">
-            © {currentYear} Earn A Slice. All rights reserved.
+            © {currentYear} Shippy. All rights reserved.
           </div>
 
           {/* Social links */}

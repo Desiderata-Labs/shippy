@@ -31,6 +31,7 @@ export const RESERVED_PROJECT_SLUGS = new Set([
   // Brand protection
   'earnaslice',
   'earn-a-slice',
+  'shippy',
   // Reserved project names
   'oath',
   'oath-notes',

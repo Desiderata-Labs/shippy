@@ -44,8 +44,15 @@ export function Header() {
           {/* Inner content */}
           <div className="flex h-12 items-center px-4">
             {/* Logo */}
-            <Link href={routes.home()} className="flex items-center">
-              <Logo size="md" className="-translate-y-0.5" />
+            <Link href={routes.home()} className="flex items-center gap-2">
+              {/* eslint-disable-next-line @next/next/no-img-element */}
+              <img
+                src="/logo-mark.svg"
+                alt=""
+                className="size-6"
+                aria-hidden="true"
+              />
+              <Logo size="sm" className="-translate-y-[2px]" />
             </Link>
 
             {/* Spacer */}

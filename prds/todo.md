@@ -1,8 +1,8 @@
-# Earn A Slice MVP - Development Todo
+# Shippy MVP - Development Todo
 
 ## Overview
 
-Building the MVP for Earn A Slice - a platform where contributors earn ongoing royalties for helping startups grow.
+Building the MVP for Shippy - a platform where contributors earn ongoing royalties for helping startups grow.
 
 **Core Loop**: Bounty → Claim → Submit → Approve → Points → Payout → Verify
 

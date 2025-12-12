@@ -271,7 +271,7 @@ function ProfileForm({
                   Your profile URL will be:
                 </p>
                 <p className="mt-0.5 font-mono text-sm">
-                  <span className="text-muted-foreground">earnaslice.com</span>
+                  <span className="text-muted-foreground">shippy.sh</span>
                   <span className="text-foreground">
                     /u/{username || 'username'}
                   </span>

@@ -107,7 +107,7 @@ function OnboardingForm({ suggestedUsername }: { suggestedUsername: string }) {
           Choose your username
         </h1>
         <p className="text-sm text-muted-foreground">
-          This will be your unique identifier on Earn A Slice
+          This will be your unique identifier on Shippy
         </p>
       </div>
 

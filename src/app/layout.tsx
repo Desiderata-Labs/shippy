@@ -20,9 +20,8 @@ const archivoBlack = Archivo_Black({
 })
 
 export const metadata: Metadata = {
-  title: 'Earn A Slice',
-  description:
-    'GitHub for startups, where contributors earn royalties instead of GitHub stars.',
+  title: 'Shippy',
+  description: 'Ship work. Earn royalties.',
 }
 
 export default function RootLayout({

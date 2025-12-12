@@ -35,7 +35,7 @@ export default function SignUpPage() {
         return
       }
 
-      toast.success('Account created! Welcome to Earn A Slice.')
+      toast.success('Account created! Welcome to Shippy.')
       router.push(routes.dashboard.root())
       router.refresh()
     } catch {

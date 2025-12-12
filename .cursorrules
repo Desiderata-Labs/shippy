@@ -1,8 +1,8 @@
-# Earn A Slice Development Guidelines
+# Shippy Development Guidelines
 
 ## Project Overview
 
-Earn A Slice is a platform where founders "open-source" parts of their startup by posting real work (growth, marketing, sales, etc.), and contributors who help ship it earn an ongoing share of the upside—not just a one-off payment.
+Shippy is a platform where founders "open-source" parts of their startup by posting real work (growth, marketing, sales, etc.), and contributors who help ship it earn an ongoing share of the upside—not just a one-off payment.
 
 **Core concept**: GitHub for startups, where contributors earn royalties instead of GitHub stars.
 
@@ -13,7 +13,7 @@ Earn A Slice is a platform where founders "open-source" parts of their startup b
 - Contributors claim bounties, deliver results, and earn **Points**
 - Points convert into **recurring payouts** proportional to their share of the pool
 
-See `prds/earn-a-slice.md` for the complete product specification, including:
+See `prds/shippy.md` for the complete product specification, including:
 
 - User journeys (Section 7)
 - MVP product surfaces (Section 8)
@@ -31,7 +31,7 @@ Before building, understand these core concepts from the PRD:
 
 ### The GitHub Mental Model
 
-| GitHub       | Earn A Slice     | Notes                                         |
+| GitHub       | Shippy     | Notes                                         |
 | ------------ | ---------------- | --------------------------------------------- |
 | Repository   | **Project**      | The product/company being built               |
 | README.md    | **Readme**       | About, mission, links (Discord, assets, docs) |
@@ -216,7 +216,7 @@ import { Loader2 } from 'lucide-react'
 
 ### 1. PRD is the Source of Truth
 
-- Read `prds/earn-a-slice.md` if needed before building any feature
+- Read `prds/shippy.md` if needed before building any feature
 - If something isn't covered, ask before assuming
 
 ### 2. Trust & Transparency First
@@ -315,7 +315,7 @@ src/
 
 ## References
 
-- **Full PRD**: `prds/earn-a-slice.md`
+- **Full PRD**: `prds/shippy.md`
 - **Platform Revenue Model**: PRD Section 12.2
 - **Claim Mechanics**: PRD Section 12.3
 - **Pool Lifecycle**: PRD Section 12.6

@@ -1,11 +1,11 @@
 services:
   postgres:
     image: postgres:16-alpine
-    container_name: earn-a-slice-postgres
+    container_name: shippy-postgres
     environment:
       POSTGRES_USER: postgres
       POSTGRES_PASSWORD: postgres
-      POSTGRES_DB: earn_a_slice
+      POSTGRES_DB: shippy
     ports:
       - '5434:5432'
     volumes:

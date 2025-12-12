@@ -2,15 +2,17 @@
 
 **Potential Names:**
 
-- (Chosen) Earn A Slice
+- (Chosen) Shippy
+- (Alternate) Earn A Slice
 - (Alternate) Build Guild
 
 **Domains**
 
-- earnaslice.com
+- shippy.sh
 
 Alternates:
 
+- earnaslice.com
 - buildguild.ai
 - helpbuildthis.com
 - helpme.build
@@ -22,7 +24,7 @@ Alternates:
 
 **One-liner**
 
-> Earn A Slice lets founders "open-source" parts of their startup: they post real work (growth, marketing, product, etc.), contributors help ship it, and everyone who contributes earns an ongoing **share of the upside**, not just a one-off payment.
+> Shippy lets founders "open-source" parts of their startup: they post real work (growth, marketing, product, etc.), contributors help ship it, and everyone who contributes earns an ongoing **share of the upside**, not just a one-off payment.
 
 **What it is**
 
@@ -145,7 +147,7 @@ Think about it as three combined metaphors:
 
 Most contributors already understand GitHub. We use familiar patterns:
 
-| GitHub       | Earn A Slice     | Notes                                         |
+| GitHub       | Shippy           | Notes                                         |
 | ------------ | ---------------- | --------------------------------------------- |
 | Repository   | **Project**      | The product/company being built               |
 | README.md    | **Readme**       | About, mission, links (Discord, assets, docs) |
@@ -976,7 +978,7 @@ Best practices for founders:
 
 **How to explain it in one paragraph:**
 
-> Earn A Slice lets you run your startup like an open-source project for growth. You define a small slice of your revenue or profit as a Reward Pool, post Bounties (like "bring in a clinic" or "write a case study that converts"), and contributors who deliver real results earn points that translate into recurring payouts. No messy equity grants, no vague promises-just performance-based rewards that keep everyone aligned.
+> Shippy lets you run your startup like an open-source project for growth. You define a small slice of your revenue or profit as a Reward Pool, post Bounties (like "bring in a clinic" or "write a case study that converts"), and contributors who deliver real results earn points that translate into recurring payouts. No messy equity grants, no vague promises-just performance-based rewards that keep everyone aligned.
 
 ---
 
@@ -992,7 +994,7 @@ This section addresses known risks, legal considerations, platform sustainabilit
 
 ### Structure: Commission/Bonus, Not Equity
 
-Earn A Slice pools are structured as **contractual profit-sharing arrangements**-similar to sales commissions, affiliate payouts, or performance bonuses. This is explicitly **not equity**:
+Shippy pools are structured as **contractual profit-sharing arrangements**-similar to sales commissions, affiliate payouts, or performance bonuses. This is explicitly **not equity**:
 
 - No cap table entry
 - No voting rights
@@ -1023,24 +1025,24 @@ Contributors should understand:
 
 ### Platform Stance
 
-Earn A Slice provides:
+Shippy provides:
 
 - Template Contributor Terms that projects can adopt or customize
 - Clear documentation of the profit-sharing model
 - Transparency tools (payout history, verification) to create an audit trail
 
-Earn A Slice does **not** provide legal advice or guarantee compliance with any jurisdiction's laws.
+Shippy does **not** provide legal advice or guarantee compliance with any jurisdiction's laws.
 
 ---
 
 ## 12.2 Platform Revenue Model
 
-Earn A Slice sustains itself by participating in the same model it enables:
+Shippy sustains itself by participating in the same model it enables:
 
 ### Revenue Streams
 
 1. **Platform share of profit pools**
-   - Earn A Slice takes a percentage of each project's reward pool (e.g., 10% of the pool)
+   - Shippy takes a percentage of each project's reward pool (e.g., 10% of the pool)
    - Example: Founder sets pool at 10% of profit. On a $3k/mo profit project, pool = $300. EAS takes $30, contributors share $270.
    - We get paid when contributors get paid-fully aligned incentives
 
@@ -1097,7 +1099,7 @@ Pool share alone requires significant scale. These additional revenue streams ca
 
 ### Alignment
 
-**We only get paid when value is delivered.** Earn A Slice takes nothing at pool creation-our cut comes from actual payouts after:
+**We only get paid when value is delivered.** Shippy takes nothing at pool creation-our cut comes from actual payouts after:
 
 1. A contributor claims and completes a bounty
 2. The founder approves the submission
@@ -1105,7 +1107,7 @@ Pool share alone requires significant scale. These additional revenue streams ca
 
 No approved work = no contributor payout = no platform revenue. We succeed only when the matchmaking works.
 
-This means Earn A Slice is incentivized to:
+This means Shippy is incentivized to:
 
 - Attract projects that actually pay out
 - Build features that help contributors find and complete bounties
@@ -1191,7 +1193,7 @@ Phase 3+ will add optional integrations:
 
 ## 12.5 Contributor Terms & IP
 
-Every project should have clear Contributor Terms. Earn A Slice provides templates.
+Every project should have clear Contributor Terms. Shippy provides templates.
 
 ### What Terms Should Cover
 
@@ -1206,7 +1208,7 @@ Every project should have clear Contributor Terms. Earn A Slice provides templat
 
 ### Platform-Provided Templates
 
-Earn A Slice will provide:
+Shippy will provide:
 
 - A standard Contributor Agreement template (editable by founders)
 - A simple IP assignment clause

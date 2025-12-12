@@ -10,7 +10,7 @@
 </picture>
 <br /><br />
 
-![Next.js](https://img.shields.io/badge/Next.js-16-black?logo=next.js) ![React](https://img.shields.io/badge/React-19-61DAFB?logo=react) ![TypeScript](https://img.shields.io/badge/TypeScript-strict-3178C6?logo=typescript) ![Tailwind CSS](https://img.shields.io/badge/Tailwind-4-06B6D4?logo=tailwindcss) ![Prisma](https://img.shields.io/badge/Prisma-ORM-2D3748?logo=prisma) ![pnpm](https://img.shields.io/badge/pnpm-package%20manager-F69220?logo=pnpm)
+![Next.js](https://img.shields.io/badge/Next.js-16-black?logo=next.js) ![React](https://img.shields.io/badge/React-19-61DAFB?logo=react) ![TypeScript](https://img.shields.io/badge/TypeScript-strict-3178C6?logo=typescript) ![Tailwind CSS](https://img.shields.io/badge/Tailwind-4-06B6D4?logo=tailwindcss) ![Prisma](https://img.shields.io/badge/Prisma-ORM-2D3748?logo=prisma) ![pnpm](https://img.shields.io/badge/pnpm-package%20manager-F69220?logo=pnpm) ![License](https://img.shields.io/badge/License-Elastic--2.0-blue)
 
 A platform where contributors earn recurring royalties for helping startups ship real work.
 
@@ -58,3 +58,7 @@ Open [http://localhost:3050](http://localhost:3050)
 ## Documentation
 
 Full product spec: [`prds/shippy.md`](./prds/shippy.md)
+
+## License
+
+This project is licensed under the [Elastic License 2.0](./LICENSE).

@@ -44,7 +44,14 @@ export function AppHeader() {
           {/* Inner content */}
           <div className="flex h-12 items-center px-4">
             {/* Logo */}
-            <Link href={routes.home()} className="flex items-center">
+            <Link href={routes.home()} className="flex items-center gap-2.5">
+              {/* eslint-disable-next-line @next/next/no-img-element */}
+              <img
+                src="/logo-mark.svg"
+                alt=""
+                className="size-7"
+                aria-hidden="true"
+              />
               <Logo size="md" className="-translate-y-0.5" />
             </Link>
 

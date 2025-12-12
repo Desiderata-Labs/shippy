@@ -201,8 +201,18 @@ export default function OnboardingPage() {
       <div className="container flex min-h-screen flex-col items-center justify-center px-4 py-12">
         <div className="mx-auto flex w-full flex-col justify-center space-y-6 sm:w-[400px]">
           {/* Logo link */}
-          <Link href={routes.home()} className="mx-auto">
-            <Logo size="lg" />
+          <Link
+            href={routes.home()}
+            className="mx-auto inline-flex items-center gap-3"
+          >
+            {/* eslint-disable-next-line @next/next/no-img-element */}
+            <img
+              src="/logo-mark.svg"
+              alt=""
+              className="size-8"
+              aria-hidden="true"
+            />
+            <Logo size="lg" className="-translate-y-[2px]" />
           </Link>
 
           <OnboardingForm suggestedUsername={suggestedUsername} />

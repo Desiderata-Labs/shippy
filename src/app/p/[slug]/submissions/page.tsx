@@ -9,7 +9,7 @@ import {
 } from '@untitled-ui/icons-react'
 import Link from 'next/link'
 import { useParams } from 'next/navigation'
-import { notFound, redirect } from 'next/navigation'
+import { redirect } from 'next/navigation'
 import { SubmissionStatus } from '@/lib/db/types'
 import { routes } from '@/lib/routes'
 import { submissionStatusLabels } from '@/lib/status-colors'
@@ -32,6 +32,8 @@ import {
   BreadcrumbPage,
   BreadcrumbSeparator,
 } from '@/components/ui/breadcrumb'
+import { ErrorState } from '@/components/ui/error-state'
+import { NotFoundState } from '@/components/ui/not-found-state'
 import { Skeleton } from '@/components/ui/skeleton'
 
 const statusConfig: Record<string, { label: string; color: string }> = {
@@ -50,11 +52,16 @@ export default function ProjectSubmissionsPage() {
   const { data: session, isPending: sessionLoading } = useSession()
 
   // Fetch project data
-  const { data: project, isLoading: projectLoading } =
-    trpc.project.getBySlug.useQuery(
-      { slug: params.slug },
-      { enabled: !!params.slug },
-    )
+  const {
+    data: project,
+    isLoading: projectLoading,
+    isError: projectError,
+    error: projectErrorData,
+    refetch: refetchProject,
+  } = trpc.project.getBySlug.useQuery(
+    { slug: params.slug },
+    { enabled: !!params.slug, retry: false },
+  )
 
   // Fetch pending submissions
   const { data: submissions, isLoading: submissionsLoading } =
@@ -81,14 +88,48 @@ export default function ProjectSubmissionsPage() {
     redirect(routes.auth.signIn())
   }
 
-  // Project not found
-  if (!project) {
-    notFound()
+  // Handle errors - differentiate between 404/forbidden and other errors
+  if (projectError) {
+    const isNotFoundOrForbidden =
+      projectErrorData?.data?.code === 'NOT_FOUND' ||
+      projectErrorData?.data?.code === 'FORBIDDEN' ||
+      projectErrorData?.data?.code === 'BAD_REQUEST'
+    return (
+      <AppBackground>
+        <div className="mx-auto max-w-7xl px-4 py-8">
+          {isNotFoundOrForbidden ? (
+            <NotFoundState
+              resourceType="project"
+              backHref={routes.dashboard.root()}
+              backLabel="Back to Dashboard"
+            />
+          ) : (
+            <ErrorState
+              message={projectErrorData?.message}
+              errorId={projectErrorData?.data?.errorId}
+              backHref={routes.dashboard.root()}
+              backLabel="Back to Dashboard"
+              onRetry={() => refetchProject()}
+            />
+          )}
+        </div>
+      </AppBackground>
+    )
   }
 
-  // Check if user is the founder
-  if (project.founderId !== session.user.id) {
-    notFound()
+  // Project not found or user is not the founder
+  if (!project || project.founderId !== session.user.id) {
+    return (
+      <AppBackground>
+        <div className="mx-auto max-w-7xl px-4 py-8">
+          <NotFoundState
+            resourceType="project"
+            backHref={routes.dashboard.root()}
+            backLabel="Back to Dashboard"
+          />
+        </div>
+      </AppBackground>
+    )
   }
 
   return (
@@ -155,6 +196,7 @@ export default function ProjectSubmissionsPage() {
                   href={routes.project.submissionDetail({
                     slug: params.slug,
                     submissionId: submission.id,
+                    title: submission.bounty.title,
                   })}
                   className="group block"
                 >

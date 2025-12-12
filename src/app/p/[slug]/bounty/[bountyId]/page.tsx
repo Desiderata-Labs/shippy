@@ -25,7 +25,6 @@ import { Loader2 } from 'lucide-react'
 import { useState } from 'react'
 import Link from 'next/link'
 import { useParams } from 'next/navigation'
-import { notFound } from 'next/navigation'
 import { getLabelColor } from '@/lib/bounty/tag-colors'
 import {
   BountyClaimMode,
@@ -35,6 +34,7 @@ import {
   SubmissionStatus,
   generateRandomLabelColor,
 } from '@/lib/db/types'
+import { extractNanoIdFromSlug } from '@/lib/nanoid/shared'
 import { ProjectTab, routes } from '@/lib/routes'
 import {
   bountyStatusColors,
@@ -56,7 +56,9 @@ import {
   DropdownMenuItem,
   DropdownMenuTrigger,
 } from '@/components/ui/dropdown-menu'
+import { ErrorState } from '@/components/ui/error-state'
 import { Markdown } from '@/components/ui/markdown'
+import { NotFoundState } from '@/components/ui/not-found-state'
 import {
   Popover,
   PopoverContent,
@@ -73,6 +75,8 @@ import { toast } from 'sonner'
 
 export default function BountyDetailPage() {
   const params = useParams<{ slug: string; bountyId: string }>()
+  // Extract the nanoid from the URL slug (e.g., "grow-audience-TdFKukO9LuJe" -> "TdFKukO9LuJe")
+  const bountyId = extractNanoIdFromSlug(params.bountyId)
   const { data: session } = useSession()
   const [isClaiming, setIsClaiming] = useState(false)
   const [copied, setCopied] = useState(false)
@@ -90,9 +94,15 @@ export default function BountyDetailPage() {
     generateRandomLabelColor(),
   )
 
-  const { data: bounty, isLoading } = trpc.bounty.getById.useQuery(
-    { id: params.bountyId },
-    { enabled: !!params.bountyId },
+  const {
+    data: bounty,
+    isLoading,
+    isError,
+    error,
+    refetch,
+  } = trpc.bounty.getById.useQuery(
+    { id: bountyId },
+    { enabled: !!bountyId, retry: false },
   )
 
   const utils = trpc.useUtils()
@@ -100,7 +110,7 @@ export default function BountyDetailPage() {
   const claimBounty = trpc.bounty.claim.useMutation({
     onSuccess: () => {
       toast.success('Bounty claimed! You can now start working on it.')
-      utils.bounty.getById.invalidate({ id: params.bountyId })
+      utils.bounty.getById.invalidate({ id: bountyId })
     },
     onError: (error) => {
       toast.error(error.message)
@@ -110,7 +120,7 @@ export default function BountyDetailPage() {
   const releaseClaim = trpc.bounty.releaseClaim.useMutation({
     onSuccess: () => {
       toast.success('Claim released')
-      utils.bounty.getById.invalidate({ id: params.bountyId })
+      utils.bounty.getById.invalidate({ id: bountyId })
     },
     onError: (error) => {
       toast.error(error.message)
@@ -120,7 +130,7 @@ export default function BountyDetailPage() {
   const addComment = trpc.bounty.addComment.useMutation({
     onSuccess: () => {
       setNewComment('')
-      utils.bounty.getById.invalidate({ id: params.bountyId })
+      utils.bounty.getById.invalidate({ id: bountyId })
     },
     onError: (error) => {
       toast.error(error.message)
@@ -129,7 +139,7 @@ export default function BountyDetailPage() {
 
   const deleteComment = trpc.bounty.deleteComment.useMutation({
     onSuccess: () => {
-      utils.bounty.getById.invalidate({ id: params.bountyId })
+      utils.bounty.getById.invalidate({ id: bountyId })
       toast.success('Comment deleted')
     },
     onError: (error) => {
@@ -166,7 +176,7 @@ export default function BountyDetailPage() {
 
   const updateBountyLabels = trpc.bounty.update.useMutation({
     onSuccess: () => {
-      utils.bounty.getById.invalidate({ id: params.bountyId })
+      utils.bounty.getById.invalidate({ id: bountyId })
     },
     onError: (error) => {
       toast.error(error.message)
@@ -191,8 +201,47 @@ export default function BountyDetailPage() {
     )
   }
 
+  // Handle errors - differentiate between 404 and other errors
+  // BAD_REQUEST with invalid NanoID is also effectively a 404
+  if (isError) {
+    const isNotFound =
+      error?.data?.code === 'NOT_FOUND' || error?.data?.code === 'BAD_REQUEST'
+    const projectHref = routes.project.detail({ slug: params.slug })
+    return (
+      <AppBackground>
+        <div className="mx-auto max-w-7xl px-4 py-8">
+          {isNotFound ? (
+            <NotFoundState
+              resourceType="bounty"
+              backHref={projectHref}
+              backLabel="Back to Project"
+            />
+          ) : (
+            <ErrorState
+              message={error?.message}
+              errorId={error?.data?.errorId}
+              backHref={projectHref}
+              backLabel="Back to Project"
+              onRetry={() => refetch()}
+            />
+          )}
+        </div>
+      </AppBackground>
+    )
+  }
+
   if (!bounty) {
-    notFound()
+    return (
+      <AppBackground>
+        <div className="mx-auto max-w-7xl px-4 py-8">
+          <NotFoundState
+            resourceType="bounty"
+            backHref={routes.project.detail({ slug: params.slug })}
+            backLabel="Back to Project"
+          />
+        </div>
+      </AppBackground>
+    )
   }
 
   const userClaim = bounty.claims.find((c) => c.userId === session?.user?.id)
@@ -255,7 +304,11 @@ export default function BountyDetailPage() {
 
   const bountyUrl =
     typeof window !== 'undefined'
-      ? `${window.location.origin}/p/${params.slug}/bounty/${params.bountyId}`
+      ? `${window.location.origin}${routes.project.bountyDetail({
+          slug: params.slug,
+          bountyId: bounty.id,
+          title: bounty.title,
+        })}`
       : ''
 
   const handleCopyLink = async () => {
@@ -331,7 +384,8 @@ export default function BountyDetailPage() {
               <Link
                 href={routes.project.bountyEdit({
                   slug: params.slug,
-                  bountyId: params.bountyId,
+                  bountyId: bounty.id,
+                  title: bounty.title,
                 })}
               >
                 <Pencil01 className="mr-1.5 size-3.5" />
@@ -457,6 +511,7 @@ export default function BountyDetailPage() {
                               href={routes.project.submissionDetail({
                                 slug: params.slug,
                                 submissionId: submission.id,
+                                title: bounty.title,
                               })}
                               className="text-muted-foreground hover:text-foreground hover:underline"
                             >
@@ -678,7 +733,8 @@ export default function BountyDetailPage() {
                   <Link
                     href={routes.project.bountySubmit({
                       slug: params.slug,
-                      bountyId: params.bountyId,
+                      bountyId: bounty.id,
+                      title: bounty.title,
                     })}
                   >
                     <Check className="mr-1.5 size-3.5" />

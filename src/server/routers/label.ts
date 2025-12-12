@@ -1,4 +1,5 @@
 import { isValidHexColor } from '@/lib/db/types'
+import { nanoId } from '@/lib/nanoid/schema'
 import { protectedProcedure, publicProcedure, router } from '@/server/trpc'
 import { TRPCError } from '@trpc/server'
 import { z } from 'zod/v4'
@@ -10,13 +11,13 @@ const hexColorSchema = z.string().refine(isValidHexColor, {
 
 // Validation schemas
 const createLabelSchema = z.object({
-  projectId: z.string().uuid(),
+  projectId: nanoId(),
   name: z.string().min(1).max(50),
   color: hexColorSchema,
 })
 
 const updateLabelSchema = z.object({
-  id: z.string().uuid(),
+  id: nanoId(),
   name: z.string().min(1).max(50).optional(),
   color: hexColorSchema.optional(),
 })
@@ -26,7 +27,7 @@ export const labelRouter = router({
    * Get labels for a project
    */
   getByProject: publicProcedure
-    .input(z.object({ projectId: z.string().uuid() }))
+    .input(z.object({ projectId: nanoId() }))
     .query(async ({ ctx, input }) => {
       return ctx.prisma.label.findMany({
         where: { projectId: input.projectId },
@@ -137,7 +138,7 @@ export const labelRouter = router({
    * Delete a label (founder only)
    */
   delete: protectedProcedure
-    .input(z.object({ id: z.string().uuid() }))
+    .input(z.object({ id: nanoId() }))
     .mutation(async ({ ctx, input }) => {
       // Verify ownership via project
       const label = await ctx.prisma.label.findUnique({

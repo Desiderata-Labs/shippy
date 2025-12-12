@@ -7,6 +7,7 @@ import {
   SubmissionEventType,
   SubmissionStatus,
 } from '@/lib/db/types'
+import { nanoId } from '@/lib/nanoid/schema'
 import { protectedProcedure, publicProcedure, router } from '@/server/trpc'
 import { Prisma } from '@prisma/client'
 import { TRPCError } from '@trpc/server'
@@ -14,11 +15,11 @@ import { z } from 'zod/v4'
 
 // Validation schemas
 const createBountySchema = z.object({
-  projectId: z.string().uuid(),
+  projectId: nanoId(),
   title: z.string().min(1).max(200),
   description: z.string().min(1),
   points: z.number().int().min(1),
-  labelIds: z.array(z.string().uuid()).optional().default([]), // Labels are optional
+  labelIds: z.array(nanoId()).optional().default([]), // Labels are optional
   claimMode: z.nativeEnum(BountyClaimMode).default(BountyClaimMode.SINGLE),
   claimExpiryDays: z
     .number()
@@ -31,11 +32,11 @@ const createBountySchema = z.object({
 })
 
 const updateBountySchema = z.object({
-  id: z.string().uuid(),
+  id: nanoId(),
   title: z.string().min(1).max(200).optional(),
   description: z.string().min(1).optional(),
   points: z.number().int().min(1).optional(),
-  labelIds: z.array(z.string().uuid()).optional(), // Labels are optional
+  labelIds: z.array(nanoId()).optional(), // Labels are optional
   evidenceDescription: z.string().optional().nullable(),
   status: z.nativeEnum(BountyStatus).optional(),
   claimMode: z.nativeEnum(BountyClaimMode).optional(),
@@ -50,9 +51,9 @@ export const bountyRouter = router({
   getByProject: publicProcedure
     .input(
       z.object({
-        projectId: z.string().uuid(),
+        projectId: nanoId(),
         status: z.nativeEnum(BountyStatus).optional(),
-        labelIds: z.array(z.string().uuid()).optional(),
+        labelIds: z.array(nanoId()).optional(),
       }),
     )
     .query(async ({ ctx, input }) => {
@@ -88,7 +89,7 @@ export const bountyRouter = router({
    * Get a single bounty by ID
    */
   getById: publicProcedure
-    .input(z.object({ id: z.string().uuid() }))
+    .input(z.object({ id: nanoId() }))
     .query(async ({ ctx, input }) => {
       const bounty = await ctx.prisma.bounty.findUnique({
         where: { id: input.id },
@@ -438,7 +439,7 @@ export const bountyRouter = router({
    * Claim a bounty
    */
   claim: protectedProcedure
-    .input(z.object({ bountyId: z.string().uuid() }))
+    .input(z.object({ bountyId: nanoId() }))
     .mutation(async ({ ctx, input }) => {
       const bounty = await ctx.prisma.bounty.findUnique({
         where: { id: input.bountyId },
@@ -525,7 +526,7 @@ export const bountyRouter = router({
   releaseClaim: protectedProcedure
     .input(
       z.object({
-        claimId: z.string().uuid(),
+        claimId: nanoId(),
         reason: z.string().max(1000).optional(),
       }),
     )
@@ -625,7 +626,7 @@ export const bountyRouter = router({
   addComment: protectedProcedure
     .input(
       z.object({
-        bountyId: z.string().uuid(),
+        bountyId: nanoId(),
         content: z.string().min(1).max(5000),
       }),
     )
@@ -665,7 +666,7 @@ export const bountyRouter = router({
    * Get events (comments, edits, status changes) for a bounty
    */
   getEvents: publicProcedure
-    .input(z.object({ bountyId: z.string().uuid() }))
+    .input(z.object({ bountyId: nanoId() }))
     .query(async ({ ctx, input }) => {
       return ctx.prisma.bountyEvent.findMany({
         where: { bountyId: input.bountyId },
@@ -680,7 +681,7 @@ export const bountyRouter = router({
    * Delete a comment event (author or founder only)
    */
   deleteComment: protectedProcedure
-    .input(z.object({ eventId: z.string().uuid() }))
+    .input(z.object({ eventId: nanoId() }))
     .mutation(async ({ ctx, input }) => {
       const event = await ctx.prisma.bountyEvent.findUnique({
         where: { id: input.eventId },

@@ -1,10 +1,10 @@
 import { prisma } from '@/lib/db/server'
+import { generateNanoId } from '@/lib/nanoid/server'
 import { generateUniqueUsername } from '@/lib/username/server'
 import { BetterAuthOptions, betterAuth } from 'better-auth'
 import { prismaAdapter } from 'better-auth/adapters/prisma'
 import { nextCookies } from 'better-auth/next-js'
 import 'server-only'
-import { v4 as uuidv4 } from 'uuid'
 
 // Base URL for auth - uses environment variable or falls back to localhost
 function getBaseUrl(): string {
@@ -60,7 +60,7 @@ const authConfig = {
     cookiePrefix: 'eas',
     useSecureCookies: process.env.NODE_ENV === 'production',
     database: {
-      generateId: () => uuidv4(),
+      generateId: () => generateNanoId(),
     },
     cookies: {
       session_token: {

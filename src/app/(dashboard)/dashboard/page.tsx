@@ -249,6 +249,7 @@ export default function ContributorDashboardPage() {
                         href={routes.project.submissionDetail({
                           slug: submission.bounty.project.slug,
                           submissionId: submission.id,
+                          title: submission.bounty.title,
                         })}
                         className="group -mx-4 flex items-center justify-between rounded-lg p-4 transition-colors hover:bg-muted/50"
                       >

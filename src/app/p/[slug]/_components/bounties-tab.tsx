@@ -298,6 +298,7 @@ function BountyRow({
       href={routes.project.bountyDetail({
         slug: projectSlug,
         bountyId: bounty.id,
+        title: bounty.title,
       })}
       className={cn(
         'group flex min-h-[44px] items-center gap-3 px-3 py-2 transition-colors hover:bg-accent/50',

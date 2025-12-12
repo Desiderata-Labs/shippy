@@ -5,6 +5,7 @@ import {
   PayoutFrequency,
   ProfitBasis,
 } from '@/lib/db/types'
+import { nanoId } from '@/lib/nanoid/schema'
 import { isProjectKeyAvailable } from '@/lib/project-key/server'
 import {
   normalizeProjectKey,
@@ -56,7 +57,7 @@ const createProjectSchema = z.object({
 })
 
 const updateProjectSchema = z.object({
-  id: z.string().uuid(),
+  id: nanoId(),
   name: z.string().min(1).max(100).optional(),
   slug: z
     .string()
@@ -135,7 +136,7 @@ export const projectRouter = router({
     .input(
       z.object({
         projectKey: z.string().min(1),
-        excludeProjectId: z.string().uuid().optional(),
+        excludeProjectId: nanoId().optional(),
       }),
     )
     .query(async ({ ctx, input }) => {
@@ -223,7 +224,7 @@ export const projectRouter = router({
   discover: publicProcedure
     .input(
       z.object({
-        cursor: z.string().uuid().optional(),
+        cursor: nanoId().optional(),
         limit: z.number().int().min(1).max(50).default(20),
         sortBy: z
           .enum(['newest', 'totalPaidOut', 'openBounties'])
@@ -520,7 +521,7 @@ export const projectRouter = router({
    * Get pool capacity stats for a project
    */
   getPoolStats: publicProcedure
-    .input(z.object({ projectId: z.string().uuid() }))
+    .input(z.object({ projectId: nanoId() }))
     .query(async ({ ctx, input }) => {
       const project = await ctx.prisma.project.findUnique({
         where: { id: input.projectId },
@@ -580,7 +581,7 @@ export const projectRouter = router({
   expandPoolCapacity: protectedProcedure
     .input(
       z.object({
-        projectId: z.string().uuid(),
+        projectId: nanoId(),
         newCapacity: z.number().int().min(1),
         reason: z.string().min(1).max(500),
       }),

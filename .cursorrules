@@ -31,7 +31,7 @@ Before building, understand these core concepts from the PRD:
 
 ### The GitHub Mental Model
 
-| GitHub       | Shippy     | Notes                                         |
+| GitHub       | Shippy           | Notes                                         |
 | ------------ | ---------------- | --------------------------------------------- |
 | Repository   | **Project**      | The product/company being built               |
 | README.md    | **Readme**       | About, mission, links (Discord, assets, docs) |
@@ -113,6 +113,7 @@ When changing the Prisma schema:
 ### General Rules
 
 - NEVER run the app manually if it's already running—check first to avoid duplicate instances
+- Always use typed routes from `@/lib/routes` instead of hardcoding URLs or paths
 - Always install packages with `pnpm add` (or `pnpm add -D` for dev dependencies)
 - Always use kebab-case for file names and directories (except for Next.js route conventions)
 - Follow Next.js 16 App Router conventions for file structure

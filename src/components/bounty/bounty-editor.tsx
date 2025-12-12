@@ -14,7 +14,7 @@ import { Loader2 } from 'lucide-react'
 import { useEffect, useState } from 'react'
 import Link from 'next/link'
 import { useRouter } from 'next/navigation'
-import { notFound, redirect } from 'next/navigation'
+import { redirect } from 'next/navigation'
 import { getLabelColor } from '@/lib/bounty/tag-colors'
 import {
   BountyClaimMode,
@@ -27,7 +27,9 @@ import { cn } from '@/lib/utils'
 import { AppButton, AppInput } from '@/components/app'
 import { AppBackground } from '@/components/layout/app-background'
 import { Badge } from '@/components/ui/badge'
+import { ErrorState } from '@/components/ui/error-state'
 import { MarkdownEditor } from '@/components/ui/markdown-editor'
+import { NotFoundState } from '@/components/ui/not-found-state'
 import {
   Popover,
   PopoverContent,
@@ -142,15 +144,28 @@ export function BountyEditor({ mode, slug, bountyId }: BountyEditorProps) {
   )
 
   // Fetch project data
-  const { data: project, isLoading: projectLoading } =
-    trpc.project.getBySlug.useQuery({ slug }, { enabled: !!slug })
+  const {
+    data: project,
+    isLoading: projectLoading,
+    isError: projectError,
+    error: projectErrorData,
+    refetch: refetchProject,
+  } = trpc.project.getBySlug.useQuery(
+    { slug },
+    { enabled: !!slug, retry: false },
+  )
 
   // Fetch bounty data for edit mode
-  const { data: bounty, isLoading: bountyLoading } =
-    trpc.bounty.getById.useQuery(
-      { id: bountyId! },
-      { enabled: mode === 'edit' && !!bountyId },
-    )
+  const {
+    data: bounty,
+    isLoading: bountyLoading,
+    isError: bountyError,
+    error: bountyErrorData,
+    refetch: refetchBounty,
+  } = trpc.bounty.getById.useQuery(
+    { id: bountyId! },
+    { enabled: mode === 'edit' && !!bountyId, retry: false },
+  )
 
   // Fetch pool stats
   const { data: poolStats, isLoading: poolStatsLoading } =
@@ -187,7 +202,13 @@ export function BountyEditor({ mode, slug, bountyId }: BountyEditorProps) {
     onSuccess: (newBounty) => {
       toast.success('Bounty created!')
       utils.bounty.getByProject.invalidate({ projectId: project?.id })
-      router.push(routes.project.bountyDetail({ slug, bountyId: newBounty.id }))
+      router.push(
+        routes.project.bountyDetail({
+          slug,
+          bountyId: newBounty.id,
+          title,
+        }),
+      )
     },
     onError: (error) => {
       toast.error(error.message)
@@ -199,7 +220,13 @@ export function BountyEditor({ mode, slug, bountyId }: BountyEditorProps) {
       toast.success('Bounty updated!')
       utils.bounty.getById.invalidate({ id: bountyId })
       utils.bounty.getByProject.invalidate({ projectId: project?.id })
-      router.push(routes.project.bountyDetail({ slug, bountyId: bountyId! }))
+      router.push(
+        routes.project.bountyDetail({
+          slug,
+          bountyId: bountyId!,
+          title,
+        }),
+      )
     },
     onError: (error) => {
       toast.error(error.message)
@@ -253,19 +280,95 @@ export function BountyEditor({ mode, slug, bountyId }: BountyEditorProps) {
     redirect(routes.auth.signIn())
   }
 
-  // Project not found
-  if (!project) {
-    notFound()
+  // Handle project errors - differentiate between 404/forbidden and other errors
+  if (projectError) {
+    const isNotFoundOrForbidden =
+      projectErrorData?.data?.code === 'NOT_FOUND' ||
+      projectErrorData?.data?.code === 'FORBIDDEN' ||
+      projectErrorData?.data?.code === 'BAD_REQUEST'
+    return (
+      <AppBackground>
+        <div className="mx-auto max-w-7xl px-4 py-8">
+          {isNotFoundOrForbidden ? (
+            <NotFoundState
+              resourceType="project"
+              backHref={routes.dashboard.root()}
+              backLabel="Back to Dashboard"
+            />
+          ) : (
+            <ErrorState
+              message={projectErrorData?.message}
+              errorId={projectErrorData?.data?.errorId}
+              backHref={routes.dashboard.root()}
+              backLabel="Back to Dashboard"
+              onRetry={() => refetchProject()}
+            />
+          )}
+        </div>
+      </AppBackground>
+    )
   }
 
-  // Check if user is the founder
-  if (project.founderId !== session.user.id) {
-    notFound()
+  // Project not found or user is not the founder
+  if (!project || project.founderId !== session.user.id) {
+    return (
+      <AppBackground>
+        <div className="mx-auto max-w-7xl px-4 py-8">
+          <NotFoundState
+            resourceType="project"
+            backHref={routes.dashboard.root()}
+            backLabel="Back to Dashboard"
+          />
+        </div>
+      </AppBackground>
+    )
+  }
+
+  // Handle bounty errors in edit mode
+  if (mode === 'edit' && bountyError) {
+    const isNotFound =
+      bountyErrorData?.data?.code === 'NOT_FOUND' ||
+      bountyErrorData?.data?.code === 'BAD_REQUEST'
+    const bountiesHref = routes.project.detail({
+      slug,
+      tab: ProjectTab.BOUNTIES,
+    })
+    return (
+      <AppBackground>
+        <div className="mx-auto max-w-7xl px-4 py-8">
+          {isNotFound ? (
+            <NotFoundState
+              resourceType="bounty"
+              backHref={bountiesHref}
+              backLabel="Back to Bounties"
+            />
+          ) : (
+            <ErrorState
+              message={bountyErrorData?.message}
+              errorId={bountyErrorData?.data?.errorId}
+              backHref={bountiesHref}
+              backLabel="Back to Bounties"
+              onRetry={() => refetchBounty()}
+            />
+          )}
+        </div>
+      </AppBackground>
+    )
   }
 
   // In edit mode, check bounty exists and belongs to this project
   if (mode === 'edit' && (!bounty || bounty.projectId !== project.id)) {
-    notFound()
+    return (
+      <AppBackground>
+        <div className="mx-auto max-w-7xl px-4 py-8">
+          <NotFoundState
+            resourceType="bounty"
+            backHref={routes.project.detail({ slug, tab: ProjectTab.BOUNTIES })}
+            backLabel="Back to Bounties"
+          />
+        </div>
+      </AppBackground>
+    )
   }
 
   const projectLabels: ProjectLabel[] = labels ?? []
@@ -391,6 +494,7 @@ export function BountyEditor({ mode, slug, bountyId }: BountyEditorProps) {
                 href={routes.project.bountyDetail({
                   slug,
                   bountyId: bountyId!,
+                  title: bounty.title,
                 })}
                 className="text-muted-foreground transition-colors hover:text-foreground"
               >

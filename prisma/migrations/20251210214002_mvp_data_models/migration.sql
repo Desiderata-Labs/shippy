@@ -1,6 +1,6 @@
 -- CreateTable
 CREATE TABLE "user" (
-    "id" TEXT NOT NULL,
+    "id" TEXT NOT NULL DEFAULT nanoid(),
     "name" TEXT NOT NULL,
     "email" TEXT NOT NULL,
     "username" TEXT,
@@ -14,7 +14,7 @@ CREATE TABLE "user" (
 
 -- CreateTable
 CREATE TABLE "session" (
-    "id" TEXT NOT NULL,
+    "id" TEXT NOT NULL DEFAULT nanoid(),
     "userId" TEXT NOT NULL,
     "token" TEXT NOT NULL,
     "expiresAt" TIMESTAMPTZ(3) NOT NULL,
@@ -28,7 +28,7 @@ CREATE TABLE "session" (
 
 -- CreateTable
 CREATE TABLE "account" (
-    "id" TEXT NOT NULL,
+    "id" TEXT NOT NULL DEFAULT nanoid(),
     "userId" TEXT NOT NULL,
     "accountId" TEXT NOT NULL,
     "providerId" TEXT NOT NULL,
@@ -47,7 +47,7 @@ CREATE TABLE "account" (
 
 -- CreateTable
 CREATE TABLE "verification" (
-    "id" TEXT NOT NULL,
+    "id" TEXT NOT NULL DEFAULT nanoid(),
     "identifier" TEXT NOT NULL,
     "value" TEXT NOT NULL,
     "expiresAt" TIMESTAMPTZ(3) NOT NULL,
@@ -59,7 +59,7 @@ CREATE TABLE "verification" (
 
 -- CreateTable
 CREATE TABLE "project" (
-    "id" TEXT NOT NULL,
+    "id" TEXT NOT NULL DEFAULT nanoid(),
     "slug" TEXT NOT NULL,
     "name" TEXT NOT NULL,
     "projectKey" VARCHAR(3) NOT NULL,
@@ -80,7 +80,7 @@ CREATE TABLE "project" (
 
 -- CreateTable
 CREATE TABLE "reward_pool" (
-    "id" TEXT NOT NULL,
+    "id" TEXT NOT NULL DEFAULT nanoid(),
     "projectId" TEXT NOT NULL,
     "poolPercentage" INTEGER NOT NULL,
     "poolCapacity" INTEGER NOT NULL DEFAULT 1000,
@@ -97,7 +97,7 @@ CREATE TABLE "reward_pool" (
 
 -- CreateTable
 CREATE TABLE "pool_expansion_event" (
-    "id" TEXT NOT NULL,
+    "id" TEXT NOT NULL DEFAULT nanoid(),
     "rewardPoolId" TEXT NOT NULL,
     "previousCapacity" INTEGER NOT NULL,
     "newCapacity" INTEGER NOT NULL,
@@ -110,7 +110,7 @@ CREATE TABLE "pool_expansion_event" (
 
 -- CreateTable
 CREATE TABLE "label" (
-    "id" TEXT NOT NULL,
+    "id" TEXT NOT NULL DEFAULT nanoid(),
     "projectId" TEXT NOT NULL,
     "name" TEXT NOT NULL,
     "color" TEXT NOT NULL,
@@ -122,7 +122,7 @@ CREATE TABLE "label" (
 
 -- CreateTable
 CREATE TABLE "bounty" (
-    "id" TEXT NOT NULL,
+    "id" TEXT NOT NULL DEFAULT nanoid(),
     "projectId" TEXT NOT NULL,
     "number" INTEGER NOT NULL,
     "title" TEXT NOT NULL,
@@ -141,7 +141,7 @@ CREATE TABLE "bounty" (
 
 -- CreateTable
 CREATE TABLE "bounty_label" (
-    "id" TEXT NOT NULL,
+    "id" TEXT NOT NULL DEFAULT nanoid(),
     "bountyId" TEXT NOT NULL,
     "labelId" TEXT NOT NULL,
     "createdAt" TIMESTAMPTZ(3) NOT NULL DEFAULT CURRENT_TIMESTAMP,
@@ -151,7 +151,7 @@ CREATE TABLE "bounty_label" (
 
 -- CreateTable
 CREATE TABLE "bounty_event" (
-    "id" TEXT NOT NULL,
+    "id" TEXT NOT NULL DEFAULT nanoid(),
     "bountyId" TEXT NOT NULL,
     "userId" TEXT NOT NULL,
     "type" TEXT NOT NULL,
@@ -167,7 +167,7 @@ CREATE TABLE "bounty_event" (
 
 -- CreateTable
 CREATE TABLE "bounty_claim" (
-    "id" TEXT NOT NULL,
+    "id" TEXT NOT NULL DEFAULT nanoid(),
     "bountyId" TEXT NOT NULL,
     "userId" TEXT NOT NULL,
     "status" TEXT NOT NULL DEFAULT 'ACTIVE',
@@ -180,7 +180,7 @@ CREATE TABLE "bounty_claim" (
 
 -- CreateTable
 CREATE TABLE "submission" (
-    "id" TEXT NOT NULL,
+    "id" TEXT NOT NULL DEFAULT nanoid(),
     "bountyId" TEXT NOT NULL,
     "userId" TEXT NOT NULL,
     "description" TEXT NOT NULL,
@@ -197,7 +197,7 @@ CREATE TABLE "submission" (
 
 -- CreateTable
 CREATE TABLE "submission_event" (
-    "id" TEXT NOT NULL,
+    "id" TEXT NOT NULL DEFAULT nanoid(),
     "submissionId" TEXT NOT NULL,
     "userId" TEXT NOT NULL,
     "type" TEXT NOT NULL,
@@ -214,7 +214,7 @@ CREATE TABLE "submission_event" (
 
 -- CreateTable
 CREATE TABLE "submission_attachment" (
-    "id" TEXT NOT NULL,
+    "id" TEXT NOT NULL DEFAULT nanoid(),
     "submissionId" TEXT NOT NULL,
     "fileName" TEXT NOT NULL,
     "fileUrl" TEXT NOT NULL,
@@ -227,7 +227,7 @@ CREATE TABLE "submission_attachment" (
 
 -- CreateTable
 CREATE TABLE "payout" (
-    "id" TEXT NOT NULL,
+    "id" TEXT NOT NULL DEFAULT nanoid(),
     "projectId" TEXT NOT NULL,
     "periodStart" TIMESTAMPTZ(3) NOT NULL,
     "periodEnd" TIMESTAMPTZ(3) NOT NULL,
@@ -247,7 +247,7 @@ CREATE TABLE "payout" (
 
 -- CreateTable
 CREATE TABLE "payout_recipient" (
-    "id" TEXT NOT NULL,
+    "id" TEXT NOT NULL DEFAULT nanoid(),
     "payoutId" TEXT NOT NULL,
     "userId" TEXT NOT NULL,
     "pointsAtPayout" INTEGER NOT NULL,

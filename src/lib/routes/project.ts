@@ -1,4 +1,5 @@
 // Project routes
+import { slugify } from '@/lib/slugify'
 
 export enum ProjectTab {
   BOUNTIES = 'bounties',
@@ -19,12 +20,16 @@ export interface ProjectTabParams extends ProjectParams {
 
 export interface BountyParams extends ProjectParams {
   bountyId: string
+  /** Optional bounty title for SEO-friendly URLs */
+  title?: string
 }
 
 export type BountyEditParams = BountyParams
 
 export interface SubmissionParams extends ProjectParams {
   submissionId: string
+  /** Optional bounty title for SEO-friendly URLs */
+  title?: string
 }
 
 export type SubmissionEditParams = SubmissionParams
@@ -33,6 +38,16 @@ export type BountySubmitParams = BountyParams
 
 export interface PayoutParams extends ProjectParams {
   payoutId?: string
+}
+
+/**
+ * Create a URL-friendly slug with embedded nanoid
+ * e.g., "grow-twitter-audience-TdFKukO9LuJe"
+ */
+function createIdSlug(id: string, name?: string): string {
+  if (!name) return id
+  const slug = slugify(name, 40) // Leave room for the nanoid
+  return slug ? `${slug}-${id}` : id
 }
 
 // For Next.js app router paths
@@ -61,15 +76,15 @@ export const projectRoutes = {
   settings: (params: ProjectParams) => `/p/${params.slug}/settings`,
   newBounty: (params: ProjectParams) => `/p/${params.slug}/bounties/new`,
   bountyDetail: (params: BountyParams) =>
-    `/p/${params.slug}/bounty/${params.bountyId}`,
+    `/p/${params.slug}/bounty/${createIdSlug(params.bountyId, params.title)}`,
   bountyEdit: (params: BountyEditParams) =>
-    `/p/${params.slug}/bounty/${params.bountyId}/edit`,
+    `/p/${params.slug}/bounty/${createIdSlug(params.bountyId, params.title)}/edit`,
   bountySubmit: (params: BountySubmitParams) =>
-    `/p/${params.slug}/bounty/${params.bountyId}/submit`,
+    `/p/${params.slug}/bounty/${createIdSlug(params.bountyId, params.title)}/submit`,
   submissionDetail: (params: SubmissionParams) =>
-    `/p/${params.slug}/submission/${params.submissionId}`,
+    `/p/${params.slug}/submission/${createIdSlug(params.submissionId, params.title)}`,
   submissionEdit: (params: SubmissionEditParams) =>
-    `/p/${params.slug}/submission/${params.submissionId}/edit`,
+    `/p/${params.slug}/submission/${createIdSlug(params.submissionId, params.title)}/edit`,
   submissions: (params: ProjectParams) => `/p/${params.slug}/submissions`,
   newPayout: (params: ProjectParams) => `/p/${params.slug}/payouts/new`,
   payouts: (params: ProjectParams) => `/p/${params.slug}/payouts`,

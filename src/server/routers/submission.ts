@@ -4,6 +4,7 @@ import {
   SubmissionEventType,
   SubmissionStatus,
 } from '@/lib/db/types'
+import { nanoId } from '@/lib/nanoid/schema'
 import { protectedProcedure, router } from '@/server/trpc'
 import { Prisma } from '@prisma/client'
 import { TRPCError } from '@trpc/server'
@@ -11,20 +12,20 @@ import { z } from 'zod/v4'
 
 // Validation schemas
 const createSubmissionSchema = z.object({
-  bountyId: z.string().uuid(),
+  bountyId: nanoId(),
   description: z.string().min(1),
   isDraft: z.boolean().default(false),
 })
 
 const updateSubmissionSchema = z.object({
-  id: z.string().uuid(),
+  id: nanoId(),
   description: z.string().min(1).optional(),
   status: z.enum([SubmissionStatus.DRAFT, SubmissionStatus.PENDING]).optional(),
 })
 
 const reviewSubmissionSchema = z
   .object({
-    id: z.string().uuid(),
+    id: nanoId(),
     action: z.enum(['approve', 'reject', 'requestInfo']),
     note: z.string().optional(),
     pointsAwarded: z.number().int().min(0).optional(), // Can override default points
@@ -44,7 +45,7 @@ const reviewSubmissionSchema = z
   )
 
 const addMessageSchema = z.object({
-  submissionId: z.string().uuid(),
+  submissionId: nanoId(),
   content: z.string().min(1),
 })
 
@@ -56,7 +57,7 @@ export const submissionRouter = router({
     .input(
       z.object({
         status: z.enum(SubmissionStatus).optional(),
-        projectId: z.uuid().optional(),
+        projectId: nanoId().optional(),
       }),
     )
     .query(async ({ ctx, input }) => {
@@ -82,7 +83,7 @@ export const submissionRouter = router({
    * Get pending submissions for a project (founder only)
    */
   pendingForProject: protectedProcedure
-    .input(z.object({ projectId: z.string().uuid() }))
+    .input(z.object({ projectId: nanoId() }))
     .query(async ({ ctx, input }) => {
       // Verify ownership
       const project = await ctx.prisma.project.findUnique({
@@ -120,7 +121,7 @@ export const submissionRouter = router({
    * Get a single submission with full details
    */
   getById: protectedProcedure
-    .input(z.object({ id: z.string().uuid() }))
+    .input(z.object({ id: nanoId() }))
     .query(async ({ ctx, input }) => {
       const submission = await ctx.prisma.submission.findUnique({
         where: { id: input.id },

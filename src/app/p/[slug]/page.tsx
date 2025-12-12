@@ -1,5 +1,4 @@
 import { headers } from 'next/headers'
-import { notFound } from 'next/navigation'
 import { auth } from '@/lib/auth/server'
 import { prisma } from '@/lib/db/server'
 import {
@@ -9,6 +8,7 @@ import {
   PayoutStatus,
   SubmissionStatus,
 } from '@/lib/db/types'
+import { NotFoundState } from '@/components/ui/not-found-state'
 import { ProjectBackground } from './_components/project-background'
 import { ProjectHeader } from './_components/project-header'
 import { ProjectTabs } from './_components/project-tabs'
@@ -145,19 +145,21 @@ export default async function ProjectPage({ params }: ProjectPageProps) {
   const { slug } = await params
   const project = await getProject(slug)
 
-  if (!project) {
-    notFound()
-  }
-
   // Check if current user is the founder
   const session = await auth.api.getSession({
     headers: await headers(),
   })
-  const isFounder = session?.user?.id === project.founderId
+  const isFounder = session?.user?.id === project?.founderId
 
-  // Only show if public or if user is founder
-  if (!project.isPublic && !isFounder) {
-    notFound()
+  // Show 404 if project doesn't exist or user doesn't have access
+  if (!project || (!project.isPublic && !isFounder)) {
+    return (
+      <ProjectBackground>
+        <div className="mx-auto max-w-7xl px-4 py-8">
+          <NotFoundState resourceType="project" />
+        </div>
+      </ProjectBackground>
+    )
   }
 
   return (

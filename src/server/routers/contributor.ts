@@ -1,4 +1,5 @@
 import { PayoutRecipientStatus, SubmissionStatus } from '@/lib/db/types'
+import { nanoId } from '@/lib/nanoid/schema'
 import { protectedProcedure, publicProcedure, router } from '@/server/trpc'
 import { z } from 'zod/v4'
 
@@ -7,7 +8,7 @@ export const contributorRouter = router({
    * Get contributors for a project (auto-computed from approved submissions)
    */
   getByProject: publicProcedure
-    .input(z.object({ projectId: z.string().uuid() }))
+    .input(z.object({ projectId: nanoId() }))
     .query(async ({ ctx, input }) => {
       // Get all approved submissions for this project
       const submissions = await ctx.prisma.submission.findMany({

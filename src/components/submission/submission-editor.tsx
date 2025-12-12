@@ -7,12 +7,14 @@ import { Loader2 } from 'lucide-react'
 import { useState } from 'react'
 import Link from 'next/link'
 import { useRouter } from 'next/navigation'
-import { notFound, redirect } from 'next/navigation'
+import { redirect } from 'next/navigation'
 import { routes } from '@/lib/routes'
 import { AppButton } from '@/components/app'
 import { AppBackground } from '@/components/layout/app-background'
+import { ErrorState } from '@/components/ui/error-state'
 import { Markdown } from '@/components/ui/markdown'
 import { MarkdownEditor } from '@/components/ui/markdown-editor'
+import { NotFoundState } from '@/components/ui/not-found-state'
 import { Separator } from '@/components/ui/separator'
 import { Skeleton } from '@/components/ui/skeleton'
 import { toast } from 'sonner'
@@ -37,18 +39,28 @@ export function SubmissionEditor({
   const [prevSubmissionId, setPrevSubmissionId] = useState<string | null>(null)
 
   // Fetch bounty data for create mode (for acceptance criteria)
-  const { data: bounty, isLoading: bountyLoading } =
-    trpc.bounty.getById.useQuery(
-      { id: bountyId! },
-      { enabled: mode === 'create' && !!bountyId },
-    )
+  const {
+    data: bounty,
+    isLoading: bountyLoading,
+    isError: bountyError,
+    error: bountyErrorData,
+    refetch: refetchBounty,
+  } = trpc.bounty.getById.useQuery(
+    { id: bountyId! },
+    { enabled: mode === 'create' && !!bountyId, retry: false },
+  )
 
   // Fetch submission data for edit mode
-  const { data: submission, isLoading: submissionLoading } =
-    trpc.submission.getById.useQuery(
-      { id: submissionId! },
-      { enabled: mode === 'edit' && !!submissionId },
-    )
+  const {
+    data: submission,
+    isLoading: submissionLoading,
+    isError: submissionError,
+    error: submissionErrorData,
+    refetch: refetchSubmission,
+  } = trpc.submission.getById.useQuery(
+    { id: submissionId! },
+    { enabled: mode === 'edit' && !!submissionId, retry: false },
+  )
 
   // Initialize form with existing submission data in edit mode
   // Using React's recommended pattern for adjusting state based on props during render
@@ -66,6 +78,7 @@ export function SubmissionEditor({
         routes.project.submissionDetail({
           slug,
           submissionId: newSubmission.id,
+          title: bounty?.title,
         }),
       )
     },
@@ -82,6 +95,7 @@ export function SubmissionEditor({
         routes.project.submissionDetail({
           slug,
           submissionId: submissionId!,
+          title: submission?.bounty?.title,
         }),
       )
     },
@@ -115,10 +129,49 @@ export function SubmissionEditor({
     redirect(routes.auth.signIn())
   }
 
+  const projectHref = routes.project.detail({ slug })
+
   // Mode-specific checks
   if (mode === 'create') {
+    // Handle bounty errors
+    if (bountyError) {
+      const isNotFound =
+        bountyErrorData?.data?.code === 'NOT_FOUND' ||
+        bountyErrorData?.data?.code === 'BAD_REQUEST'
+      return (
+        <AppBackground>
+          <div className="mx-auto max-w-4xl px-4 py-8">
+            {isNotFound ? (
+              <NotFoundState
+                resourceType="bounty"
+                backHref={projectHref}
+                backLabel="Back to Project"
+              />
+            ) : (
+              <ErrorState
+                message={bountyErrorData?.message}
+                errorId={bountyErrorData?.data?.errorId}
+                backHref={projectHref}
+                backLabel="Back to Project"
+                onRetry={() => refetchBounty()}
+              />
+            )}
+          </div>
+        </AppBackground>
+      )
+    }
     if (!bounty) {
-      notFound()
+      return (
+        <AppBackground>
+          <div className="mx-auto max-w-4xl px-4 py-8">
+            <NotFoundState
+              resourceType="bounty"
+              backHref={projectHref}
+              backLabel="Back to Project"
+            />
+          </div>
+        </AppBackground>
+      )
     }
     // Check if user has an active claim on this bounty
     const userClaim = bounty.claims.find(
@@ -126,16 +179,55 @@ export function SubmissionEditor({
     )
     if (!userClaim) {
       // User doesn't have an active claim - redirect to bounty
-      router.push(routes.project.bountyDetail({ slug, bountyId: bountyId! }))
+      router.push(
+        routes.project.bountyDetail({
+          slug,
+          bountyId: bountyId!,
+          title: bounty?.title,
+        }),
+      )
       return null
     }
   } else {
-    if (!submission) {
-      notFound()
+    // Handle submission errors
+    if (submissionError) {
+      const isNotFound =
+        submissionErrorData?.data?.code === 'NOT_FOUND' ||
+        submissionErrorData?.data?.code === 'BAD_REQUEST'
+      return (
+        <AppBackground>
+          <div className="mx-auto max-w-4xl px-4 py-8">
+            {isNotFound ? (
+              <NotFoundState
+                resourceType="submission"
+                backHref={projectHref}
+                backLabel="Back to Project"
+              />
+            ) : (
+              <ErrorState
+                message={submissionErrorData?.message}
+                errorId={submissionErrorData?.data?.errorId}
+                backHref={projectHref}
+                backLabel="Back to Project"
+                onRetry={() => refetchSubmission()}
+              />
+            )}
+          </div>
+        </AppBackground>
+      )
     }
-    // Only the submitter can edit their submission
-    if (submission.userId !== session.user.id) {
-      notFound()
+    if (!submission || submission.userId !== session.user.id) {
+      return (
+        <AppBackground>
+          <div className="mx-auto max-w-4xl px-4 py-8">
+            <NotFoundState
+              resourceType="submission"
+              backHref={projectHref}
+              backLabel="Back to Project"
+            />
+          </div>
+        </AppBackground>
+      )
     }
   }
 
@@ -177,6 +269,7 @@ export function SubmissionEditor({
           bountyHref: routes.project.bountyDetail({
             slug,
             bountyId: bountyId!,
+            title: bounty?.title,
           }),
         }
       : {
@@ -185,10 +278,12 @@ export function SubmissionEditor({
           bountyHref: routes.project.bountyDetail({
             slug,
             bountyId: submission?.bountyId ?? '',
+            title: submission?.bounty?.title,
           }),
           submissionHref: routes.project.submissionDetail({
             slug,
             submissionId: submissionId!,
+            title: submission?.bounty?.title,
           }),
         }
 

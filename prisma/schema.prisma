@@ -15,7 +15,7 @@ datasource db {
 // ================================
 
 model User {
-  id            String    @id @default(uuid())
+  id            String    @id @default(dbgenerated("nanoid()"))
   name          String
   email         String    @unique
   username      String?   @unique // URL-friendly slug (e.g., "iwasrobbed")
@@ -39,7 +39,7 @@ model User {
 }
 
 model Session {
-  id        String   @id @default(uuid())
+  id        String   @id @default(dbgenerated("nanoid()"))
   userId    String
   user      User     @relation(fields: [userId], references: [id], onDelete: Cascade)
   token     String   @unique
@@ -54,7 +54,7 @@ model Session {
 }
 
 model Account {
-  id                    String    @id @default(uuid())
+  id                    String    @id @default(dbgenerated("nanoid()"))
   userId                String
   user                  User      @relation(fields: [userId], references: [id], onDelete: Cascade)
   accountId             String
@@ -74,7 +74,7 @@ model Account {
 }
 
 model Verification {
-  id         String   @id @default(uuid())
+  id         String   @id @default(dbgenerated("nanoid()"))
   identifier String
   value      String
   expiresAt  DateTime @db.Timestamptz(3)
@@ -90,7 +90,7 @@ model Verification {
 
 /// A project is a startup/product that can have bounties and contributors
 model Project {
-  id          String   @id @default(uuid())
+  id          String   @id @default(dbgenerated("nanoid()"))
   slug        String   @unique // URL-friendly identifier
   name        String
   /// 3-letter project key used in bounty identifiers (e.g., "OTH" -> "OTH-32")
@@ -129,7 +129,7 @@ model Project {
 
 /// The reward pool defines how much profit/revenue is shared with contributors
 model RewardPool {
-  id        String   @id @default(uuid())
+  id        String   @id @default(dbgenerated("nanoid()"))
   projectId String   @unique
   project   Project  @relation(fields: [projectId], references: [id], onDelete: Cascade)
 
@@ -155,7 +155,7 @@ model RewardPool {
 
 /// Tracks pool capacity expansions for transparency
 model PoolExpansionEvent {
-  id           String     @id @default(uuid())
+  id           String     @id @default(dbgenerated("nanoid()"))
   rewardPoolId String
   rewardPool   RewardPool @relation(fields: [rewardPoolId], references: [id], onDelete: Cascade)
 
@@ -173,7 +173,7 @@ model PoolExpansionEvent {
 
 /// Custom labels for bounties (per-project, like Linear)
 model Label {
-  id        String  @id @default(uuid())
+  id        String  @id @default(dbgenerated("nanoid()"))
   projectId String
   project   Project @relation(fields: [projectId], references: [id], onDelete: Cascade)
 
@@ -193,7 +193,7 @@ model Label {
 
 /// A bounty is a specific task with point rewards
 model Bounty {
-  id        String  @id @default(uuid())
+  id        String  @id @default(dbgenerated("nanoid()"))
   projectId String
   project   Project @relation(fields: [projectId], references: [id], onDelete: Cascade)
 
@@ -230,7 +230,7 @@ model Bounty {
 
 /// Join table for bounty-label many-to-many relationship
 model BountyLabel {
-  id       String @id @default(uuid())
+  id       String @id @default(dbgenerated("nanoid()"))
   bountyId String
   bounty   Bounty @relation(fields: [bountyId], references: [id], onDelete: Cascade)
   labelId  String
@@ -246,7 +246,7 @@ model BountyLabel {
 
 /// Timeline events for bounties (comments, edits, status changes - like Linear's activity feed)
 model BountyEvent {
-  id       String @id @default(uuid())
+  id       String @id @default(dbgenerated("nanoid()"))
   bountyId String
   bounty   Bounty @relation(fields: [bountyId], references: [id], onDelete: Cascade)
   userId   String
@@ -275,7 +275,7 @@ model BountyEvent {
 
 /// A claim represents a contributor's intent to work on a bounty
 model BountyClaim {
-  id       String @id @default(uuid())
+  id       String @id @default(dbgenerated("nanoid()"))
   bountyId String
   bounty   Bounty @relation(fields: [bountyId], references: [id], onDelete: Cascade)
   userId   String
@@ -294,7 +294,7 @@ model BountyClaim {
 
 /// A submission is work + proof submitted by a contributor for a bounty
 model Submission {
-  id       String @id @default(uuid())
+  id       String @id @default(dbgenerated("nanoid()"))
   bountyId String
   bounty   Bounty @relation(fields: [bountyId], references: [id], onDelete: Cascade)
   userId   String
@@ -325,7 +325,7 @@ model Submission {
 
 /// Timeline events for submissions (comments, edits, status changes - like GitHub PR activity)
 model SubmissionEvent {
-  id           String     @id @default(uuid())
+  id           String     @id @default(dbgenerated("nanoid()"))
   submissionId String
   submission   Submission @relation(fields: [submissionId], references: [id], onDelete: Cascade)
   userId       String
@@ -355,7 +355,7 @@ model SubmissionEvent {
 
 /// File attachments for submissions (stored in R2)
 model SubmissionAttachment {
-  id           String     @id @default(uuid())
+  id           String     @id @default(dbgenerated("nanoid()"))
   submissionId String
   submission   Submission @relation(fields: [submissionId], references: [id], onDelete: Cascade)
 
@@ -376,7 +376,7 @@ model SubmissionAttachment {
 
 /// A payout represents a distribution of the reward pool for a period
 model Payout {
-  id        String  @id @default(uuid())
+  id        String  @id @default(dbgenerated("nanoid()"))
   projectId String
   project   Project @relation(fields: [projectId], references: [id], onDelete: Cascade)
 
@@ -409,7 +409,7 @@ model Payout {
 
 /// Individual contributor's share of a payout
 model PayoutRecipient {
-  id       String @id @default(uuid())
+  id       String @id @default(dbgenerated("nanoid()"))
   payoutId String
   payout   Payout @relation(fields: [payoutId], references: [id], onDelete: Cascade)
   userId   String

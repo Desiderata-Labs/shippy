@@ -44,3 +44,6 @@ export type {
   SubmissionParams,
 } from './project'
 export type { UserParams } from './user'
+
+// Re-export nanoid utilities for URL slug handling
+export { createSlugWithId, extractNanoIdFromSlug } from '@/lib/nanoid/shared'

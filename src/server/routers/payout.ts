@@ -3,13 +3,14 @@ import {
   PayoutStatus,
   SubmissionStatus,
 } from '@/lib/db/types'
+import { nanoId } from '@/lib/nanoid/schema'
 import { protectedProcedure, publicProcedure, router } from '@/server/trpc'
 import { TRPCError } from '@trpc/server'
 import { z } from 'zod/v4'
 
 // Validation schemas
 const createPayoutSchema = z.object({
-  projectId: z.string().uuid(),
+  projectId: nanoId(),
   periodStart: z.coerce.date(),
   periodEnd: z.coerce.date(),
   periodLabel: z.string().min(1).max(50),
@@ -17,12 +18,12 @@ const createPayoutSchema = z.object({
 })
 
 const markSentSchema = z.object({
-  payoutId: z.string().uuid(),
+  payoutId: nanoId(),
   note: z.string().optional(),
 })
 
 const confirmReceiptSchema = z.object({
-  payoutId: z.string().uuid(),
+  payoutId: nanoId(),
   confirmed: z.boolean(),
   note: z.string().optional(),
   disputeReason: z.string().optional(),
@@ -33,7 +34,7 @@ export const payoutRouter = router({
    * Get payouts for a project (public summary, detailed for participants)
    */
   getByProject: publicProcedure
-    .input(z.object({ projectId: z.string().uuid() }))
+    .input(z.object({ projectId: nanoId() }))
     .query(async ({ ctx, input }) => {
       const payouts = await ctx.prisma.payout.findMany({
         where: { projectId: input.projectId },
@@ -56,7 +57,7 @@ export const payoutRouter = router({
    * Get payout summary stats for a project
    */
   getProjectStats: publicProcedure
-    .input(z.object({ projectId: z.string().uuid() }))
+    .input(z.object({ projectId: nanoId() }))
     .query(async ({ ctx, input }) => {
       const payouts = await ctx.prisma.payout.findMany({
         where: { projectId: input.projectId },
@@ -102,7 +103,7 @@ export const payoutRouter = router({
   previewPayout: protectedProcedure
     .input(
       z.object({
-        projectId: z.string().uuid(),
+        projectId: nanoId(),
         reportedProfitCents: z.number().int().min(0),
       }),
     )

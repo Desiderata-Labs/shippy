@@ -16,8 +16,8 @@ import { Loader2 } from 'lucide-react'
 import { useState } from 'react'
 import Link from 'next/link'
 import { useParams } from 'next/navigation'
-import { notFound } from 'next/navigation'
 import { SubmissionEventType, SubmissionStatus } from '@/lib/db/types'
+import { extractNanoIdFromSlug } from '@/lib/nanoid/shared'
 import { routes } from '@/lib/routes'
 import {
   submissionStatusColors,
@@ -30,7 +30,9 @@ import { AppBackground } from '@/components/layout/app-background'
 import { Avatar, AvatarFallback, AvatarImage } from '@/components/ui/avatar'
 import { Badge } from '@/components/ui/badge'
 import { ConfirmModal } from '@/components/ui/confirm-modal'
+import { ErrorState } from '@/components/ui/error-state'
 import { Markdown } from '@/components/ui/markdown'
+import { NotFoundState } from '@/components/ui/not-found-state'
 import {
   Popover,
   PopoverContent,
@@ -85,6 +87,8 @@ type ReviewAction = 'comment' | 'approve' | 'requestInfo' | 'reject'
 
 export default function SubmissionDetailPage() {
   const params = useParams<{ slug: string; submissionId: string }>()
+  // Extract the nanoid from the URL slug (e.g., "bounty-title-TdFKukO9LuJe" -> "TdFKukO9LuJe")
+  const submissionId = extractNanoIdFromSlug(params.submissionId)
   const { data: session } = useSession()
   const [messageContent, setMessageContent] = useState('')
   const [isSending, setIsSending] = useState(false)
@@ -94,9 +98,15 @@ export default function SubmissionDetailPage() {
   const [showRejectModal, setShowRejectModal] = useState(false)
   const [copied, setCopied] = useState(false)
 
-  const { data: submission, isLoading } = trpc.submission.getById.useQuery(
-    { id: params.submissionId },
-    { enabled: !!params.submissionId },
+  const {
+    data: submission,
+    isLoading,
+    isError,
+    error,
+    refetch,
+  } = trpc.submission.getById.useQuery(
+    { id: submissionId },
+    { enabled: !!submissionId, retry: false },
   )
 
   const utils = trpc.useUtils()
@@ -104,7 +114,7 @@ export default function SubmissionDetailPage() {
   const addComment = trpc.submission.addComment.useMutation({
     onSuccess: () => {
       setMessageContent('')
-      utils.submission.getById.invalidate({ id: params.submissionId })
+      utils.submission.getById.invalidate({ id: submissionId })
     },
     onError: (error) => {
       toast.error(error.message)
@@ -117,7 +127,7 @@ export default function SubmissionDetailPage() {
       setShowReviewPopover(false)
       setReviewNote('')
       setReviewAction('comment')
-      utils.submission.getById.invalidate({ id: params.submissionId })
+      utils.submission.getById.invalidate({ id: submissionId })
     },
     onError: (error) => {
       toast.error(error.message)
@@ -142,8 +152,47 @@ export default function SubmissionDetailPage() {
     )
   }
 
+  // Handle errors - differentiate between 404 and other errors
+  // BAD_REQUEST with invalid NanoID is also effectively a 404
+  if (isError) {
+    const isNotFound =
+      error?.data?.code === 'NOT_FOUND' || error?.data?.code === 'BAD_REQUEST'
+    const projectHref = routes.project.detail({ slug: params.slug })
+    return (
+      <AppBackground>
+        <div className="mx-auto max-w-7xl px-4 py-8">
+          {isNotFound ? (
+            <NotFoundState
+              resourceType="submission"
+              backHref={projectHref}
+              backLabel="Back to Project"
+            />
+          ) : (
+            <ErrorState
+              message={error?.message}
+              errorId={error?.data?.errorId}
+              backHref={projectHref}
+              backLabel="Back to Project"
+              onRetry={() => refetch()}
+            />
+          )}
+        </div>
+      </AppBackground>
+    )
+  }
+
   if (!submission) {
-    notFound()
+    return (
+      <AppBackground>
+        <div className="mx-auto max-w-7xl px-4 py-8">
+          <NotFoundState
+            resourceType="submission"
+            backHref={routes.project.detail({ slug: params.slug })}
+            backLabel="Back to Project"
+          />
+        </div>
+      </AppBackground>
+    )
   }
 
   const isFounder = session?.user?.id === submission.bounty.project.founderId
@@ -165,7 +214,11 @@ export default function SubmissionDetailPage() {
 
   const submissionUrl =
     typeof window !== 'undefined'
-      ? `${window.location.origin}/p/${params.slug}/submission/${params.submissionId}`
+      ? `${window.location.origin}${routes.project.submissionDetail({
+          slug: params.slug,
+          submissionId: submission.id,
+          title: submission.bounty.title,
+        })}`
       : ''
 
   const handleCopyLink = async () => {
@@ -261,6 +314,7 @@ export default function SubmissionDetailPage() {
             href={routes.project.bountyDetail({
               slug: params.slug,
               bountyId: submission.bountyId,
+              title: submission.bounty.title,
             })}
             className="text-muted-foreground transition-colors hover:text-foreground"
           >
@@ -283,7 +337,8 @@ export default function SubmissionDetailPage() {
                 <Link
                   href={routes.project.submissionEdit({
                     slug: params.slug,
-                    submissionId: params.submissionId,
+                    submissionId: submission.id,
+                    title: submission.bounty.title,
                   })}
                 >
                   <Pencil01 className="mr-1.5 size-3.5" />
@@ -600,6 +655,7 @@ export default function SubmissionDetailPage() {
                   href={routes.project.bountyDetail({
                     slug: params.slug,
                     bountyId: submission.bountyId,
+                    title: submission.bounty.title,
                   })}
                   className="text-xs text-primary hover:underline"
                 >

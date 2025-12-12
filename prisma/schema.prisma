@@ -32,6 +32,7 @@ model User {
   submissions      Submission[]
   submissionEvents SubmissionEvent[]
   payoutRecipients PayoutRecipient[]
+  bountyComments   BountyComment[]
 
   @@index([username])
   @@map("user")
@@ -92,6 +93,9 @@ model Project {
   id          String   @id @default(uuid())
   slug        String   @unique // URL-friendly identifier
   name        String
+  /// 3-letter project key used in bounty identifiers (e.g., "OTH" -> "OTH-32")
+  /// Must be unique per founder across their projects.
+  projectKey  String   @db.VarChar(3)
   tagline     String? // Short description
   description String?  @db.Text // Markdown readme content
   logoUrl     String?
@@ -108,6 +112,9 @@ model Project {
   founderId String
   founder   User   @relation(fields: [founderId], references: [id], onDelete: Cascade)
 
+  // Sequence for assigning per-project bounty numbers (for display IDs like KEY-123)
+  nextBountyNumber Int @default(1)
+
   // Relations
   rewardPool RewardPool?
   bounties   Bounty[]
@@ -115,6 +122,7 @@ model Project {
 
   @@index([founderId])
   @@index([isPublic])
+  @@unique([founderId, projectKey])
   @@map("project")
 }
 
@@ -169,6 +177,8 @@ model Bounty {
   project   Project @relation(fields: [projectId], references: [id], onDelete: Cascade)
 
   // Bounty details
+  /// Per-project sequential number used in display IDs (e.g., "OTH-32")
+  number      Int
   title       String
   description String  @db.Text // What's required, how success is verified
   points      Int // Point reward for completing this bounty
@@ -189,10 +199,30 @@ model Bounty {
   // Relations
   claims      BountyClaim[]
   submissions Submission[]
+  comments    BountyComment[]
 
   @@index([projectId])
   @@index([status])
+  @@unique([projectId, number])
   @@map("bounty")
+}
+
+/// A comment on a bounty for clarifications and discussion
+model BountyComment {
+  id       String @id @default(uuid())
+  bountyId String
+  bounty   Bounty @relation(fields: [bountyId], references: [id], onDelete: Cascade)
+  userId   String
+  user     User   @relation(fields: [userId], references: [id], onDelete: Cascade)
+
+  content String @db.Text
+
+  createdAt DateTime @default(now()) @db.Timestamptz(3)
+  updatedAt DateTime @updatedAt @db.Timestamptz(3)
+
+  @@index([bountyId])
+  @@index([userId])
+  @@map("bounty_comment")
 }
 
 /// A claim represents a contributor's intent to work on a bounty

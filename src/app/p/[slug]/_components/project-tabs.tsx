@@ -6,7 +6,9 @@ import {
   Target01,
   Users01,
 } from '@untitled-ui/icons-react'
-import { useState } from 'react'
+import Link from 'next/link'
+import { useSearchParams } from 'next/navigation'
+import { DEFAULT_PROJECT_TAB, ProjectTab, routes } from '@/lib/routes'
 import { cn } from '@/lib/utils'
 import { BountiesTab } from './bounties-tab'
 import { ContributorsTab } from './contributors-tab'
@@ -18,6 +20,7 @@ interface ProjectTabsProps {
     id: string
     slug: string
     name: string
+    projectKey: string
     description: string | null
     discordUrl: string | null
     websiteUrl: string | null
@@ -29,6 +32,7 @@ interface ProjectTabsProps {
     } | null
     bounties: Array<{
       id: string
+      number: number
       title: string
       description: string
       points: number
@@ -37,6 +41,15 @@ interface ProjectTabsProps {
       claimMode: string
       evidenceDescription: string | null
       createdAt: Date
+      claims: Array<{
+        id: string
+        expiresAt: Date
+        user: {
+          id: string
+          name: string
+          image: string | null
+        }
+      }>
       _count: {
         claims: number
         submissions: number
@@ -50,17 +63,21 @@ interface ProjectTabsProps {
   isFounder: boolean
 }
 
-type TabValue = 'readme' | 'bounties' | 'contributors' | 'payouts'
-
 interface TabItem {
-  value: TabValue
+  value: ProjectTab
   label: string
   icon: React.ComponentType<{ className?: string }>
   count?: number
 }
 
+function isValidTab(tab: string | null): tab is ProjectTab {
+  return tab !== null && Object.values(ProjectTab).includes(tab as ProjectTab)
+}
+
 export function ProjectTabs({ project, isFounder }: ProjectTabsProps) {
-  const [activeTab, setActiveTab] = useState<TabValue>('readme')
+  const searchParams = useSearchParams()
+  const tabParam = searchParams.get('tab')
+  const activeTab = isValidTab(tabParam) ? tabParam : DEFAULT_PROJECT_TAB
 
   // Count active bounties (not COMPLETED or CLOSED)
   const activeBounties = project.bounties.filter(
@@ -69,24 +86,14 @@ export function ProjectTabs({ project, isFounder }: ProjectTabsProps) {
 
   const tabs: TabItem[] = [
     {
-      value: 'readme',
-      label: 'Readme',
-      icon: BookOpen02,
-    },
-    {
-      value: 'bounties',
+      value: ProjectTab.BOUNTIES,
       label: 'Bounties',
       icon: Target01,
       // Show count if there are any active bounties
       count: activeBounties.length > 0 ? activeBounties.length : undefined,
     },
     {
-      value: 'contributors',
-      label: 'Contributors',
-      icon: Users01,
-    },
-    {
-      value: 'payouts',
+      value: ProjectTab.PAYOUTS,
       label: 'Payouts',
       icon: CoinsStacked01,
       // Show count of verified payouts
@@ -94,6 +101,16 @@ export function ProjectTabs({ project, isFounder }: ProjectTabsProps) {
         project.stats.verifiedPayoutCount > 0
           ? project.stats.verifiedPayoutCount
           : undefined,
+    },
+    {
+      value: ProjectTab.CONTRIBUTORS,
+      label: 'Contributors',
+      icon: Users01,
+    },
+    {
+      value: ProjectTab.README,
+      label: 'Readme',
+      icon: BookOpen02,
     },
   ]
 
@@ -105,11 +122,16 @@ export function ProjectTabs({ project, isFounder }: ProjectTabsProps) {
           {tabs.map((tab) => {
             const Icon = tab.icon
             const isActive = activeTab === tab.value
+            const href = routes.project.detail({
+              slug: project.slug,
+              tab: tab.value,
+            })
 
             return (
-              <button
+              <Link
                 key={tab.value}
-                onClick={() => setActiveTab(tab.value)}
+                href={href}
+                scroll={false}
                 className={cn(
                   'group relative flex cursor-pointer items-center gap-2 px-4 py-2.5 text-sm font-medium transition-colors',
                   isActive
@@ -137,7 +159,7 @@ export function ProjectTabs({ project, isFounder }: ProjectTabsProps) {
                 {isActive && (
                   <span className="absolute right-0 bottom-0 left-0 h-0.5 rounded-full bg-primary" />
                 )}
-              </button>
+              </Link>
             )
           })}
         </nav>
@@ -145,18 +167,19 @@ export function ProjectTabs({ project, isFounder }: ProjectTabsProps) {
 
       {/* Tab content */}
       <div className="pt-4">
-        {activeTab === 'readme' && <ReadmeTab project={project} />}
-        {activeTab === 'bounties' && (
+        {activeTab === ProjectTab.README && <ReadmeTab project={project} />}
+        {activeTab === ProjectTab.BOUNTIES && (
           <BountiesTab
             projectSlug={project.slug}
+            projectKey={project.projectKey}
             bounties={project.bounties}
             isFounder={isFounder}
           />
         )}
-        {activeTab === 'contributors' && (
+        {activeTab === ProjectTab.CONTRIBUTORS && (
           <ContributorsTab projectId={project.id} />
         )}
-        {activeTab === 'payouts' && (
+        {activeTab === ProjectTab.PAYOUTS && (
           <PayoutsTab
             projectId={project.id}
             projectSlug={project.slug}

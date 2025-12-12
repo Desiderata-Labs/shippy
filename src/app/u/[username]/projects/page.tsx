@@ -52,7 +52,7 @@ export default function UserProjectsPage() {
 
   return (
     <AppBackground>
-      <div className="container px-4 py-8">
+      <div className="mx-auto max-w-7xl px-4 py-8">
         <div className="mb-8 flex items-center justify-between">
           <div>
             <h1 className="text-3xl font-bold tracking-tight">My Projects</h1>
@@ -106,7 +106,7 @@ export default function UserProjectsPage() {
 function ProjectsSkeleton() {
   return (
     <AppBackground>
-      <div className="container px-4 py-8">
+      <div className="mx-auto max-w-7xl px-4 py-8">
         <div className="mb-8 flex items-center justify-between">
           <div>
             <Skeleton className="h-9 w-48" />

@@ -38,7 +38,7 @@ export function AppHeader() {
   return (
     <header className="sticky top-0 z-50 w-full">
       {/* Outer wrapper - uses container to match page width */}
-      <div className="container px-4 pt-4">
+      <div className="mx-auto max-w-7xl px-4 pt-4">
         {/* Clean floating header */}
         <div className="rounded-xl border border-border bg-background/80 shadow-lg shadow-black/5 backdrop-blur-md">
           {/* Inner content */}

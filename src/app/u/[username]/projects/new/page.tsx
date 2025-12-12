@@ -57,6 +57,7 @@ export default function NewProjectPage() {
       await createProject.mutateAsync({
         name: data.name,
         slug: data.slug,
+        projectKey: data.projectKey,
         tagline: data.tagline || undefined,
         description: data.description || undefined,
         websiteUrl: data.websiteUrl || undefined,
@@ -77,7 +78,7 @@ export default function NewProjectPage() {
 
   return (
     <AppBackground>
-      <div className="container max-w-2xl px-4 py-8">
+      <div className="mx-auto max-w-7xl px-4 py-8">
         <div className="mb-8">
           <h1 className="text-3xl font-bold tracking-tight">
             Create New Project

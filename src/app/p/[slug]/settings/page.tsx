@@ -42,7 +42,7 @@ export default function ProjectSettingsPage() {
   if (sessionLoading || projectLoading) {
     return (
       <AppBackground>
-        <div className="container flex max-w-2xl items-center justify-center px-4 py-16">
+        <div className="mx-auto flex max-w-7xl items-center justify-center px-4 py-16">
           <Loader2 className="size-8 animate-spin text-muted-foreground" />
         </div>
       </AppBackground>
@@ -72,6 +72,9 @@ export default function ProjectSettingsPage() {
         name: data.name,
         // Only include slug if it changed
         ...(data.slug !== project.slug ? { slug: data.slug } : {}),
+        ...(data.projectKey !== project.projectKey
+          ? { projectKey: data.projectKey }
+          : {}),
         tagline: data.tagline || undefined,
         description: data.description || undefined,
         websiteUrl: data.websiteUrl || null,
@@ -108,6 +111,7 @@ export default function ProjectSettingsPage() {
   const initialData: ProjectFormData = {
     name: project.name,
     slug: project.slug,
+    projectKey: project.projectKey,
     tagline: project.tagline ?? '',
     description: project.description ?? '',
     websiteUrl: project.websiteUrl ?? '',
@@ -123,7 +127,7 @@ export default function ProjectSettingsPage() {
 
   return (
     <AppBackground>
-      <div className="container max-w-2xl px-4 py-8">
+      <div className="mx-auto max-w-7xl px-4 py-8">
         <div className="mb-8">
           <h1 className="text-3xl font-bold tracking-tight">
             Project Settings
@@ -136,7 +140,9 @@ export default function ProjectSettingsPage() {
         <ProjectForm
           mode="edit"
           initialData={initialData}
+          currentProjectId={project.id}
           currentSlug={project.slug}
+          currentProjectKey={project.projectKey}
           canEditRewardPool={project.canEditRewardPool}
           isLoading={isLoading}
           onSubmit={handleSubmit}

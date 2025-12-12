@@ -4,6 +4,7 @@ import { auth } from '@/lib/auth/server'
 import { prisma } from '@/lib/db/server'
 import {
   BountyStatus,
+  ClaimStatus,
   PayoutRecipientStatus,
   PayoutStatus,
   SubmissionStatus,
@@ -21,17 +22,27 @@ async function getProject(slug: string) {
     where: { slug },
     include: {
       founder: {
-        select: { id: true, name: true, image: true },
+        select: { id: true, name: true, username: true, image: true },
       },
       rewardPool: true,
       bounties: {
-        where: {
-          status: { in: [BountyStatus.OPEN, BountyStatus.CLAIMED] },
-        },
-        orderBy: [{ points: 'desc' }, { createdAt: 'desc' }],
+        // Always include past bounties (COMPLETED/CLOSED), not just active ones.
+        orderBy: [{ createdAt: 'desc' }],
         include: {
           _count: {
-            select: { claims: true, submissions: true },
+            select: {
+              claims: { where: { status: ClaimStatus.ACTIVE } },
+              submissions: true,
+            },
+          },
+          claims: {
+            where: { status: ClaimStatus.ACTIVE },
+            orderBy: { expiresAt: 'asc' },
+            select: {
+              id: true,
+              expiresAt: true,
+              user: { select: { id: true, name: true, image: true } },
+            },
           },
           submissions: {
             where: {
@@ -94,6 +105,21 @@ async function getProject(slug: string) {
     },
   }))
 
+  // Keep active bounties at the top, then past bounties.
+  const statusRank: Record<string, number> = {
+    [BountyStatus.OPEN]: 0,
+    [BountyStatus.CLAIMED]: 1,
+    [BountyStatus.COMPLETED]: 2,
+    [BountyStatus.CLOSED]: 3,
+  }
+  bountiesWithPendingCount.sort((a, b) => {
+    const rankA = statusRank[a.status] ?? 99
+    const rankB = statusRank[b.status] ?? 99
+    if (rankA !== rankB) return rankA - rankB
+    if (a.points !== b.points) return b.points - a.points
+    return new Date(b.createdAt).getTime() - new Date(a.createdAt).getTime()
+  })
+
   return {
     ...project,
     bounties: bountiesWithPendingCount,
@@ -127,7 +153,7 @@ export default async function ProjectPage({ params }: ProjectPageProps) {
 
   return (
     <ProjectBackground>
-      <div className="container px-4 py-8">
+      <div className="mx-auto max-w-7xl px-4 py-8">
         <ProjectHeader project={project} isFounder={isFounder} />
         <ProjectTabs project={project} isFounder={isFounder} />
       </div>

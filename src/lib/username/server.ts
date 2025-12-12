@@ -90,9 +90,11 @@ export async function generateUniqueUsername(
  * @returns The updated user or throws an error
  */
 export async function setUserUsername(userId: string, username: string) {
-  const normalizedUsername = username.toLowerCase().trim()
+  // Always slugify the username to ensure it's URL-safe
+  // This handles cases like "rob phillips" -> "rob-phillips"
+  const normalizedUsername = slugifyUsername(username)
 
-  // Validate the username format
+  // Validate the slugified username
   const validation = validateUsername(normalizedUsername)
   if (!validation.isValid) {
     throw new Error(validation.error)

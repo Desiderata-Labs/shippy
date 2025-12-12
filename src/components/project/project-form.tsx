@@ -4,6 +4,10 @@ import { trpc } from '@/lib/trpc/react'
 import { Check, Loader2, X } from 'lucide-react'
 import { useState } from 'react'
 import { CommitmentMonths, PayoutFrequency } from '@/lib/db/types'
+import {
+  normalizeProjectKey,
+  suggestProjectKeyFromName,
+} from '@/lib/project-key/shared'
 import { slugify } from '@/lib/slugify'
 import { useDebounce } from '@/hooks/use-debounce'
 import {
@@ -28,6 +32,7 @@ import {
 export interface ProjectFormData {
   name: string
   slug: string
+  projectKey: string
   tagline: string
   description: string
   websiteUrl: string
@@ -40,7 +45,9 @@ export interface ProjectFormData {
 interface ProjectFormProps {
   mode: 'create' | 'edit'
   initialData?: ProjectFormData
+  currentProjectId?: string
   currentSlug?: string // The existing slug when editing (to skip availability check for same slug)
+  currentProjectKey?: string // The existing project key when editing (to skip availability check for same key)
   canEditRewardPool?: boolean // Whether reward pool can be edited (no claimed/completed bounties)
   isLoading: boolean
   onSubmit: (data: ProjectFormData) => void
@@ -50,7 +57,9 @@ interface ProjectFormProps {
 export function ProjectForm({
   mode,
   initialData,
+  currentProjectId,
   currentSlug,
+  currentProjectKey,
   canEditRewardPool = false,
   isLoading,
   onSubmit,
@@ -59,6 +68,7 @@ export function ProjectForm({
   // Form state
   const [name, setName] = useState(initialData?.name ?? '')
   const [slug, setSlug] = useState(initialData?.slug ?? '')
+  const [projectKey, setProjectKey] = useState(initialData?.projectKey ?? '')
   const [tagline, setTagline] = useState(initialData?.tagline ?? '')
   const [description, setDescription] = useState(initialData?.description ?? '')
   const [websiteUrl, setWebsiteUrl] = useState(initialData?.websiteUrl ?? '')
@@ -75,9 +85,13 @@ export function ProjectForm({
 
   // Track if slug was manually edited
   const [slugManuallyEdited, setSlugManuallyEdited] = useState(mode === 'edit')
+  const [projectKeyManuallyEdited, setProjectKeyManuallyEdited] = useState(
+    mode === 'edit',
+  )
 
   // Debounce slug for availability check
   const debouncedSlug = useDebounce(slug, 300)
+  const debouncedProjectKey = useDebounce(projectKey, 300)
 
   // Check slug availability (only for create mode, or if slug changed in edit mode)
   const shouldCheckSlug =
@@ -90,12 +104,33 @@ export function ProjectForm({
       { enabled: shouldCheckSlug },
     )
 
+  // Check project key availability (only when key is valid length, and changed in edit mode)
+  const normalizedKeyForCheck = normalizeProjectKey(debouncedProjectKey)
+  const shouldCheckProjectKey =
+    normalizedKeyForCheck.length === 3 &&
+    (mode === 'create' || normalizedKeyForCheck !== currentProjectKey)
+
+  const { data: keyAvailability, isLoading: isCheckingKey } =
+    trpc.project.checkProjectKeyAvailable.useQuery(
+      {
+        projectKey: normalizedKeyForCheck,
+        excludeProjectId: mode === 'edit' ? currentProjectId : undefined,
+      },
+      { enabled: shouldCheckProjectKey },
+    )
+
   // Determine if slug is valid for submission
   const isSlugValid =
     slug.length >= 2 &&
     (mode === 'edit' && slug === currentSlug
       ? true
       : !isCheckingSlug && slugAvailability?.available)
+
+  const isProjectKeyValid =
+    normalizeProjectKey(projectKey).length === 3 &&
+    (mode === 'edit' && normalizeProjectKey(projectKey) === currentProjectKey
+      ? true
+      : !isCheckingKey && keyAvailability?.available)
 
   // Render slug status icon
   const renderSlugStatus = () => {
@@ -119,11 +154,37 @@ export function ProjectForm({
     return <X className="size-4 text-destructive" />
   }
 
+  const renderProjectKeyStatus = () => {
+    if (normalizeProjectKey(projectKey).length !== 3) {
+      return null
+    }
+
+    if (
+      mode === 'edit' &&
+      normalizeProjectKey(projectKey) === currentProjectKey
+    ) {
+      return <Check className="size-4 text-green-500" />
+    }
+
+    if (isCheckingKey) {
+      return <Loader2 className="size-4 animate-spin text-muted-foreground" />
+    }
+
+    if (keyAvailability?.available) {
+      return <Check className="size-4 text-green-500" />
+    }
+
+    return <X className="size-4 text-destructive" />
+  }
+
   // Auto-generate slug from name (only in create mode and if not manually edited)
   const handleNameChange = (value: string) => {
     setName(value)
     if (mode === 'create' && !slugManuallyEdited) {
       setSlug(slugify(value))
+    }
+    if (mode === 'create' && !projectKeyManuallyEdited) {
+      setProjectKey(suggestProjectKeyFromName(value))
     }
   }
 
@@ -135,11 +196,18 @@ export function ProjectForm({
     setSlugManuallyEdited(true)
   }
 
+  const handleProjectKeyChange = (e: React.ChangeEvent<HTMLInputElement>) => {
+    const value = normalizeProjectKey(e.target.value)
+    setProjectKey(value)
+    setProjectKeyManuallyEdited(true)
+  }
+
   const handleSubmit = (e: React.FormEvent) => {
     e.preventDefault()
     onSubmit({
       name,
       slug,
+      projectKey: normalizeProjectKey(projectKey),
       tagline,
       description,
       websiteUrl,
@@ -174,6 +242,53 @@ export function ProjectForm({
               required
               disabled={isLoading}
             />
+          </div>
+
+          <div className="space-y-2">
+            <Label htmlFor="projectKey">Bounty ID Prefix *</Label>
+            <div className="flex items-center gap-2">
+              <div className="relative w-28">
+                <AppInput
+                  id="projectKey"
+                  value={projectKey}
+                  onChange={handleProjectKeyChange}
+                  placeholder="OTH"
+                  pattern="^[A-Za-z]{0,3}$"
+                  required
+                  disabled={isLoading}
+                  className="pr-10 font-mono tracking-widest uppercase"
+                />
+                <div className="absolute top-1/2 right-3 -translate-y-1/2">
+                  {renderProjectKeyStatus()}
+                </div>
+              </div>
+              <span className="text-sm text-muted-foreground">
+                Example: {normalizeProjectKey(projectKey || 'OTH')}-1
+              </span>
+            </div>
+            {normalizeProjectKey(projectKey).length > 0 &&
+              normalizeProjectKey(projectKey).length < 3 && (
+                <p className="text-xs text-muted-foreground">
+                  Prefix must be exactly 3 letters
+                </p>
+              )}
+            {keyAvailability?.error &&
+              normalizeProjectKey(projectKey).length === 3 &&
+              !isCheckingKey &&
+              (mode === 'create' ||
+                normalizeProjectKey(projectKey) !== currentProjectKey) && (
+                <p className="text-xs text-destructive">
+                  {keyAvailability.error}
+                </p>
+              )}
+            {keyAvailability?.available &&
+              normalizeProjectKey(projectKey).length === 3 &&
+              (mode === 'create' ||
+                normalizeProjectKey(projectKey) !== currentProjectKey) && (
+                <p className="text-xs text-green-600 dark:text-green-400">
+                  Prefix is available!
+                </p>
+              )}
           </div>
 
           <div className="space-y-2">
@@ -440,7 +555,10 @@ export function ProjectForm({
         >
           Cancel
         </AppButton>
-        <AppButton type="submit" disabled={isLoading || !isSlugValid}>
+        <AppButton
+          type="submit"
+          disabled={isLoading || !isSlugValid || !isProjectKeyValid}
+        >
           {isLoading && <Loader2 className="mr-2 size-4 animate-spin" />}
           {mode === 'create' ? 'Create Project' : 'Save Changes'}
         </AppButton>

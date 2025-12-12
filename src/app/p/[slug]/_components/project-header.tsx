@@ -47,6 +47,7 @@ interface ProjectHeaderProps {
     founder: {
       id: string
       name: string
+      username: string | null
       image: string | null
     }
     rewardPool: {
@@ -97,18 +98,32 @@ export function ProjectHeader({ project, isFounder }: ProjectHeaderProps) {
           {/* Breadcrumb: {user icon} {username} / {app icon} {app name} */}
           <div className="flex items-center gap-1.5 text-sm sm:text-base">
             {/* Founder */}
-            <Link
-              href={routes.user.profile({ username: project.founder.name })}
-              className="flex items-center gap-1.5 text-muted-foreground transition-colors hover:text-foreground"
-            >
-              <Avatar className="size-5 ring-1 ring-border">
-                <AvatarImage src={project.founder.image ?? undefined} />
-                <AvatarFallback className="text-[10px]">
-                  {project.founder.name.charAt(0).toUpperCase()}
-                </AvatarFallback>
-              </Avatar>
-              <span className="font-medium">{project.founder.name}</span>
-            </Link>
+            {project.founder.username ? (
+              <Link
+                href={routes.user.profile({
+                  username: project.founder.username,
+                })}
+                className="flex items-center gap-1.5 text-muted-foreground transition-colors hover:text-foreground"
+              >
+                <Avatar className="size-5 ring-1 ring-border">
+                  <AvatarImage src={project.founder.image ?? undefined} />
+                  <AvatarFallback className="text-[10px]">
+                    {project.founder.name.charAt(0).toUpperCase()}
+                  </AvatarFallback>
+                </Avatar>
+                <span className="font-medium">{project.founder.username}</span>
+              </Link>
+            ) : (
+              <div className="flex items-center gap-1.5 text-muted-foreground">
+                <Avatar className="size-5 ring-1 ring-border">
+                  <AvatarImage src={project.founder.image ?? undefined} />
+                  <AvatarFallback className="text-[10px]">
+                    {project.founder.name.charAt(0).toUpperCase()}
+                  </AvatarFallback>
+                </Avatar>
+                <span className="font-medium">{project.founder.name}</span>
+              </div>
+            )}
 
             {/* Separator */}
             <span className="text-muted-foreground/50">/</span>

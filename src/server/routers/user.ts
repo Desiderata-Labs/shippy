@@ -1,6 +1,7 @@
 import {
   isUsernameAvailable,
   setUserUsername,
+  slugifyUsername,
   validateUsername,
 } from '@/lib/username/server'
 import { protectedProcedure, publicProcedure, router } from '@/server/trpc'
@@ -17,7 +18,8 @@ export const userRouter = router({
       }),
     )
     .query(async ({ input, ctx }) => {
-      const normalizedUsername = input.username.toLowerCase().trim()
+      // Always slugify to match what will be saved
+      const normalizedUsername = slugifyUsername(input.username)
 
       // Validate format first
       const validation = validateUsername(normalizedUsername)

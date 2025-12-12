@@ -34,11 +34,13 @@ export const paths = {
 export type Routes = typeof routes
 export type Paths = typeof paths
 
-// Re-export types for convenience
+// Re-export types and enums for convenience
+export { DEFAULT_PROJECT_TAB, ProjectTab } from './project'
 export type {
   BountyParams,
   PayoutParams,
   ProjectParams,
+  ProjectTabParams,
   SubmissionParams,
 } from './project'
 export type { UserParams } from './user'

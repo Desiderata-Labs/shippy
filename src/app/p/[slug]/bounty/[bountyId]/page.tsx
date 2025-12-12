@@ -4,51 +4,48 @@ import { useSession } from '@/lib/auth/react'
 import { trpc } from '@/lib/trpc/react'
 import {
   AlertCircle,
-  AlertTriangle,
-  ArrowRight,
-  Calendar,
   Check,
+  CheckCircle,
+  Circle,
   Clock,
   Copy01,
-  FileCheck02,
-  MessageTextSquare02,
+  DotsVertical,
+  FileCheck03,
   Target01,
+  Trash01,
+  User01,
   Users01,
+  XCircle,
 } from '@untitled-ui/icons-react'
 import { Loader2 } from 'lucide-react'
 import { useState } from 'react'
 import Link from 'next/link'
 import { useParams, useRouter } from 'next/navigation'
 import { notFound } from 'next/navigation'
+import { getTagColor } from '@/lib/bounty/tag-colors'
 import {
   BountyClaimMode,
   BountyStatus,
   ClaimStatus,
   SubmissionStatus,
 } from '@/lib/db/types'
-import { routes } from '@/lib/routes'
+import { ProjectTab, routes } from '@/lib/routes'
 import { cn } from '@/lib/utils'
-import {
-  AppButton,
-  AppCard,
-  AppCardContent,
-  AppCardDescription,
-  AppCardHeader,
-  AppCardTitle,
-  AppTextarea,
-} from '@/components/app'
+import { AppButton } from '@/components/app'
+import { SubmitWorkModal } from '@/components/bounty/submit-work-modal'
+import { CommentInput } from '@/components/comments'
 import { AppBackground } from '@/components/layout/app-background'
 import { Avatar, AvatarFallback, AvatarImage } from '@/components/ui/avatar'
-import { Badge } from '@/components/ui/badge'
-import {
-  Breadcrumb,
-  BreadcrumbItem,
-  BreadcrumbLink,
-  BreadcrumbList,
-  BreadcrumbPage,
-  BreadcrumbSeparator,
-} from '@/components/ui/breadcrumb'
+import { Button } from '@/components/ui/button'
 import { ConfirmModal } from '@/components/ui/confirm-modal'
+import {
+  DropdownMenu,
+  DropdownMenuContent,
+  DropdownMenuItem,
+  DropdownMenuTrigger,
+} from '@/components/ui/dropdown-menu'
+import { Markdown } from '@/components/ui/markdown'
+import { Separator } from '@/components/ui/separator'
 import { Skeleton } from '@/components/ui/skeleton'
 import {
   Tooltip,
@@ -57,28 +54,28 @@ import {
 } from '@/components/ui/tooltip'
 import { toast } from 'sonner'
 
-const tagColors: Record<string, string> = {
-  GROWTH: 'border-green-500/20 bg-green-500/10 text-green-500',
-  SALES: 'border-blue-500/20 bg-blue-500/10 text-blue-500',
-  CONTENT: 'border-purple-500/20 bg-purple-500/10 text-purple-500',
-  DESIGN: 'border-pink-500/20 bg-pink-500/10 text-pink-500',
-  DEV: 'border-orange-500/20 bg-orange-500/10 text-orange-500',
-}
-
 export default function BountyDetailPage() {
   const router = useRouter()
   const params = useParams<{ slug: string; bountyId: string }>()
   const { data: session } = useSession()
   const [isSubmitting, setIsSubmitting] = useState(false)
-  const [showSubmitForm, setShowSubmitForm] = useState(false)
-  const [submissionDescription, setSubmissionDescription] = useState('')
+  const [showSubmitModal, setShowSubmitModal] = useState(false)
   const [copied, setCopied] = useState(false)
   const [showReleaseModal, setShowReleaseModal] = useState(false)
+  const [newComment, setNewComment] = useState('')
+  const [isPostingComment, setIsPostingComment] = useState(false)
+  const [commentToDelete, setCommentToDelete] = useState<string | null>(null)
 
   const { data: bounty, isLoading } = trpc.bounty.getById.useQuery(
     { id: params.bountyId },
     { enabled: !!params.bountyId },
   )
+
+  const { data: comments = [], refetch: refetchComments } =
+    trpc.bounty.getComments.useQuery(
+      { bountyId: params.bountyId },
+      { enabled: !!params.bountyId },
+    )
 
   const utils = trpc.useUtils()
 
@@ -105,6 +102,7 @@ export default function BountyDetailPage() {
   const createSubmission = trpc.submission.create.useMutation({
     onSuccess: (submission) => {
       toast.success('Work submitted!')
+      setShowSubmitModal(false)
       router.push(
         routes.project.submissionDetail({
           slug: params.slug,
@@ -117,13 +115,39 @@ export default function BountyDetailPage() {
     },
   })
 
+  const addComment = trpc.bounty.addComment.useMutation({
+    onSuccess: () => {
+      setNewComment('')
+      refetchComments()
+    },
+    onError: (error) => {
+      toast.error(error.message)
+    },
+  })
+
+  const deleteComment = trpc.bounty.deleteComment.useMutation({
+    onSuccess: () => {
+      refetchComments()
+      toast.success('Comment deleted')
+    },
+    onError: (error) => {
+      toast.error(error.message)
+    },
+  })
+
   if (isLoading) {
     return (
       <AppBackground>
-        <div className="container max-w-3xl px-4 py-8">
-          <Skeleton className="mb-4 h-6 w-32" />
-          <Skeleton className="mb-8 h-10 w-3/4" />
-          <Skeleton className="h-64 w-full" />
+        <div className="mx-auto max-w-7xl px-4 py-6">
+          <div className="mb-6 flex items-center gap-3">
+            <Skeleton className="size-5 rounded-full" />
+            <Skeleton className="h-5 w-20" />
+          </div>
+          <Skeleton className="mb-4 h-8 w-3/4" />
+          <div className="grid gap-6 lg:grid-cols-[1fr_300px]">
+            <Skeleton className="h-64" />
+            <Skeleton className="h-80" />
+          </div>
         </div>
       </AppBackground>
     )
@@ -163,18 +187,28 @@ export default function BountyDetailPage() {
     }
   }
 
-  const handleSubmitWork = async (e: React.FormEvent) => {
-    e.preventDefault()
-    if (!submissionDescription.trim()) return
-
+  const handleSubmitWork = async (description: string) => {
     setIsSubmitting(true)
     try {
       await createSubmission.mutateAsync({
         bountyId: bounty.id,
-        description: submissionDescription,
+        description,
       })
     } finally {
       setIsSubmitting(false)
+    }
+  }
+
+  const handlePostComment = async () => {
+    if (!newComment.trim()) return
+    setIsPostingComment(true)
+    try {
+      await addComment.mutateAsync({
+        bountyId: bounty.id,
+        content: newComment,
+      })
+    } finally {
+      setIsPostingComment(false)
     }
   }
 
@@ -186,6 +220,8 @@ export default function BountyDetailPage() {
       )
     : null
 
+  const bountyDisplayId = `${bounty.project.projectKey}-${bounty.number}`
+
   const bountyUrl =
     typeof window !== 'undefined'
       ? `${window.location.origin}/p/${params.slug}/bounty/${params.bountyId}`
@@ -194,490 +230,488 @@ export default function BountyDetailPage() {
   const handleCopyLink = async () => {
     await navigator.clipboard.writeText(bountyUrl)
     setCopied(true)
+    toast.success('Link copied!')
     setTimeout(() => setCopied(false), 2000)
   }
 
+  // Status icon helper
+  const StatusIcon = ({ size = 'md' }: { size?: 'sm' | 'md' }) => {
+    const sizeClass = size === 'sm' ? 'size-4' : 'size-5'
+    if (bounty.status === BountyStatus.COMPLETED) {
+      return <CheckCircle className={`${sizeClass} text-blue-500`} />
+    }
+    if (bounty.status === BountyStatus.CLOSED) {
+      return <XCircle className={`${sizeClass} text-muted-foreground/50`} />
+    }
+    if (bounty.status === BountyStatus.CLAIMED) {
+      return <Clock className={`${sizeClass} text-yellow-500`} />
+    }
+    return <Circle className={`${sizeClass} text-muted-foreground`} />
+  }
+
+  const statusLabel =
+    bounty.status === BountyStatus.COMPLETED
+      ? 'Done'
+      : bounty.status === BountyStatus.CLOSED
+        ? 'Closed'
+        : bounty.status === BountyStatus.CLAIMED
+          ? 'In Progress'
+          : 'Open'
+
+  // Show approved submission's user as assignee if completed, otherwise first claimant
+  const approvedSubmission = bounty.submissions.find(
+    (s) => s.status === SubmissionStatus.APPROVED,
+  )
+  const assignee = approvedSubmission?.user ?? bounty.claims[0]?.user ?? null
+
   return (
     <AppBackground>
-      <div className="container max-w-4xl px-4 py-8">
-        {/* Breadcrumb */}
-        <Breadcrumb className="mb-6">
-          <BreadcrumbList>
-            <BreadcrumbItem>
-              <BreadcrumbLink asChild>
-                <Link href={routes.project.detail({ slug: params.slug })}>
-                  {bounty.project.name}
-                </Link>
-              </BreadcrumbLink>
-            </BreadcrumbItem>
-            <BreadcrumbSeparator />
-            <BreadcrumbItem>
-              <BreadcrumbPage>Bounties</BreadcrumbPage>
-            </BreadcrumbItem>
-          </BreadcrumbList>
-        </Breadcrumb>
-
-        {/* Header */}
-        <div className="mb-8">
-          <div className="mb-3 flex flex-wrap items-center gap-2">
-            {bounty.tags.map((tag) => (
-              <Badge
-                key={tag}
-                variant="outline"
-                className={cn(
-                  'text-xs',
-                  tagColors[tag] ||
-                    'border-border bg-muted text-muted-foreground',
-                )}
-              >
-                {tag.toLowerCase()}
-              </Badge>
-            ))}
-            {bounty.status !== BountyStatus.OPEN && (
-              <Badge
-                variant={
-                  bounty.status === BountyStatus.COMPLETED
-                    ? 'default'
-                    : 'secondary'
-                }
-              >
-                {bounty.status.toLowerCase()}
-              </Badge>
-            )}
-          </div>
-          <h1 className="text-2xl font-bold tracking-tight sm:text-3xl">
-            {bounty.title}
-          </h1>
+      <div className="mx-auto max-w-7xl px-4 py-6">
+        {/* Breadcrumb navigation */}
+        <div className="mb-6 flex items-center gap-2 text-sm">
+          <Link
+            href={routes.project.detail({
+              slug: params.slug,
+              tab: ProjectTab.BOUNTIES,
+            })}
+            className="text-muted-foreground transition-colors hover:text-foreground"
+          >
+            {bounty.project.name}
+          </Link>
+          <span className="text-muted-foreground/50">/</span>
+          <Link
+            href={routes.project.detail({
+              slug: params.slug,
+              tab: ProjectTab.BOUNTIES,
+            })}
+            className="text-muted-foreground transition-colors hover:text-foreground"
+          >
+            Bounties
+          </Link>
+          <span className="text-muted-foreground/50">/</span>
+          <span className="font-mono text-foreground">{bountyDisplayId}</span>
         </div>
 
-        <div className="grid gap-8 lg:grid-cols-3">
-          {/* Main content */}
-          <div className="space-y-6 lg:col-span-2">
-            {/* Description */}
-            <AppCard>
-              <AppCardHeader>
-                <AppCardTitle>Description</AppCardTitle>
-              </AppCardHeader>
-              <AppCardContent>
-                <div className="max-w-none text-sm whitespace-pre-wrap text-muted-foreground">
-                  {bounty.description}
-                </div>
-              </AppCardContent>
-            </AppCard>
+        {/* Header */}
+        <h1 className="mb-6 text-xl font-semibold tracking-tight sm:text-2xl">
+          {bounty.title}
+        </h1>
 
-            {/* Evidence Requirements */}
+        {/* Main layout */}
+        <div className="grid gap-6 lg:grid-cols-[1fr_auto_280px]">
+          {/* Main content */}
+          <div className="space-y-6">
+            {/* Description */}
+            <Markdown markdown={bounty.description} proseSize="sm" />
+
+            {/* Acceptance Criteria */}
             {bounty.evidenceDescription && (
-              <div className="rounded-xl border border-amber-500/20 bg-amber-500/5 p-5">
+              <div className="rounded-lg border border-border bg-muted/30 p-4">
                 <div className="flex gap-3">
-                  <div className="flex size-8 shrink-0 items-center justify-center rounded-lg bg-amber-500/10">
-                    <AlertTriangle className="size-4 text-amber-500" />
-                  </div>
-                  <div>
-                    <h3 className="font-medium text-amber-700 dark:text-amber-400">
-                      Evidence Required
-                    </h3>
-                    <p className="mt-2 text-sm text-amber-700/80 dark:text-amber-400/80">
-                      {bounty.evidenceDescription}
-                    </p>
+                  <FileCheck03 className="mt-0.5 size-4 shrink-0 text-muted-foreground" />
+                  <div className="min-w-0 flex-1">
+                    <p className="text-sm font-medium">Acceptance Criteria</p>
+                    <Markdown
+                      markdown={bounty.evidenceDescription}
+                      proseSize="sm"
+                      className="mt-1 text-muted-foreground"
+                    />
                   </div>
                 </div>
               </div>
             )}
 
-            {/* Submit Work Form */}
-            {hasActiveClaim && (
-              <AppCard>
-                <AppCardHeader>
-                  <AppCardTitle>Submit Your Work</AppCardTitle>
-                  <AppCardDescription>
-                    Describe what you&apos;ve done and provide evidence
-                  </AppCardDescription>
-                </AppCardHeader>
-                <AppCardContent>
-                  {showSubmitForm ? (
-                    <form onSubmit={handleSubmitWork} className="space-y-4">
-                      <AppTextarea
-                        value={submissionDescription}
-                        onChange={(e) =>
-                          setSubmissionDescription(e.target.value)
-                        }
-                        placeholder="Describe your work and include any links, screenshots, or evidence..."
-                        rows={6}
-                        required
-                        disabled={isSubmitting}
-                      />
-                      <div className="flex justify-end gap-2">
-                        <AppButton
-                          type="button"
-                          variant="outline"
-                          onClick={() => setShowSubmitForm(false)}
-                          disabled={isSubmitting}
-                        >
-                          Cancel
-                        </AppButton>
-                        <AppButton
-                          type="submit"
-                          disabled={
-                            isSubmitting || !submissionDescription.trim()
-                          }
-                        >
-                          {isSubmitting && (
-                            <Loader2 className="mr-2 size-4 animate-spin" />
-                          )}
-                          Submit Work
-                        </AppButton>
-                      </div>
-                    </form>
-                  ) : (
-                    <AppButton
-                      onClick={() => setShowSubmitForm(true)}
-                      className="w-full"
-                    >
-                      <Check className="mr-2 size-4" />
-                      Submit Work for Review
-                    </AppButton>
-                  )}
-                </AppCardContent>
-              </AppCard>
-            )}
+            {/* Activity timeline (comments + submissions interleaved) */}
+            <div className="space-y-4">
+              {(() => {
+                // Create unified timeline of comments and submissions
+                type TimelineItem =
+                  | { type: 'comment'; data: (typeof comments)[0] }
+                  | { type: 'submission'; data: (typeof bounty.submissions)[0] }
 
-            {/* Submissions Section */}
-            {bounty.submissions.length > 0 && (
-              <AppCard>
-                <AppCardHeader>
-                  <AppCardTitle className="flex items-center gap-2">
-                    <FileCheck02 className="size-5" />
-                    Submissions ({bounty.submissions.length})
-                  </AppCardTitle>
-                  <AppCardDescription>
-                    {isFounder
-                      ? 'Review work submitted by contributors'
-                      : 'Your submissions for this bounty'}
-                  </AppCardDescription>
-                </AppCardHeader>
-                <AppCardContent>
-                  <div className="divide-y divide-border">
-                    {bounty.submissions.map((submission) => {
-                      const statusConfig: Record<
-                        string,
-                        { label: string; color: string }
-                      > = {
-                        [SubmissionStatus.DRAFT]: {
-                          label: 'Draft',
-                          color: 'bg-muted text-muted-foreground border-border',
-                        },
-                        [SubmissionStatus.PENDING]: {
-                          label: 'Pending',
-                          color:
-                            'bg-yellow-500/10 text-yellow-500 border-yellow-500/20',
-                        },
-                        [SubmissionStatus.NEEDS_INFO]: {
-                          label: 'Needs Info',
-                          color:
-                            'bg-orange-500/10 text-orange-500 border-orange-500/20',
-                        },
-                        [SubmissionStatus.APPROVED]: {
-                          label: 'Approved',
-                          color:
-                            'bg-green-500/10 text-green-500 border-green-500/20',
-                        },
-                        [SubmissionStatus.REJECTED]: {
-                          label: 'Rejected',
-                          color: 'bg-red-500/10 text-red-500 border-red-500/20',
-                        },
-                      }
+                const timeline: TimelineItem[] = [
+                  ...comments.map((c) => ({
+                    type: 'comment' as const,
+                    data: c,
+                  })),
+                  ...bounty.submissions.map((s) => ({
+                    type: 'submission' as const,
+                    data: s,
+                  })),
+                ].sort(
+                  (a, b) =>
+                    new Date(a.data.createdAt).getTime() -
+                    new Date(b.data.createdAt).getTime(),
+                )
 
-                      const status =
-                        statusConfig[submission.status] ??
-                        statusConfig[SubmissionStatus.PENDING]
+                const submissionStatusConfig: Record<
+                  string,
+                  { label: string; color: string }
+                > = {
+                  [SubmissionStatus.DRAFT]: {
+                    label: 'draft',
+                    color: 'text-muted-foreground',
+                  },
+                  [SubmissionStatus.PENDING]: {
+                    label: 'pending review',
+                    color: 'text-yellow-500',
+                  },
+                  [SubmissionStatus.NEEDS_INFO]: {
+                    label: 'needs info',
+                    color: 'text-orange-500',
+                  },
+                  [SubmissionStatus.APPROVED]: {
+                    label: 'approved',
+                    color: 'text-green-500',
+                  },
+                  [SubmissionStatus.REJECTED]: {
+                    label: 'rejected',
+                    color: 'text-red-500',
+                  },
+                }
 
-                      return (
-                        <Link
-                          key={submission.id}
-                          href={routes.project.submissionDetail({
-                            slug: params.slug,
-                            submissionId: submission.id,
-                          })}
-                          className="group flex items-center gap-4 py-4 first:pt-0 last:pb-0"
-                        >
-                          <Avatar className="size-10">
-                            <AvatarImage
-                              src={submission.user.image ?? undefined}
-                            />
-                            <AvatarFallback>
-                              {submission.user.name.charAt(0)}
-                            </AvatarFallback>
-                          </Avatar>
-                          <div className="min-w-0 flex-1">
-                            <div className="flex items-center gap-2">
-                              <span className="font-medium">
-                                {submission.user.name}
-                              </span>
-                              <Badge
-                                variant="outline"
-                                className={cn('text-xs', status.color)}
-                              >
-                                {status.label}
-                              </Badge>
-                              {submission._count.events > 0 && (
-                                <span className="flex items-center gap-1 text-xs text-muted-foreground">
-                                  <MessageTextSquare02 className="size-3" />
-                                  {submission._count.events}
-                                </span>
-                              )}
-                            </div>
-                            <p className="mt-0.5 line-clamp-1 text-sm text-muted-foreground">
-                              {submission.description}
-                            </p>
-                            <p className="mt-1 text-xs text-muted-foreground">
+                return timeline.map((item) => {
+                  if (item.type === 'submission') {
+                    const submission = item.data
+                    const status =
+                      submissionStatusConfig[submission.status] ??
+                      submissionStatusConfig[SubmissionStatus.PENDING]
+
+                    return (
+                      <div key={`sub-${submission.id}`} className="text-sm">
+                        <div className="flex items-start gap-2">
+                          <Check className="mt-0.5 size-4 text-primary" />
+                          <div className="flex flex-wrap items-center gap-x-1.5 gap-y-0.5">
+                            <span className="font-medium">
+                              {submission.user.name}
+                            </span>
+                            <Link
+                              href={routes.project.submissionDetail({
+                                slug: params.slug,
+                                submissionId: submission.id,
+                              })}
+                              className="text-muted-foreground hover:text-foreground hover:underline"
+                            >
+                              submitted work
+                            </Link>
+                            <span className={cn('text-xs', status.color)}>
+                              ({status.label})
+                            </span>
+                            <span className="text-muted-foreground">·</span>
+                            <span className="text-xs text-muted-foreground">
                               {new Date(
                                 submission.createdAt,
                               ).toLocaleDateString('en-US', {
                                 month: 'short',
                                 day: 'numeric',
+                              })}
+                            </span>
+                          </div>
+                        </div>
+                      </div>
+                    )
+                  }
+
+                  // Comment
+                  const comment = item.data
+                  return (
+                    <div key={`com-${comment.id}`} className="group flex gap-3">
+                      <Avatar className="size-7 shrink-0">
+                        <AvatarImage src={comment.user.image ?? undefined} />
+                        <AvatarFallback className="text-xs">
+                          {comment.user.name.charAt(0)}
+                        </AvatarFallback>
+                      </Avatar>
+                      <div className="min-w-0 flex-1">
+                        <div className="flex items-center gap-2">
+                          <span className="text-sm font-medium">
+                            {comment.user.name}
+                          </span>
+                          <span className="text-xs text-muted-foreground">
+                            {new Date(comment.createdAt).toLocaleDateString(
+                              'en-US',
+                              {
+                                month: 'short',
+                                day: 'numeric',
                                 hour: 'numeric',
                                 minute: '2-digit',
-                              })}
-                            </p>
-                          </div>
-                          <ArrowRight className="size-4 shrink-0 text-muted-foreground opacity-0 transition-all group-hover:translate-x-0.5 group-hover:text-primary group-hover:opacity-100" />
-                        </Link>
-                      )
-                    })}
-                  </div>
-                </AppCardContent>
-              </AppCard>
-            )}
+                              },
+                            )}
+                          </span>
+                        </div>
+                        <Markdown
+                          markdown={comment.content}
+                          proseSize="sm"
+                          className="mt-1"
+                        />
+                      </div>
+                      {(comment.userId === session?.user?.id || isFounder) && (
+                        <DropdownMenu>
+                          <DropdownMenuTrigger asChild>
+                            <Button
+                              variant="ghost"
+                              size="icon-sm"
+                              className="size-6 cursor-pointer text-muted-foreground opacity-0 transition-opacity group-hover:opacity-100"
+                            >
+                              <DotsVertical className="size-3.5" />
+                            </Button>
+                          </DropdownMenuTrigger>
+                          <DropdownMenuContent align="end">
+                            <DropdownMenuItem
+                              onClick={() => setCommentToDelete(comment.id)}
+                              className="cursor-pointer text-destructive focus:text-destructive"
+                            >
+                              <Trash01 className="mr-2 size-4" />
+                              Delete
+                            </DropdownMenuItem>
+                          </DropdownMenuContent>
+                        </DropdownMenu>
+                      )}
+                    </div>
+                  )
+                })
+              })()}
+
+              {/* Comment input */}
+              {session ? (
+                <CommentInput
+                  value={newComment}
+                  onChange={setNewComment}
+                  onSubmit={handlePostComment}
+                  isLoading={isPostingComment}
+                />
+              ) : (
+                <div className="rounded-lg border border-border px-4 py-3 text-center">
+                  <p className="text-sm text-muted-foreground">
+                    <Link
+                      href={routes.auth.signIn()}
+                      className="text-primary hover:underline"
+                    >
+                      Sign in
+                    </Link>{' '}
+                    to leave a comment
+                  </p>
+                </div>
+              )}
+            </div>
           </div>
 
-          {/* Sidebar */}
-          <div className="space-y-4">
-            {/* Points Badge */}
-            <Tooltip>
-              <TooltipTrigger asChild>
-                <div className="cursor-help rounded-2xl border border-primary/20 bg-primary/5 p-6 text-center">
-                  <p className="text-4xl font-bold text-primary">
-                    +{bounty.points}
-                  </p>
-                  <p className="mt-1 text-sm text-muted-foreground">
-                    points reward
-                  </p>
-                </div>
-              </TooltipTrigger>
-              <TooltipContent className="max-w-xs">
-                Points determine your share of the reward pool. More points =
-                bigger cut of each payout.
-              </TooltipContent>
-            </Tooltip>
+          {/* Vertical separator */}
+          <Separator orientation="vertical" className="hidden lg:block" />
 
-            {/* Action */}
+          {/* Sidebar - Linear style properties panel */}
+          <div className="space-y-4">
+            {/* Properties header */}
+            <div className="flex items-center justify-between">
+              <span className="text-sm text-muted-foreground">Properties</span>
+              <Tooltip>
+                <TooltipTrigger asChild>
+                  <button
+                    type="button"
+                    onClick={handleCopyLink}
+                    className="cursor-pointer rounded-sm p-1.5 text-muted-foreground transition-colors hover:bg-accent hover:text-foreground"
+                  >
+                    <Copy01
+                      className={cn('size-4', copied && 'text-green-500')}
+                    />
+                  </button>
+                </TooltipTrigger>
+                <TooltipContent>
+                  {copied ? 'Copied!' : 'Copy link'}
+                </TooltipContent>
+              </Tooltip>
+            </div>
+
+            {/* Actions */}
+            {/* Actions */}
             {!session ? (
-              <div className="space-y-3">
-                <AppButton asChild className="w-full" size="lg">
-                  <Link href={routes.auth.signIn()}>Sign In to Claim</Link>
-                </AppButton>
-                <p className="text-center text-xs text-muted-foreground">
-                  Sign in to claim this bounty
-                </p>
-              </div>
+              <AppButton asChild className="w-full" size="sm">
+                <Link href={routes.auth.signIn()}>Sign In to Claim</Link>
+              </AppButton>
             ) : hasActiveClaim ? (
-              <div className="space-y-3">
-                <div className="rounded-xl border border-green-500/20 bg-green-500/10 p-4 text-center">
-                  <Check className="mx-auto mb-2 size-5 text-green-500" />
-                  <p className="text-sm font-medium text-green-500">
-                    You&apos;ve claimed this bounty
-                  </p>
-                  <p className="mt-1 text-xs text-muted-foreground">
-                    Expires {new Date(userClaim.expiresAt).toLocaleDateString()}
-                  </p>
-                </div>
+              <div className="space-y-2">
                 <AppButton
-                  variant="outline"
-                  onClick={() => setShowReleaseModal(true)}
+                  onClick={() => setShowSubmitModal(true)}
                   className="w-full"
+                  size="sm"
+                >
+                  <Check className="mr-1.5 size-3.5" />
+                  Submit Work
+                </AppButton>
+                <Button
+                  variant="ghost"
+                  size="sm"
+                  onClick={() => setShowReleaseModal(true)}
+                  className="w-full cursor-pointer text-muted-foreground hover:text-foreground"
                 >
                   Release Claim
-                </AppButton>
+                </Button>
               </div>
             ) : canClaim ? (
               <AppButton
                 onClick={handleClaim}
                 disabled={isSubmitting}
                 className="w-full"
-                size="lg"
+                size="sm"
               >
                 {isSubmitting && (
                   <Loader2 className="mr-2 size-4 animate-spin" />
                 )}
-                <Target01 className="mr-2 size-4" />
-                Claim This Bounty
+                <Target01 className="mr-1.5 size-3.5" />
+                Claim Bounty
               </AppButton>
-            ) : bounty.status === BountyStatus.CLAIMED ? (
-              <div className="rounded-xl border border-yellow-500/20 bg-yellow-500/10 p-4 text-center">
-                <Clock className="mx-auto mb-2 size-5 text-yellow-500" />
-                <p className="text-sm text-yellow-700 dark:text-yellow-400">
-                  This bounty is currently claimed
-                </p>
-              </div>
-            ) : bounty.status === BountyStatus.COMPLETED ? (
-              <div className="rounded-xl border border-green-500/20 bg-green-500/10 p-4 text-center">
-                <Check className="mx-auto mb-2 size-5 text-green-500" />
-                <p className="text-sm text-green-700 dark:text-green-400">
-                  This bounty has been completed
-                </p>
-              </div>
-            ) : userClaim ? (
-              <div className="rounded-xl border border-border bg-muted/30 p-4 text-center text-sm text-muted-foreground">
-                Your claim has expired or been completed
-              </div>
             ) : null}
 
-            {/* Share Link */}
-            <button
-              onClick={handleCopyLink}
-              className="flex w-full cursor-pointer items-center justify-between rounded-xl border border-border bg-muted/30 px-4 py-3 text-sm transition-colors hover:bg-muted/50"
-            >
-              <span className="text-muted-foreground">
-                {copied ? 'Copied!' : 'Share this bounty'}
-              </span>
-              <Copy01
-                className={cn(
-                  'size-4',
-                  copied ? 'text-green-500' : 'text-muted-foreground',
-                )}
-              />
-            </button>
+            <Separator />
 
-            {/* Details */}
-            <AppCard>
-              <AppCardHeader className="pb-3">
-                <AppCardTitle className="text-sm font-medium">
-                  Bounty Details
-                </AppCardTitle>
-              </AppCardHeader>
-              <AppCardContent className="pt-0">
-                <div className="divide-y divide-border">
-                  <div className="flex items-center justify-between py-3">
-                    <Tooltip>
-                      <TooltipTrigger asChild>
-                        <span className="flex cursor-help items-center gap-2 text-sm text-muted-foreground">
-                          <Users01 className="size-4" />
-                          Claim Mode
-                        </span>
-                      </TooltipTrigger>
-                      <TooltipContent className="max-w-xs">
-                        {bounty.claimMode === BountyClaimMode.SINGLE
-                          ? 'Only one person can work on this bounty at a time.'
-                          : 'Multiple people can work on this bounty simultaneously.'}
-                      </TooltipContent>
-                    </Tooltip>
-                    <span className="text-sm font-medium">
-                      {bounty.claimMode === BountyClaimMode.SINGLE
-                        ? 'Single'
-                        : 'Multiple'}
-                    </span>
-                  </div>
-                  <div className="flex items-center justify-between py-3">
-                    <Tooltip>
-                      <TooltipTrigger asChild>
-                        <span className="flex cursor-help items-center gap-2 text-sm text-muted-foreground">
-                          <Clock className="size-4" />
-                          Expires in
-                        </span>
-                      </TooltipTrigger>
-                      <TooltipContent className="max-w-xs">
-                        Once you claim this bounty, you have this many days to
-                        complete and submit your work.
-                      </TooltipContent>
-                    </Tooltip>
-                    <span className="text-sm font-medium">
-                      {bounty.claimExpiryDays} day
-                      {bounty.claimExpiryDays !== 1 ? 's' : ''}
-                    </span>
-                  </div>
-                  <div className="flex items-center justify-between py-3">
-                    <span className="flex items-center gap-2 text-sm text-muted-foreground">
-                      <Calendar className="size-4" />
-                      Created
-                    </span>
-                    <span className="text-sm font-medium">
-                      {new Date(bounty.createdAt).toLocaleDateString('en-US', {
-                        month: 'short',
-                        day: 'numeric',
-                        year: 'numeric',
-                      })}
-                    </span>
-                  </div>
-                  {commitmentDate && (
-                    <div className="flex items-center justify-between py-3">
-                      <Tooltip>
-                        <TooltipTrigger asChild>
-                          <span className="flex cursor-help items-center gap-2 text-sm text-muted-foreground">
-                            <Target01 className="size-4" />
-                            Pool Ends
-                          </span>
-                        </TooltipTrigger>
-                        <TooltipContent className="max-w-xs">
-                          The founder has committed to paying contributors until
-                          this date. Points earned before this date remain
-                          valid.
-                        </TooltipContent>
-                      </Tooltip>
-                      <span className="text-sm font-medium">
-                        {new Date(commitmentDate).toLocaleDateString('en-US', {
-                          month: 'short',
-                          day: 'numeric',
-                          year: 'numeric',
-                        })}
-                      </span>
-                    </div>
-                  )}
+            {/* Properties details */}
+            <div className="space-y-3">
+              {/* Status */}
+              <div className="flex items-center justify-between py-1">
+                <span className="text-xs text-muted-foreground">Status</span>
+                <div className="flex items-center gap-1.5">
+                  <StatusIcon size="sm" />
+                  <span className="text-sm">{statusLabel}</span>
                 </div>
-              </AppCardContent>
-            </AppCard>
+              </div>
 
-            {/* Current Claims */}
-            {bounty.claims.length > 0 && (
-              <AppCard>
-                <AppCardHeader className="pb-3">
-                  <AppCardTitle className="text-sm font-medium">
-                    Active Claims ({bounty.claims.length})
-                  </AppCardTitle>
-                </AppCardHeader>
-                <AppCardContent className="pt-0">
-                  <div className="space-y-3">
-                    {bounty.claims.map((claim) => (
-                      <div key={claim.id} className="flex items-center gap-3">
-                        <Avatar className="size-8">
-                          <AvatarImage src={claim.user.image ?? undefined} />
-                          <AvatarFallback>
-                            {claim.user.name.charAt(0)}
-                          </AvatarFallback>
-                        </Avatar>
-                        <div className="min-w-0 flex-1">
-                          <p className="truncate text-sm font-medium">
-                            {claim.user.name}
-                          </p>
-                        </div>
-                      </div>
-                    ))}
+              {/* Points */}
+              <div className="flex items-center justify-between py-1">
+                <span className="text-xs text-muted-foreground">Points</span>
+                <span className="rounded-sm bg-primary/10 px-2 py-0.5 text-sm font-semibold text-primary">
+                  +{bounty.points}
+                </span>
+              </div>
+
+              {/* Assignee */}
+              <div className="flex items-center justify-between py-1">
+                <span className="text-xs text-muted-foreground">Assignee</span>
+                {assignee ? (
+                  <div className="flex items-center gap-1.5">
+                    <Avatar className="size-5">
+                      <AvatarImage src={assignee.image ?? undefined} />
+                      <AvatarFallback className="text-[9px]">
+                        {assignee.name.charAt(0)}
+                      </AvatarFallback>
+                    </Avatar>
+                    <span className="text-sm">{assignee.name}</span>
                   </div>
-                </AppCardContent>
-              </AppCard>
-            )}
+                ) : (
+                  <div className="flex items-center gap-1.5 text-muted-foreground">
+                    <div className="flex size-5 items-center justify-center rounded-full border border-dashed border-muted-foreground/30">
+                      <User01 className="size-2.5" />
+                    </div>
+                    <span className="text-sm">Unassigned</span>
+                  </div>
+                )}
+              </div>
 
-            {/* Pool Info Warning */}
+              {/* Labels (tags) */}
+              {bounty.tags.length > 0 && (
+                <div className="flex items-center justify-between py-1">
+                  <span className="text-xs text-muted-foreground">Labels</span>
+                  <div className="flex flex-wrap justify-end gap-1">
+                    {bounty.tags.map((tag) => {
+                      const color = getTagColor(tag)
+                      return (
+                        <span
+                          key={tag}
+                          className={cn(
+                            'inline-flex items-center gap-1 rounded-full border px-2 py-0.5 text-[10px] font-medium capitalize',
+                            color.border,
+                            color.text,
+                          )}
+                        >
+                          <span
+                            className={cn('size-1.5 rounded-full', color.dot)}
+                          />
+                          {tag.toLowerCase()}
+                        </span>
+                      )
+                    })}
+                  </div>
+                </div>
+              )}
+
+              {/* Claim mode */}
+              <div className="flex items-center justify-between py-1">
+                <Tooltip>
+                  <TooltipTrigger asChild>
+                    <span className="flex cursor-help items-center gap-1 text-xs text-muted-foreground">
+                      <Users01 className="size-3" />
+                      Claim Type
+                    </span>
+                  </TooltipTrigger>
+                  <TooltipContent className="max-w-xs">
+                    {bounty.claimMode === BountyClaimMode.SINGLE
+                      ? 'Only one person can work on this bounty at a time.'
+                      : 'Multiple people can work on this bounty simultaneously.'}
+                  </TooltipContent>
+                </Tooltip>
+                <span className="text-sm">
+                  {bounty.claimMode === BountyClaimMode.SINGLE
+                    ? 'Single'
+                    : 'Multiple'}
+                </span>
+              </div>
+
+              {/* Claim expiry */}
+              <div className="flex items-center justify-between py-1">
+                <Tooltip>
+                  <TooltipTrigger asChild>
+                    <span className="flex cursor-help items-center gap-1 text-xs text-muted-foreground">
+                      <Clock className="size-3" />
+                      Claim Expires
+                    </span>
+                  </TooltipTrigger>
+                  <TooltipContent className="max-w-xs">
+                    Once you claim this bounty, you have this many days to
+                    complete and submit your work.
+                  </TooltipContent>
+                </Tooltip>
+                <span className="text-sm">
+                  {bounty.claimExpiryDays} day
+                  {bounty.claimExpiryDays !== 1 ? 's' : ''}
+                </span>
+              </div>
+
+              {/* Pool ends */}
+              {commitmentDate && (
+                <div className="flex items-center justify-between py-1">
+                  <Tooltip>
+                    <TooltipTrigger asChild>
+                      <span className="flex cursor-help items-center gap-1 text-xs text-muted-foreground">
+                        <Target01 className="size-3" />
+                        Pool Ends
+                      </span>
+                    </TooltipTrigger>
+                    <TooltipContent className="max-w-xs">
+                      The founder has committed to paying contributors until
+                      this date.
+                    </TooltipContent>
+                  </Tooltip>
+                  <span className="text-sm">
+                    {new Date(commitmentDate).toLocaleDateString('en-US', {
+                      month: 'short',
+                      day: 'numeric',
+                      year: 'numeric',
+                    })}
+                  </span>
+                </div>
+              )}
+            </div>
+
+            {/* Pool warning */}
             {bounty.project.rewardPool &&
               commitmentRemaining !== null &&
               commitmentRemaining < 90 && (
-                <div className="rounded-xl border border-amber-500/20 bg-amber-500/10 p-4">
-                  <div className="flex gap-3">
-                    <AlertCircle className="size-5 shrink-0 text-amber-500" />
-                    <div className="text-sm text-amber-700 dark:text-amber-400">
+                <div className="rounded-lg border border-amber-500/20 bg-amber-500/10 p-3">
+                  <div className="flex gap-2">
+                    <AlertCircle className="size-4 shrink-0 text-amber-500" />
+                    <div className="text-xs text-amber-700 dark:text-amber-400">
                       <p className="font-medium">Pool commitment ending soon</p>
-                      <p className="mt-1 text-xs opacity-80">
-                        Ends in {commitmentRemaining} days. Points earned before
-                        then are still valid.
+                      <p className="mt-0.5 opacity-80">
+                        Ends in {commitmentRemaining} days
                       </p>
                     </div>
                   </div>
@@ -687,6 +721,16 @@ export default function BountyDetailPage() {
         </div>
       </div>
 
+      {/* Submit work modal */}
+      <SubmitWorkModal
+        open={showSubmitModal}
+        onClose={() => setShowSubmitModal(false)}
+        onSubmit={handleSubmitWork}
+        evidenceDescription={bounty.evidenceDescription}
+        isLoading={isSubmitting}
+      />
+
+      {/* Release claim modal */}
       <ConfirmModal
         open={showReleaseModal}
         onClose={() => setShowReleaseModal(false)}
@@ -697,6 +741,26 @@ export default function BountyDetailPage() {
         cancelText="Keep Claim"
         variant="destructive"
         isLoading={isSubmitting}
+      />
+
+      {/* Delete comment modal */}
+      <ConfirmModal
+        open={!!commentToDelete}
+        onClose={() => setCommentToDelete(null)}
+        onConfirm={() => {
+          if (commentToDelete) {
+            deleteComment.mutate(
+              { commentId: commentToDelete },
+              { onSuccess: () => setCommentToDelete(null) },
+            )
+          }
+        }}
+        title="Delete comment?"
+        description="This action cannot be undone."
+        confirmText="Delete"
+        cancelText="Cancel"
+        variant="destructive"
+        isLoading={deleteComment.isPending}
       />
     </AppBackground>
   )

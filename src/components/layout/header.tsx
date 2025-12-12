@@ -18,7 +18,7 @@ import { Logo } from '@/components/ui/logo'
 
 /**
  * Header for landing/marketing pages.
- * Uses max-w-6xl to match landing page content width.
+ * Uses max-w-7xl to match landing page content width.
  */
 export function Header() {
   const { data: session, isPending } = useSession()
@@ -38,7 +38,7 @@ export function Header() {
   return (
     <header className="sticky top-0 z-50 w-full">
       {/* Outer wrapper for positioning */}
-      <div className="mx-auto max-w-6xl px-6 pt-4">
+      <div className="mx-auto max-w-7xl px-6 pt-4">
         {/* Clean floating header */}
         <div className="rounded-xl border border-border bg-background/80 shadow-lg shadow-black/5 backdrop-blur-md">
           {/* Inner content */}

@@ -174,6 +174,14 @@ export const bountyRouter = router({
 
         // Use transaction to expand pool and create bounty together
         return ctx.prisma.$transaction(async (tx) => {
+          // Atomically reserve the next bounty number for this project
+          const updatedProject = await tx.project.update({
+            where: { id: input.projectId },
+            data: { nextBountyNumber: { increment: 1 } },
+            select: { nextBountyNumber: true },
+          })
+          const bountyNumber = updatedProject.nextBountyNumber - 1
+
           // Expand pool capacity
           await tx.rewardPool.update({
             where: { id: project.rewardPool!.id },
@@ -195,6 +203,7 @@ export const bountyRouter = router({
           return tx.bounty.create({
             data: {
               projectId: input.projectId,
+              number: bountyNumber,
               title: input.title,
               description: input.description,
               points: input.points,
@@ -208,19 +217,29 @@ export const bountyRouter = router({
         })
       }
 
-      // No expansion needed, just create the bounty
-      return ctx.prisma.bounty.create({
-        data: {
-          projectId: input.projectId,
-          title: input.title,
-          description: input.description,
-          points: input.points,
-          tags: input.tags,
-          claimMode: input.claimMode,
-          claimExpiryDays: input.claimExpiryDays,
-          maxClaims: input.maxClaims,
-          evidenceDescription: input.evidenceDescription,
-        },
+      // No expansion needed: reserve number + create bounty in a transaction
+      return ctx.prisma.$transaction(async (tx) => {
+        const updatedProject = await tx.project.update({
+          where: { id: input.projectId },
+          data: { nextBountyNumber: { increment: 1 } },
+          select: { nextBountyNumber: true },
+        })
+        const bountyNumber = updatedProject.nextBountyNumber - 1
+
+        return tx.bounty.create({
+          data: {
+            projectId: input.projectId,
+            number: bountyNumber,
+            title: input.title,
+            description: input.description,
+            points: input.points,
+            tags: input.tags,
+            claimMode: input.claimMode,
+            claimExpiryDays: input.claimExpiryDays,
+            maxClaims: input.maxClaims,
+            evidenceDescription: input.evidenceDescription,
+          },
+        })
       })
     }),
 
@@ -383,6 +402,96 @@ export const bountyRouter = router({
           data: { status: BountyStatus.OPEN },
         })
       }
+
+      return { success: true }
+    }),
+
+  /**
+   * Add a comment to a bounty
+   */
+  addComment: protectedProcedure
+    .input(
+      z.object({
+        bountyId: z.string().uuid(),
+        content: z.string().min(1).max(5000),
+      }),
+    )
+    .mutation(async ({ ctx, input }) => {
+      // Verify bounty exists
+      const bounty = await ctx.prisma.bounty.findUnique({
+        where: { id: input.bountyId },
+        include: { project: { select: { founderId: true, isPublic: true } } },
+      })
+
+      if (!bounty) {
+        throw new TRPCError({ code: 'NOT_FOUND', message: 'Bounty not found' })
+      }
+
+      // Only allow comments on public projects or if user is founder
+      if (
+        !bounty.project.isPublic &&
+        bounty.project.founderId !== ctx.user.id
+      ) {
+        throw new TRPCError({ code: 'FORBIDDEN', message: 'Access denied' })
+      }
+
+      return ctx.prisma.bountyComment.create({
+        data: {
+          bountyId: input.bountyId,
+          userId: ctx.user.id,
+          content: input.content,
+        },
+        include: {
+          user: { select: { id: true, name: true, image: true } },
+        },
+      })
+    }),
+
+  /**
+   * Get comments for a bounty
+   */
+  getComments: publicProcedure
+    .input(z.object({ bountyId: z.string().uuid() }))
+    .query(async ({ ctx, input }) => {
+      return ctx.prisma.bountyComment.findMany({
+        where: { bountyId: input.bountyId },
+        orderBy: { createdAt: 'asc' },
+        include: {
+          user: { select: { id: true, name: true, image: true } },
+        },
+      })
+    }),
+
+  /**
+   * Delete a comment (author or founder only)
+   */
+  deleteComment: protectedProcedure
+    .input(z.object({ commentId: z.string().uuid() }))
+    .mutation(async ({ ctx, input }) => {
+      const comment = await ctx.prisma.bountyComment.findUnique({
+        where: { id: input.commentId },
+        include: {
+          bounty: { include: { project: { select: { founderId: true } } } },
+        },
+      })
+
+      if (!comment) {
+        throw new TRPCError({ code: 'NOT_FOUND', message: 'Comment not found' })
+      }
+
+      const isAuthor = comment.userId === ctx.user.id
+      const isFounder = comment.bounty.project.founderId === ctx.user.id
+
+      if (!isAuthor && !isFounder) {
+        throw new TRPCError({
+          code: 'FORBIDDEN',
+          message: 'You cannot delete this comment',
+        })
+      }
+
+      await ctx.prisma.bountyComment.delete({
+        where: { id: input.commentId },
+      })
 
       return { success: true }
     }),

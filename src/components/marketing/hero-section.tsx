@@ -17,7 +17,7 @@ export function HeroSection() {
       <HeroEffects />
 
       {/* Content */}
-      <div className="relative z-10 mx-auto max-w-6xl px-6 pt-32 pb-20 md:pt-40 lg:pt-48">
+      <div className="relative z-10 mx-auto max-w-7xl px-6 pt-32 pb-20 md:pt-40 lg:pt-48">
         <div className="grid gap-12 lg:grid-cols-2 lg:gap-16">
           {/* Left: Text content */}
           <div className="flex flex-col justify-center">

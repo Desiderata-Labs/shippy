@@ -26,7 +26,7 @@ const currentYear = new Date().getFullYear()
 export function SiteFooter() {
   return (
     <footer className="border-t border-border bg-muted/30">
-      <div className="mx-auto max-w-6xl px-6 pt-16 pb-8">
+      <div className="mx-auto max-w-7xl px-6 pt-16 pb-8">
         {/* Main footer content */}
         <div className="grid gap-12 md:grid-cols-4">
           {/* Brand column */}

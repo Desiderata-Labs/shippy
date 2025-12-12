@@ -1,7 +1,20 @@
 // Project routes
 
+export enum ProjectTab {
+  BOUNTIES = 'bounties',
+  PAYOUTS = 'payouts',
+  CONTRIBUTORS = 'contributors',
+  README = 'readme',
+}
+
+export const DEFAULT_PROJECT_TAB = ProjectTab.BOUNTIES
+
 export interface ProjectParams {
   slug: string
+}
+
+export interface ProjectTabParams extends ProjectParams {
+  tab?: ProjectTab
 }
 
 export interface BountyParams extends ProjectParams {
@@ -30,7 +43,12 @@ export const projectPaths = {
 
 // For navigation - functions that generate actual URLs
 export const projectRoutes = {
-  detail: (params: ProjectParams) => `/p/${params.slug}`,
+  detail: (params: ProjectTabParams) => {
+    const base = `/p/${params.slug}`
+    // BOUNTIES is the default tab, so no query param needed
+    if (!params.tab || params.tab === DEFAULT_PROJECT_TAB) return base
+    return `${base}?tab=${params.tab}`
+  },
   settings: (params: ProjectParams) => `/p/${params.slug}/settings`,
   newBounty: (params: ProjectParams) => `/p/${params.slug}/bounties/new`,
   bountyDetail: (params: BountyParams) =>

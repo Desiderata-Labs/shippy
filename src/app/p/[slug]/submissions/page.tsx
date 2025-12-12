@@ -66,7 +66,7 @@ export default function ProjectSubmissionsPage() {
   if (sessionLoading || projectLoading) {
     return (
       <AppBackground>
-        <div className="container max-w-3xl px-4 py-8">
+        <div className="mx-auto max-w-7xl px-4 py-8">
           <Skeleton className="mb-4 h-6 w-32" />
           <Skeleton className="mb-8 h-10 w-64" />
           <Skeleton className="h-48 w-full" />
@@ -92,7 +92,7 @@ export default function ProjectSubmissionsPage() {
 
   return (
     <AppBackground>
-      <div className="container max-w-3xl px-4 py-8">
+      <div className="mx-auto max-w-7xl px-4 py-8">
         {/* Breadcrumb */}
         <Breadcrumb className="mb-6">
           <BreadcrumbList>

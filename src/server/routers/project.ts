@@ -5,6 +5,11 @@ import {
   PayoutFrequency,
   ProfitBasis,
 } from '@/lib/db/types'
+import { isProjectKeyAvailable } from '@/lib/project-key/server'
+import {
+  normalizeProjectKey,
+  validateProjectKey,
+} from '@/lib/project-key/shared'
 import {
   isProjectSlugAvailable,
   validateProjectSlug,
@@ -24,6 +29,11 @@ const createProjectSchema = z.object({
       /^[a-z0-9-]+$/,
       'Slug must be lowercase letters, numbers, and hyphens',
     ),
+  projectKey: z
+    .string()
+    .min(1)
+    .max(10)
+    .transform((v) => normalizeProjectKey(v)),
   tagline: z.string().max(200).optional(),
   description: z.string().optional(),
   logoUrl: z.string().url().optional(),
@@ -56,6 +66,12 @@ const updateProjectSchema = z.object({
       /^[a-z0-9-]+$/,
       'Slug must be lowercase letters, numbers, and hyphens',
     )
+    .optional(),
+  projectKey: z
+    .string()
+    .min(1)
+    .max(10)
+    .transform((v) => normalizeProjectKey(v))
     .optional(),
   tagline: z.string().max(200).optional(),
   description: z.string().optional(),
@@ -113,6 +129,39 @@ export const projectRouter = router({
     }),
 
   /**
+   * Check if a project key (3-letter prefix) is available for the current founder
+   */
+  checkProjectKeyAvailable: protectedProcedure
+    .input(
+      z.object({
+        projectKey: z.string().min(1),
+        excludeProjectId: z.string().uuid().optional(),
+      }),
+    )
+    .query(async ({ ctx, input }) => {
+      const normalized = normalizeProjectKey(input.projectKey)
+
+      const validation = validateProjectKey(normalized)
+      if (!validation.isValid) {
+        return {
+          available: false,
+          error: validation.error,
+        }
+      }
+
+      const available = await isProjectKeyAvailable(ctx.user.id, normalized, {
+        excludeProjectId: input.excludeProjectId,
+      })
+
+      return {
+        available,
+        error: available
+          ? undefined
+          : 'This project key is already used by one of your projects',
+      }
+    }),
+
+  /**
    * Get a project by slug (public)
    */
   getBySlug: publicProcedure
@@ -126,10 +175,8 @@ export const projectRouter = router({
           },
           rewardPool: true,
           bounties: {
-            where: {
-              status: { in: [BountyStatus.OPEN, BountyStatus.CLAIMED] },
-            },
-            orderBy: { createdAt: 'desc' },
+            // Always include past bounties (COMPLETED/CLOSED), not just active ones.
+            orderBy: [{ createdAt: 'desc' }],
           },
           _count: {
             select: {
@@ -269,6 +316,27 @@ export const projectRouter = router({
         })
       }
 
+      // Validate project key
+      const keyValidation = validateProjectKey(input.projectKey)
+      if (!keyValidation.isValid) {
+        throw new TRPCError({
+          code: 'BAD_REQUEST',
+          message: keyValidation.error || 'Invalid project key',
+        })
+      }
+
+      // Check key availability (unique per founder)
+      const keyAvailable = await isProjectKeyAvailable(
+        ctx.user.id,
+        input.projectKey,
+      )
+      if (!keyAvailable) {
+        throw new TRPCError({
+          code: 'CONFLICT',
+          message: 'This project key is already used by one of your projects',
+        })
+      }
+
       // Calculate commitment end date
       const commitmentEndsAt = new Date()
       commitmentEndsAt.setMonth(
@@ -280,6 +348,7 @@ export const projectRouter = router({
         data: {
           name: input.name,
           slug: input.slug,
+          projectKey: input.projectKey,
           tagline: input.tagline,
           description: input.description,
           logoUrl: input.logoUrl,
@@ -314,6 +383,7 @@ export const projectRouter = router({
       const {
         id,
         slug,
+        projectKey,
         poolPercentage,
         payoutFrequency,
         commitmentMonths,
@@ -353,6 +423,31 @@ export const projectRouter = router({
           throw new TRPCError({
             code: 'CONFLICT',
             message: 'This slug is already taken',
+          })
+        }
+      }
+
+      // If project key is being changed, validate and ensure it's unique for this founder
+      if (projectKey) {
+        const keyValidation = validateProjectKey(projectKey)
+        if (!keyValidation.isValid) {
+          throw new TRPCError({
+            code: 'BAD_REQUEST',
+            message: keyValidation.error || 'Invalid project key',
+          })
+        }
+
+        const keyAvailable = await isProjectKeyAvailable(
+          ctx.user.id,
+          projectKey,
+          {
+            excludeProjectId: id,
+          },
+        )
+        if (!keyAvailable) {
+          throw new TRPCError({
+            code: 'CONFLICT',
+            message: 'This project key is already used by one of your projects',
           })
         }
       }
@@ -412,6 +507,7 @@ export const projectRouter = router({
         data: {
           ...projectData,
           ...(slug && slug !== project.slug ? { slug } : {}),
+          ...(projectKey ? { projectKey } : {}),
           ...(Object.keys(rewardPoolUpdate).length > 0
             ? { rewardPool: { update: rewardPoolUpdate } }
             : {}),

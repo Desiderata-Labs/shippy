@@ -30,7 +30,7 @@ export function TrustSection() {
     <section className="relative overflow-hidden border-y border-border/40 bg-muted/20 py-16">
       <div className="pointer-events-none absolute inset-0 bg-gradient-to-r from-transparent via-primary/5 to-transparent" />
 
-      <div className="relative mx-auto max-w-6xl px-6">
+      <div className="relative mx-auto max-w-7xl px-6">
         <div className="mb-10 flex items-center justify-center gap-2 text-sm text-muted-foreground">
           <ShieldTick className="size-4 text-primary" />
           <span>Trusted by founders and contributors worldwide</span>

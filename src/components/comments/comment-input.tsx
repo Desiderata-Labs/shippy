@@ -2,7 +2,9 @@
 
 import { ArrowCircleUp } from '@untitled-ui/icons-react'
 import { Loader2 } from 'lucide-react'
+import { useCallback, useEffect, useRef } from 'react'
 import { cn } from '@/lib/utils'
+import { MarkdownEditor } from '@/components/ui/markdown-editor'
 
 interface CommentInputProps {
   value: string
@@ -23,29 +25,50 @@ export function CommentInput({
   disabled = false,
   className,
 }: CommentInputProps) {
-  const handleKeyDown = (e: React.KeyboardEvent<HTMLTextAreaElement>) => {
-    if (e.key === 'Enter' && (e.metaKey || e.ctrlKey) && value.trim()) {
-      e.preventDefault()
-      onSubmit()
+  const containerRef = useRef<HTMLDivElement>(null)
+
+  // Handle Cmd/Ctrl+Enter to submit
+  useEffect(() => {
+    const container = containerRef.current
+    if (!container) return
+
+    const handleKeyDown = (e: KeyboardEvent) => {
+      if (e.key === 'Enter' && (e.metaKey || e.ctrlKey) && value.trim()) {
+        e.preventDefault()
+        onSubmit()
+      }
     }
-  }
+
+    container.addEventListener('keydown', handleKeyDown)
+    return () => container.removeEventListener('keydown', handleKeyDown)
+  }, [value, onSubmit])
+
+  const handleChange = useCallback(
+    (newValue: string) => {
+      onChange(newValue)
+    },
+    [onChange],
+  )
 
   return (
     <div
+      ref={containerRef}
       className={cn(
         'relative rounded-lg border border-border bg-background',
         className,
       )}
     >
-      <textarea
-        value={value}
-        onChange={(e) => onChange(e.target.value)}
-        onKeyDown={handleKeyDown}
-        placeholder={placeholder}
-        rows={3}
-        disabled={disabled || isLoading}
-        className="w-full resize-none bg-transparent px-4 py-3 pr-12 text-sm placeholder:text-muted-foreground focus:outline-none disabled:opacity-50"
-      />
+      <div className="px-4 pr-12">
+        <MarkdownEditor
+          value={value}
+          onChange={handleChange}
+          placeholder={placeholder}
+          disabled={disabled || isLoading}
+          minHeight="60px"
+          contentClassName="text-sm"
+          hideMarkdownHint
+        />
+      </div>
       <button
         type="button"
         onClick={onSubmit}

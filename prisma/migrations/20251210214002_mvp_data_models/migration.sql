@@ -129,15 +129,19 @@ CREATE TABLE "bounty" (
 );
 
 -- CreateTable
-CREATE TABLE "bounty_comment" (
+CREATE TABLE "bounty_event" (
     "id" TEXT NOT NULL,
     "bountyId" TEXT NOT NULL,
     "userId" TEXT NOT NULL,
-    "content" TEXT NOT NULL,
+    "type" TEXT NOT NULL,
+    "content" TEXT,
+    "changes" JSONB,
+    "fromStatus" TEXT,
+    "toStatus" TEXT,
+    "note" TEXT,
     "createdAt" TIMESTAMPTZ(3) NOT NULL DEFAULT CURRENT_TIMESTAMP,
-    "updatedAt" TIMESTAMPTZ(3) NOT NULL,
 
-    CONSTRAINT "bounty_comment_pkey" PRIMARY KEY ("id")
+    CONSTRAINT "bounty_event_pkey" PRIMARY KEY ("id")
 );
 
 -- CreateTable
@@ -177,6 +181,7 @@ CREATE TABLE "submission_event" (
     "userId" TEXT NOT NULL,
     "type" TEXT NOT NULL,
     "content" TEXT,
+    "changes" JSONB,
     "fromStatus" TEXT,
     "toStatus" TEXT,
     "note" TEXT,
@@ -281,10 +286,10 @@ CREATE INDEX "bounty_status_idx" ON "bounty"("status");
 CREATE UNIQUE INDEX "bounty_projectId_number_key" ON "bounty"("projectId", "number");
 
 -- CreateIndex
-CREATE INDEX "bounty_comment_bountyId_idx" ON "bounty_comment"("bountyId");
+CREATE INDEX "bounty_event_bountyId_idx" ON "bounty_event"("bountyId");
 
 -- CreateIndex
-CREATE INDEX "bounty_comment_userId_idx" ON "bounty_comment"("userId");
+CREATE INDEX "bounty_event_userId_idx" ON "bounty_event"("userId");
 
 -- CreateIndex
 CREATE INDEX "bounty_claim_bountyId_idx" ON "bounty_claim"("bountyId");
@@ -353,10 +358,10 @@ ALTER TABLE "pool_expansion_event" ADD CONSTRAINT "pool_expansion_event_rewardPo
 ALTER TABLE "bounty" ADD CONSTRAINT "bounty_projectId_fkey" FOREIGN KEY ("projectId") REFERENCES "project"("id") ON DELETE CASCADE ON UPDATE CASCADE;
 
 -- AddForeignKey
-ALTER TABLE "bounty_comment" ADD CONSTRAINT "bounty_comment_bountyId_fkey" FOREIGN KEY ("bountyId") REFERENCES "bounty"("id") ON DELETE CASCADE ON UPDATE CASCADE;
+ALTER TABLE "bounty_event" ADD CONSTRAINT "bounty_event_bountyId_fkey" FOREIGN KEY ("bountyId") REFERENCES "bounty"("id") ON DELETE CASCADE ON UPDATE CASCADE;
 
 -- AddForeignKey
-ALTER TABLE "bounty_comment" ADD CONSTRAINT "bounty_comment_userId_fkey" FOREIGN KEY ("userId") REFERENCES "user"("id") ON DELETE CASCADE ON UPDATE CASCADE;
+ALTER TABLE "bounty_event" ADD CONSTRAINT "bounty_event_userId_fkey" FOREIGN KEY ("userId") REFERENCES "user"("id") ON DELETE CASCADE ON UPDATE CASCADE;
 
 -- AddForeignKey
 ALTER TABLE "bounty_claim" ADD CONSTRAINT "bounty_claim_bountyId_fkey" FOREIGN KEY ("bountyId") REFERENCES "bounty"("id") ON DELETE CASCADE ON UPDATE CASCADE;

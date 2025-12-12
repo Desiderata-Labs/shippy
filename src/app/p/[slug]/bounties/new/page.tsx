@@ -23,6 +23,7 @@ import { cn } from '@/lib/utils'
 import { AppButton, AppInput } from '@/components/app'
 import { AppBackground } from '@/components/layout/app-background'
 import { Badge } from '@/components/ui/badge'
+import { MarkdownEditor } from '@/components/ui/markdown-editor'
 import {
   Select,
   SelectContent,
@@ -129,7 +130,7 @@ export default function NewBountyPage() {
   // Form state
   const [title, setTitle] = useState('')
   const [description, setDescription] = useState('')
-  const [points, setPoints] = useState(50)
+  const [points, setPoints] = useState(25)
   const [tags, setTags] = useState<BountyTag[]>([])
   const [claimMode, setClaimMode] = useState<BountyClaimMode>(
     BountyClaimMode.SINGLE,
@@ -315,37 +316,30 @@ export default function NewBountyPage() {
 
                 <Separator />
 
-                {/* Description input - inline style */}
+                {/* Description input - markdown editor */}
                 <div className="px-4 py-3">
-                  <textarea
+                  <MarkdownEditor
                     value={description}
-                    onChange={(e) => setDescription(e.target.value)}
+                    onChange={setDescription}
                     placeholder="Add description..."
-                    rows={6}
-                    required
                     disabled={isLoading}
-                    className="w-full resize-none bg-transparent text-sm placeholder:text-muted-foreground/50 focus:outline-none"
+                    minHeight="120px"
+                    contentClassName="text-sm"
                   />
-                  <p className="mt-1 text-[10px] text-muted-foreground">
-                    Markdown supported
-                  </p>
                 </div>
 
                 <Separator />
 
-                {/* Acceptance Criteria - inline style */}
+                {/* Acceptance Criteria - markdown editor */}
                 <div className="px-4 py-3">
-                  <textarea
+                  <MarkdownEditor
                     value={evidenceDescription}
-                    onChange={(e) => setEvidenceDescription(e.target.value)}
-                    placeholder="Acceptance criteria (optional)..."
-                    rows={3}
+                    onChange={setEvidenceDescription}
+                    placeholder="Acceptance criteria (optional)... What proof should contributors provide?"
                     disabled={isLoading}
-                    className="w-full resize-none bg-transparent text-sm placeholder:text-muted-foreground/50 focus:outline-none"
+                    minHeight="80px"
+                    contentClassName="text-sm"
                   />
-                  <p className="mt-1 text-[10px] text-muted-foreground">
-                    Markdown supported · What proof should contributors provide?
-                  </p>
                 </div>
 
                 <Separator />
@@ -406,14 +400,28 @@ export default function NewBountyPage() {
               <Separator />
 
               {/* Properties */}
-              <div className="space-y-4">
+              <div className="space-y-4 pt-2">
                 {/* Points section */}
                 <div className="space-y-3">
-                  <div className="flex items-center gap-2">
-                    <PieChart01 className="size-3.5 text-muted-foreground" />
-                    <span className="text-xs text-muted-foreground">
-                      Points
-                    </span>
+                  {/* Label with inline input */}
+                  <div className="flex items-center justify-between">
+                    <div className="flex items-center gap-2">
+                      <PieChart01 className="size-3.5 text-muted-foreground" />
+                      <span className="text-xs text-muted-foreground">
+                        Points
+                      </span>
+                    </div>
+                    <AppInput
+                      type="number"
+                      min="1"
+                      value={points || ''}
+                      onChange={(e) => setPoints(parseInt(e.target.value) || 0)}
+                      onBlur={() => {
+                        if (points < 1) setPoints(1)
+                      }}
+                      disabled={isLoading}
+                      className="h-7 w-24 text-center text-sm font-semibold"
+                    />
                   </div>
 
                   {/* Slider */}
@@ -427,49 +435,50 @@ export default function NewBountyPage() {
                     className="py-1"
                   />
 
-                  {/* Points input + quick selects */}
-                  <div className="flex items-center gap-2">
-                    <AppInput
-                      type="number"
-                      min="1"
-                      value={points || ''}
-                      onChange={(e) => setPoints(parseInt(e.target.value) || 0)}
-                      onBlur={() => {
-                        if (points < 1) setPoints(1)
-                      }}
-                      disabled={isLoading}
-                      className="w-20 text-center text-sm font-semibold"
-                    />
-                    <div className="flex flex-1 flex-wrap gap-1">
-                      {[10, 25, 50, 100].map((preset) => (
-                        <button
-                          key={preset}
-                          type="button"
-                          onClick={() => setPoints(preset)}
-                          disabled={isLoading}
-                          className={cn(
-                            'cursor-pointer rounded-md border px-2 py-0.5 text-xs font-medium transition-colors',
-                            points === preset
-                              ? 'border-primary bg-primary/10 text-primary'
-                              : 'border-border bg-muted/50 text-muted-foreground hover:bg-muted',
-                          )}
-                        >
-                          {preset}
-                        </button>
-                      ))}
-                    </div>
+                  {/* Quick selects */}
+                  <div className="flex flex-wrap gap-1">
+                    {[5, 10, 25, 50, 100].map((preset) => (
+                      <button
+                        key={preset}
+                        type="button"
+                        onClick={() => setPoints(preset)}
+                        disabled={isLoading}
+                        className={cn(
+                          'cursor-pointer rounded-md border px-2 py-0.5 text-xs font-medium transition-colors',
+                          points === preset
+                            ? 'border-primary bg-primary/10 text-primary'
+                            : 'border-border bg-muted/50 text-muted-foreground hover:bg-muted',
+                        )}
+                      >
+                        {preset}
+                      </button>
+                    ))}
                   </div>
 
                   {/* Pool share info */}
-                  <div className="rounded-md bg-primary/5 px-3 py-2 text-xs">
-                    <span className="text-muted-foreground">Pays </span>
-                    <span className="font-semibold text-primary">
-                      {bountyPercent.toFixed(1)}%
-                    </span>
-                    <span className="text-muted-foreground">
-                      {' '}
+                  <div className="space-y-1 rounded-md bg-primary/5 px-3 py-2 text-xs">
+                    <div className="whitespace-nowrap text-muted-foreground">
+                      Pays{' '}
+                      <span className="font-semibold text-primary">
+                        {bountyPercent.toFixed(1)}%
+                      </span>{' '}
                       of pool per payout
-                    </span>
+                    </div>
+                    {project.rewardPool && (
+                      <div className="whitespace-nowrap text-muted-foreground/70">
+                        e.g. $
+                        {(
+                          (10000 *
+                            project.rewardPool.poolPercentage *
+                            bountyPercent) /
+                          10000
+                        ).toLocaleString(undefined, {
+                          minimumFractionDigits: 0,
+                          maximumFractionDigits: 0,
+                        })}{' '}
+                        on $10k profit
+                      </div>
+                    )}
                   </div>
 
                   {/* Capacity warning */}

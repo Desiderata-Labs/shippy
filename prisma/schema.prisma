@@ -32,7 +32,7 @@ model User {
   submissions      Submission[]
   submissionEvents SubmissionEvent[]
   payoutRecipients PayoutRecipient[]
-  bountyComments   BountyComment[]
+  bountyEvents     BountyEvent[]
 
   @@index([username])
   @@map("user")
@@ -199,7 +199,7 @@ model Bounty {
   // Relations
   claims      BountyClaim[]
   submissions Submission[]
-  comments    BountyComment[]
+  events      BountyEvent[]
 
   @@index([projectId])
   @@index([status])
@@ -207,22 +207,33 @@ model Bounty {
   @@map("bounty")
 }
 
-/// A comment on a bounty for clarifications and discussion
-model BountyComment {
+/// Timeline events for bounties (comments, edits, status changes - like Linear's activity feed)
+model BountyEvent {
   id       String @id @default(uuid())
   bountyId String
   bounty   Bounty @relation(fields: [bountyId], references: [id], onDelete: Cascade)
   userId   String
   user     User   @relation(fields: [userId], references: [id], onDelete: Cascade)
 
-  content String @db.Text
+  // Event type: "COMMENT" | "EDIT" | "STATUS_CHANGE"
+  type String
+
+  // For COMMENT events
+  content String? @db.Text
+
+  // For EDIT events - structured changes { field: { from: oldValue, to: newValue } }
+  changes Json?
+
+  // For STATUS_CHANGE events
+  fromStatus String?
+  toStatus   String?
+  note       String? @db.Text
 
   createdAt DateTime @default(now()) @db.Timestamptz(3)
-  updatedAt DateTime @updatedAt @db.Timestamptz(3)
 
   @@index([bountyId])
   @@index([userId])
-  @@map("bounty_comment")
+  @@map("bounty_event")
 }
 
 /// A claim represents a contributor's intent to work on a bounty
@@ -275,7 +286,7 @@ model Submission {
   @@map("submission")
 }
 
-/// Timeline events for submissions (comments + status changes, like GitHub PR activity)
+/// Timeline events for submissions (comments, edits, status changes - like GitHub PR activity)
 model SubmissionEvent {
   id           String     @id @default(uuid())
   submissionId String
@@ -283,11 +294,14 @@ model SubmissionEvent {
   userId       String
   user         User       @relation(fields: [userId], references: [id], onDelete: Cascade)
 
-  // Event type: "COMMENT" | "STATUS_CHANGE"
+  // Event type: "COMMENT" | "EDIT" | "STATUS_CHANGE"
   type String
 
   // For COMMENT events
   content String? @db.Text
+
+  // For EDIT events - structured changes { field: { from: oldValue, to: newValue } }
+  changes Json?
 
   // For STATUS_CHANGE events
   fromStatus String? // Previous status (null for initial submission)

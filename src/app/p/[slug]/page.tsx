@@ -31,12 +31,18 @@ async function getProject(slug: string) {
         include: {
           _count: {
             select: {
-              claims: { where: { status: ClaimStatus.ACTIVE } },
+              claims: {
+                where: {
+                  status: { in: [ClaimStatus.ACTIVE, ClaimStatus.SUBMITTED] },
+                },
+              },
               submissions: true,
             },
           },
           claims: {
-            where: { status: ClaimStatus.ACTIVE },
+            where: {
+              status: { in: [ClaimStatus.ACTIVE, ClaimStatus.SUBMITTED] },
+            },
             orderBy: { expiresAt: 'asc' },
             select: {
               id: true,

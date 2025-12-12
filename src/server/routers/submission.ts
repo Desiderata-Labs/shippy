@@ -5,6 +5,7 @@ import {
   SubmissionStatus,
 } from '@/lib/db/types'
 import { protectedProcedure, router } from '@/server/trpc'
+import { Prisma } from '@prisma/client'
 import { TRPCError } from '@trpc/server'
 import { z } from 'zod/v4'
 
@@ -260,10 +261,11 @@ export const submissionRouter = router({
         })
       }
 
-      // Can only edit if not yet approved/rejected
+      // Can only edit if not yet approved/rejected/withdrawn
       if (
         submission.status === SubmissionStatus.APPROVED ||
-        submission.status === SubmissionStatus.REJECTED
+        submission.status === SubmissionStatus.REJECTED ||
+        submission.status === SubmissionStatus.WITHDRAWN
       ) {
         throw new TRPCError({
           code: 'BAD_REQUEST',
@@ -271,9 +273,68 @@ export const submissionRouter = router({
         })
       }
 
-      return ctx.prisma.submission.update({
-        where: { id },
-        data,
+      // Build a record of what changed for the audit trail
+      const changes: Record<string, { from: unknown; to: unknown }> = {}
+
+      if (
+        data.description !== undefined &&
+        data.description !== submission.description
+      ) {
+        changes.description = {
+          from: submission.description,
+          to: data.description,
+        }
+      }
+      if (data.status !== undefined && data.status !== submission.status) {
+        changes.status = { from: submission.status, to: data.status }
+      }
+
+      // Use transaction to update submission and record the edit event
+      return ctx.prisma.$transaction(async (tx) => {
+        const updated = await tx.submission.update({
+          where: { id },
+          data,
+        })
+
+        // Only create an event if something actually changed
+        if (Object.keys(changes).length > 0) {
+          // If status changed, create a STATUS_CHANGE event; otherwise EDIT
+          if (changes.status) {
+            await tx.submissionEvent.create({
+              data: {
+                submissionId: id,
+                userId: ctx.user.id,
+                type: SubmissionEventType.STATUS_CHANGE,
+                fromStatus: changes.status.from as string,
+                toStatus: changes.status.to as string,
+              },
+            })
+            // If there are other changes besides status, also record an edit
+            const nonStatusChanges = { ...changes }
+            delete nonStatusChanges.status
+            if (Object.keys(nonStatusChanges).length > 0) {
+              await tx.submissionEvent.create({
+                data: {
+                  submissionId: id,
+                  userId: ctx.user.id,
+                  type: SubmissionEventType.EDIT,
+                  changes: nonStatusChanges as Prisma.InputJsonValue,
+                },
+              })
+            }
+          } else {
+            await tx.submissionEvent.create({
+              data: {
+                submissionId: id,
+                userId: ctx.user.id,
+                type: SubmissionEventType.EDIT,
+                changes: changes as Prisma.InputJsonValue,
+              },
+            })
+          }
+        }
+
+        return updated
       })
     }),
 

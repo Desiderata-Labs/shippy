@@ -64,11 +64,23 @@ export enum SubmissionStatus {
   NEEDS_INFO = 'NEEDS_INFO', // Founder requested more info
   APPROVED = 'APPROVED', // Points awarded
   REJECTED = 'REJECTED', // Not accepted
+  WITHDRAWN = 'WITHDRAWN', // Contributor released their claim
 }
 
 export enum SubmissionEventType {
   COMMENT = 'COMMENT', // Regular user comment
+  EDIT = 'EDIT', // Submission was edited
   STATUS_CHANGE = 'STATUS_CHANGE', // Status transition (approve, reject, request info)
+}
+
+// ================================
+// Bounty Event Enums
+// ================================
+
+export enum BountyEventType {
+  COMMENT = 'COMMENT', // Regular user comment
+  EDIT = 'EDIT', // Bounty was edited
+  STATUS_CHANGE = 'STATUS_CHANGE', // Status transition (open, claimed, completed, closed)
 }
 
 // ================================

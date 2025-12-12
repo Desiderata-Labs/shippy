@@ -1,11 +1,15 @@
 import {
   BountyClaimMode,
+  BountyEventType,
   BountyStatus,
   BountyTag,
   ClaimStatus,
   DEFAULT_CLAIM_EXPIRY_DAYS,
+  SubmissionEventType,
+  SubmissionStatus,
 } from '@/lib/db/types'
 import { protectedProcedure, publicProcedure, router } from '@/server/trpc'
+import { Prisma } from '@prisma/client'
 import { TRPCError } from '@trpc/server'
 import { z } from 'zod/v4'
 
@@ -61,7 +65,11 @@ export const bountyRouter = router({
         include: {
           _count: {
             select: {
-              claims: { where: { status: ClaimStatus.ACTIVE } },
+              claims: {
+                where: {
+                  status: { in: [ClaimStatus.ACTIVE, ClaimStatus.SUBMITTED] },
+                },
+              },
               submissions: true,
             },
           },
@@ -85,7 +93,9 @@ export const bountyRouter = router({
             },
           },
           claims: {
-            where: { status: ClaimStatus.ACTIVE },
+            where: {
+              status: { in: [ClaimStatus.ACTIVE, ClaimStatus.SUBMITTED] },
+            },
             include: {
               user: { select: { id: true, name: true, image: true } },
             },
@@ -95,6 +105,12 @@ export const bountyRouter = router({
             include: {
               user: { select: { id: true, name: true, image: true } },
               _count: { select: { events: true } },
+            },
+          },
+          events: {
+            orderBy: { createdAt: 'asc' },
+            include: {
+              user: { select: { id: true, name: true, image: true } },
             },
           },
           _count: {
@@ -268,9 +284,86 @@ export const bountyRouter = router({
         })
       }
 
-      return ctx.prisma.bounty.update({
-        where: { id },
-        data,
+      // Build a record of what changed for the audit trail
+      const changes: Record<string, { from: unknown; to: unknown }> = {}
+
+      if (data.title !== undefined && data.title !== bounty.title) {
+        changes.title = { from: bounty.title, to: data.title }
+      }
+      if (
+        data.description !== undefined &&
+        data.description !== bounty.description
+      ) {
+        changes.description = { from: bounty.description, to: data.description }
+      }
+      if (data.points !== undefined && data.points !== bounty.points) {
+        changes.points = { from: bounty.points, to: data.points }
+      }
+      if (data.tags !== undefined) {
+        const oldTags = bounty.tags.sort().join(',')
+        const newTags = data.tags.sort().join(',')
+        if (oldTags !== newTags) {
+          changes.tags = { from: bounty.tags, to: data.tags }
+        }
+      }
+      if (data.evidenceDescription !== undefined) {
+        if (data.evidenceDescription !== bounty.evidenceDescription) {
+          changes.evidenceDescription = {
+            from: bounty.evidenceDescription,
+            to: data.evidenceDescription,
+          }
+        }
+      }
+      if (data.status !== undefined && data.status !== bounty.status) {
+        changes.status = { from: bounty.status, to: data.status }
+      }
+
+      // Use transaction to update bounty and record the edit event
+      return ctx.prisma.$transaction(async (tx) => {
+        const updated = await tx.bounty.update({
+          where: { id },
+          data,
+        })
+
+        // Only create an event if something actually changed
+        if (Object.keys(changes).length > 0) {
+          // If status changed, create a STATUS_CHANGE event; otherwise EDIT
+          if (changes.status) {
+            await tx.bountyEvent.create({
+              data: {
+                bountyId: id,
+                userId: ctx.user.id,
+                type: BountyEventType.STATUS_CHANGE,
+                fromStatus: changes.status.from as string,
+                toStatus: changes.status.to as string,
+              },
+            })
+            // If there are other changes besides status, also record an edit
+            const nonStatusChanges = { ...changes }
+            delete nonStatusChanges.status
+            if (Object.keys(nonStatusChanges).length > 0) {
+              await tx.bountyEvent.create({
+                data: {
+                  bountyId: id,
+                  userId: ctx.user.id,
+                  type: BountyEventType.EDIT,
+                  changes: nonStatusChanges as Prisma.InputJsonValue,
+                },
+              })
+            }
+          } else {
+            await tx.bountyEvent.create({
+              data: {
+                bountyId: id,
+                userId: ctx.user.id,
+                type: BountyEventType.EDIT,
+                changes: changes as Prisma.InputJsonValue,
+              },
+            })
+          }
+        }
+
+        return updated
       })
     }),
 
@@ -363,7 +456,12 @@ export const bountyRouter = router({
    * Release a claim (by claimant or founder)
    */
   releaseClaim: protectedProcedure
-    .input(z.object({ claimId: z.string().uuid() }))
+    .input(
+      z.object({
+        claimId: z.string().uuid(),
+        reason: z.string().max(1000).optional(),
+      }),
+    )
     .mutation(async ({ ctx, input }) => {
       const claim = await ctx.prisma.bountyClaim.findUnique({
         where: { id: input.claimId },
@@ -395,12 +493,60 @@ export const bountyRouter = router({
         data: { status: ClaimStatus.EXPIRED },
       })
 
-      // If SINGLE mode, reopen the bounty
-      if (claim.bounty.claimMode === BountyClaimMode.SINGLE) {
-        await ctx.prisma.bounty.update({
-          where: { id: claim.bountyId },
-          data: { status: BountyStatus.OPEN },
+      // Find and withdraw any pending submissions from this user for this bounty
+      const submissionsToWithdraw = await ctx.prisma.submission.findMany({
+        where: {
+          bountyId: claim.bountyId,
+          userId: claim.userId,
+          status: {
+            in: [
+              SubmissionStatus.DRAFT,
+              SubmissionStatus.PENDING,
+              SubmissionStatus.NEEDS_INFO,
+            ],
+          },
+        },
+        select: { id: true, status: true },
+      })
+
+      // Update submissions and create withdrawal events
+      for (const submission of submissionsToWithdraw) {
+        await ctx.prisma.submission.update({
+          where: { id: submission.id },
+          data: { status: SubmissionStatus.WITHDRAWN },
         })
+
+        await ctx.prisma.submissionEvent.create({
+          data: {
+            submissionId: submission.id,
+            userId: claim.userId,
+            type: SubmissionEventType.STATUS_CHANGE,
+            fromStatus: submission.status,
+            toStatus: SubmissionStatus.WITHDRAWN,
+            note: input.reason || null,
+          },
+        })
+      }
+
+      // If SINGLE mode and bounty is still CLAIMED (not COMPLETED/CLOSED), reopen it
+      if (
+        claim.bounty.claimMode === BountyClaimMode.SINGLE &&
+        claim.bounty.status === BountyStatus.CLAIMED
+      ) {
+        // Check if there are any other active/submitted claims
+        const remainingClaims = await ctx.prisma.bountyClaim.count({
+          where: {
+            bountyId: claim.bountyId,
+            status: { in: [ClaimStatus.ACTIVE, ClaimStatus.SUBMITTED] },
+          },
+        })
+
+        if (remainingClaims === 0) {
+          await ctx.prisma.bounty.update({
+            where: { id: claim.bountyId },
+            data: { status: BountyStatus.OPEN },
+          })
+        }
       }
 
       return { success: true }
@@ -435,10 +581,11 @@ export const bountyRouter = router({
         throw new TRPCError({ code: 'FORBIDDEN', message: 'Access denied' })
       }
 
-      return ctx.prisma.bountyComment.create({
+      return ctx.prisma.bountyEvent.create({
         data: {
           bountyId: input.bountyId,
           userId: ctx.user.id,
+          type: BountyEventType.COMMENT,
           content: input.content,
         },
         include: {
@@ -448,12 +595,12 @@ export const bountyRouter = router({
     }),
 
   /**
-   * Get comments for a bounty
+   * Get events (comments, edits, status changes) for a bounty
    */
-  getComments: publicProcedure
+  getEvents: publicProcedure
     .input(z.object({ bountyId: z.string().uuid() }))
     .query(async ({ ctx, input }) => {
-      return ctx.prisma.bountyComment.findMany({
+      return ctx.prisma.bountyEvent.findMany({
         where: { bountyId: input.bountyId },
         orderBy: { createdAt: 'asc' },
         include: {
@@ -463,24 +610,32 @@ export const bountyRouter = router({
     }),
 
   /**
-   * Delete a comment (author or founder only)
+   * Delete a comment event (author or founder only)
    */
   deleteComment: protectedProcedure
-    .input(z.object({ commentId: z.string().uuid() }))
+    .input(z.object({ eventId: z.string().uuid() }))
     .mutation(async ({ ctx, input }) => {
-      const comment = await ctx.prisma.bountyComment.findUnique({
-        where: { id: input.commentId },
+      const event = await ctx.prisma.bountyEvent.findUnique({
+        where: { id: input.eventId },
         include: {
           bounty: { include: { project: { select: { founderId: true } } } },
         },
       })
 
-      if (!comment) {
-        throw new TRPCError({ code: 'NOT_FOUND', message: 'Comment not found' })
+      if (!event) {
+        throw new TRPCError({ code: 'NOT_FOUND', message: 'Event not found' })
       }
 
-      const isAuthor = comment.userId === ctx.user.id
-      const isFounder = comment.bounty.project.founderId === ctx.user.id
+      // Can only delete COMMENT events
+      if (event.type !== BountyEventType.COMMENT) {
+        throw new TRPCError({
+          code: 'BAD_REQUEST',
+          message: 'Only comments can be deleted',
+        })
+      }
+
+      const isAuthor = event.userId === ctx.user.id
+      const isFounder = event.bounty.project.founderId === ctx.user.id
 
       if (!isAuthor && !isFounder) {
         throw new TRPCError({
@@ -489,8 +644,8 @@ export const bountyRouter = router({
         })
       }
 
-      await ctx.prisma.bountyComment.delete({
-        where: { id: input.commentId },
+      await ctx.prisma.bountyEvent.delete({
+        where: { id: input.eventId },
       })
 
       return { success: true }

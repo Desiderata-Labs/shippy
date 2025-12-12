@@ -7,8 +7,9 @@ import {
   CheckCircle,
   ChevronDown,
   Clock,
-  Copy01,
+  Link03,
   MessageTextSquare02,
+  Pencil01,
   XCircle,
 } from '@untitled-ui/icons-react'
 import { Loader2 } from 'lucide-react'
@@ -20,6 +21,7 @@ import { SubmissionEventType, SubmissionStatus } from '@/lib/db/types'
 import { routes } from '@/lib/routes'
 import { cn } from '@/lib/utils'
 import { AppButton, AppTextarea } from '@/components/app'
+import { SubmitWorkModal } from '@/components/bounty/submit-work-modal'
 import { CommentInput } from '@/components/comments'
 import { AppBackground } from '@/components/layout/app-background'
 import { Avatar, AvatarFallback, AvatarImage } from '@/components/ui/avatar'
@@ -69,6 +71,11 @@ const statusConfig: Record<
     color: 'text-red-500',
     icon: XCircle,
   },
+  [SubmissionStatus.WITHDRAWN]: {
+    label: 'Withdrawn',
+    color: 'text-muted-foreground',
+    icon: XCircle,
+  },
 }
 
 type ReviewAction = 'comment' | 'approve' | 'requestInfo' | 'reject'
@@ -82,6 +89,7 @@ export default function SubmissionDetailPage() {
   const [reviewAction, setReviewAction] = useState<ReviewAction>('comment')
   const [showReviewPopover, setShowReviewPopover] = useState(false)
   const [showRejectModal, setShowRejectModal] = useState(false)
+  const [showEditModal, setShowEditModal] = useState(false)
   const [copied, setCopied] = useState(false)
 
   const { data: submission, isLoading } = trpc.submission.getById.useQuery(
@@ -114,6 +122,24 @@ export default function SubmissionDetailPage() {
     },
   })
 
+  const updateSubmission = trpc.submission.update.useMutation({
+    onSuccess: () => {
+      toast.success('Submission updated')
+      setShowEditModal(false)
+      utils.submission.getById.invalidate({ id: params.submissionId })
+    },
+    onError: (error) => {
+      toast.error(error.message)
+    },
+  })
+
+  const handleEditSubmission = async (description: string) => {
+    await updateSubmission.mutateAsync({
+      id: params.submissionId,
+      description,
+    })
+  }
+
   if (isLoading) {
     return (
       <AppBackground>
@@ -137,8 +163,17 @@ export default function SubmissionDetailPage() {
   }
 
   const isFounder = session?.user?.id === submission.bounty.project.founderId
-  const canReview = isFounder && submission.status !== SubmissionStatus.APPROVED
-  const canComment = submission.status !== SubmissionStatus.APPROVED
+  const isSubmitter = session?.user?.id === submission.userId
+  const isTerminalStatus = [
+    SubmissionStatus.APPROVED,
+    SubmissionStatus.REJECTED,
+    SubmissionStatus.WITHDRAWN,
+  ].includes(submission.status as SubmissionStatus)
+  const canReview = isFounder && !isTerminalStatus
+  // Submitter can edit if not in terminal state
+  const canEdit = isSubmitter && !isTerminalStatus
+  // Allow comments on any submission (even terminal states) for clarifications
+  const canComment = true
 
   const status =
     statusConfig[submission.status] || statusConfig[SubmissionStatus.PENDING]
@@ -251,141 +286,155 @@ export default function SubmissionDetailPage() {
           <span className="text-foreground">Submission</span>
         </div>
 
-        {/* Header with review button */}
+        {/* Header with edit/review buttons */}
         <div className="mb-6 flex items-start justify-between gap-4">
-          <h1 className="text-xl font-semibold tracking-tight sm:text-2xl">
+          <h1 className="text-xl font-semibold tracking-tight text-muted-foreground sm:text-2xl">
             {submission.bounty.title}
           </h1>
 
-          {/* Review button (founder only) */}
-          {canReview && (
-            <Popover
-              open={showReviewPopover}
-              onOpenChange={setShowReviewPopover}
-            >
-              <PopoverTrigger asChild>
-                <AppButton size="sm" className="shrink-0 gap-1.5">
-                  Review submission
-                  <ChevronDown className="size-4" />
-                </AppButton>
-              </PopoverTrigger>
-              <PopoverContent align="end" className="w-96 p-0">
-                <div className="p-3">
-                  <p className="mb-2 text-xs font-medium text-muted-foreground">
-                    Review summary
-                  </p>
-                  <AppTextarea
-                    value={reviewNote}
-                    onChange={(e) => setReviewNote(e.target.value)}
-                    onKeyDown={(e) => {
-                      if (e.key === 'Enter' && (e.metaKey || e.ctrlKey)) {
-                        e.preventDefault()
-                        handleSubmitReview()
-                      }
-                    }}
-                    placeholder="Leave a comment..."
-                    rows={3}
-                    disabled={isSending}
-                    className="mb-3 text-sm"
-                  />
+          <div className="flex shrink-0 gap-2">
+            {/* Edit button (submitter only, before finalization) */}
+            {canEdit && (
+              <AppButton
+                variant="outline"
+                size="sm"
+                onClick={() => setShowEditModal(true)}
+              >
+                <Pencil01 className="mr-1.5 size-3.5" />
+                Edit
+              </AppButton>
+            )}
 
-                  {/* Radio options */}
-                  <div className="space-y-2">
-                    <label className="flex cursor-pointer items-start gap-2.5 rounded-sm px-2 py-1.5 hover:bg-accent">
-                      <input
-                        type="radio"
-                        name="reviewAction"
-                        value="comment"
-                        checked={reviewAction === 'comment'}
-                        onChange={() => setReviewAction('comment')}
-                        className="mt-0.5"
-                      />
-                      <div>
-                        <div className="text-sm font-medium">Comment</div>
-                        <div className="text-xs text-muted-foreground">
-                          Submit feedback without changing status.
-                        </div>
-                      </div>
-                    </label>
-
-                    <label className="flex cursor-pointer items-start gap-2.5 rounded-sm px-2 py-1.5 hover:bg-accent">
-                      <input
-                        type="radio"
-                        name="reviewAction"
-                        value="approve"
-                        checked={reviewAction === 'approve'}
-                        onChange={() => setReviewAction('approve')}
-                        className="mt-0.5"
-                      />
-                      <div>
-                        <div className="text-sm font-medium">Approve</div>
-                        <div className="text-xs text-muted-foreground">
-                          Award {submission.bounty.points} points to the
-                          contributor.
-                        </div>
-                      </div>
-                    </label>
-
-                    <label className="flex cursor-pointer items-start gap-2.5 rounded-sm px-2 py-1.5 hover:bg-accent">
-                      <input
-                        type="radio"
-                        name="reviewAction"
-                        value="requestInfo"
-                        checked={reviewAction === 'requestInfo'}
-                        onChange={() => setReviewAction('requestInfo')}
-                        className="mt-0.5"
-                      />
-                      <div>
-                        <div className="text-sm font-medium">
-                          Request changes
-                        </div>
-                        <div className="text-xs text-muted-foreground">
-                          Ask for more information before approving.
-                        </div>
-                      </div>
-                    </label>
-
-                    <label className="flex cursor-pointer items-start gap-2.5 rounded-sm px-2 py-1.5 hover:bg-accent">
-                      <input
-                        type="radio"
-                        name="reviewAction"
-                        value="reject"
-                        checked={reviewAction === 'reject'}
-                        onChange={() => setReviewAction('reject')}
-                        className="mt-0.5"
-                      />
-                      <div>
-                        <div className="text-sm font-medium">Reject</div>
-                        <div className="text-xs text-muted-foreground">
-                          This submission does not meet requirements.
-                        </div>
-                      </div>
-                    </label>
-                  </div>
-                </div>
-
-                <div className="border-t border-border px-3 py-2">
-                  <AppButton
-                    onClick={handleSubmitReview}
-                    disabled={
-                      isSending ||
-                      (reviewAction === 'comment' && !reviewNote.trim()) ||
-                      ((reviewAction === 'requestInfo' ||
-                        reviewAction === 'reject') &&
-                        !reviewNote.trim())
-                    }
-                    className="w-full"
-                    size="sm"
-                  >
-                    {isSending && (
-                      <Loader2 className="mr-1.5 size-3.5 animate-spin" />
-                    )}
-                    Submit review
+            {/* Review button (founder only) */}
+            {canReview && (
+              <Popover
+                open={showReviewPopover}
+                onOpenChange={setShowReviewPopover}
+              >
+                <PopoverTrigger asChild>
+                  <AppButton size="sm" className="shrink-0 gap-1.5">
+                    Review submission
+                    <ChevronDown className="size-4" />
                   </AppButton>
-                </div>
-              </PopoverContent>
-            </Popover>
-          )}
+                </PopoverTrigger>
+                <PopoverContent align="end" className="w-96 p-0">
+                  <div className="p-3">
+                    <p className="mb-2 text-xs font-medium text-muted-foreground">
+                      Review summary
+                    </p>
+                    <AppTextarea
+                      value={reviewNote}
+                      onChange={(e) => setReviewNote(e.target.value)}
+                      onKeyDown={(e) => {
+                        if (e.key === 'Enter' && (e.metaKey || e.ctrlKey)) {
+                          e.preventDefault()
+                          handleSubmitReview()
+                        }
+                      }}
+                      placeholder="Leave a comment..."
+                      rows={3}
+                      disabled={isSending}
+                      className="mb-3 text-sm"
+                    />
+
+                    {/* Radio options */}
+                    <div className="space-y-2">
+                      <label className="flex cursor-pointer items-start gap-2.5 rounded-sm px-2 py-1.5 hover:bg-accent">
+                        <input
+                          type="radio"
+                          name="reviewAction"
+                          value="comment"
+                          checked={reviewAction === 'comment'}
+                          onChange={() => setReviewAction('comment')}
+                          className="mt-0.5"
+                        />
+                        <div>
+                          <div className="text-sm font-medium">Comment</div>
+                          <div className="text-xs text-muted-foreground">
+                            Submit feedback without changing status.
+                          </div>
+                        </div>
+                      </label>
+
+                      <label className="flex cursor-pointer items-start gap-2.5 rounded-sm px-2 py-1.5 hover:bg-accent">
+                        <input
+                          type="radio"
+                          name="reviewAction"
+                          value="approve"
+                          checked={reviewAction === 'approve'}
+                          onChange={() => setReviewAction('approve')}
+                          className="mt-0.5"
+                        />
+                        <div>
+                          <div className="text-sm font-medium">Approve</div>
+                          <div className="text-xs text-muted-foreground">
+                            Award {submission.bounty.points} points to the
+                            contributor.
+                          </div>
+                        </div>
+                      </label>
+
+                      <label className="flex cursor-pointer items-start gap-2.5 rounded-sm px-2 py-1.5 hover:bg-accent">
+                        <input
+                          type="radio"
+                          name="reviewAction"
+                          value="requestInfo"
+                          checked={reviewAction === 'requestInfo'}
+                          onChange={() => setReviewAction('requestInfo')}
+                          className="mt-0.5"
+                        />
+                        <div>
+                          <div className="text-sm font-medium">
+                            Request changes
+                          </div>
+                          <div className="text-xs text-muted-foreground">
+                            Ask for more information before approving.
+                          </div>
+                        </div>
+                      </label>
+
+                      <label className="flex cursor-pointer items-start gap-2.5 rounded-sm px-2 py-1.5 hover:bg-accent">
+                        <input
+                          type="radio"
+                          name="reviewAction"
+                          value="reject"
+                          checked={reviewAction === 'reject'}
+                          onChange={() => setReviewAction('reject')}
+                          className="mt-0.5"
+                        />
+                        <div>
+                          <div className="text-sm font-medium">Reject</div>
+                          <div className="text-xs text-muted-foreground">
+                            This submission does not meet requirements.
+                          </div>
+                        </div>
+                      </label>
+                    </div>
+                  </div>
+
+                  <div className="border-t border-border px-3 py-2">
+                    <AppButton
+                      onClick={handleSubmitReview}
+                      disabled={
+                        isSending ||
+                        (reviewAction === 'comment' && !reviewNote.trim()) ||
+                        ((reviewAction === 'requestInfo' ||
+                          reviewAction === 'reject') &&
+                          !reviewNote.trim())
+                      }
+                      className="w-full"
+                      size="sm"
+                    >
+                      {isSending && (
+                        <Loader2 className="mr-1.5 size-3.5 animate-spin" />
+                      )}
+                      Submit review
+                    </AppButton>
+                  </div>
+                </PopoverContent>
+              </Popover>
+            )}
+          </div>
         </div>
 
         {/* Main layout */}
@@ -421,6 +470,8 @@ export default function SubmissionDetailPage() {
                                 'rejected this submission'}
                               {event.toStatus === SubmissionStatus.NEEDS_INFO &&
                                 'requested changes'}
+                              {event.toStatus === SubmissionStatus.WITHDRAWN &&
+                                'withdrew this submission'}
                             </span>
                             <span className="text-muted-foreground">·</span>
                             <span className="text-xs text-muted-foreground">
@@ -436,6 +487,32 @@ export default function SubmissionDetailPage() {
                             {event.note}
                           </p>
                         )}
+                      </div>
+                    )
+                  }
+
+                  // Edit events
+                  if (event.type === SubmissionEventType.EDIT) {
+                    return (
+                      <div key={event.id} className="text-sm">
+                        <div className="flex items-start gap-2">
+                          <Pencil01 className="mt-0.5 size-4 text-muted-foreground" />
+                          <div className="flex flex-wrap items-center gap-x-1.5 gap-y-0.5">
+                            <span className="font-medium">
+                              {event.user.name}
+                            </span>
+                            <span className="text-muted-foreground">
+                              edited the submission
+                            </span>
+                            <span className="text-muted-foreground">·</span>
+                            <span className="text-xs text-muted-foreground">
+                              {new Date(event.createdAt).toLocaleDateString(
+                                'en-US',
+                                { month: 'short', day: 'numeric' },
+                              )}
+                            </span>
+                          </div>
+                        </div>
                       </div>
                     )
                   }
@@ -514,7 +591,7 @@ export default function SubmissionDetailPage() {
                     onClick={handleCopyLink}
                     className="cursor-pointer rounded-sm p-1.5 text-muted-foreground transition-colors hover:bg-accent hover:text-foreground"
                   >
-                    <Copy01
+                    <Link03
                       className={cn('size-4', copied && 'text-green-500')}
                     />
                   </button>
@@ -537,7 +614,7 @@ export default function SubmissionDetailPage() {
                     slug: params.slug,
                     bountyId: submission.bountyId,
                   })}
-                  className="text-sm text-primary hover:underline"
+                  className="text-xs text-primary hover:underline"
                 >
                   {submission.bounty.project.projectKey}-
                   {submission.bounty.number}
@@ -549,7 +626,7 @@ export default function SubmissionDetailPage() {
                 <span className="text-xs text-muted-foreground">Status</span>
                 <div className={cn('flex items-center gap-1.5', status.color)}>
                   <StatusIcon className="size-4" />
-                  <span className="text-sm">{status.label}</span>
+                  <span className="text-xs">{status.label}</span>
                 </div>
               </div>
 
@@ -559,7 +636,7 @@ export default function SubmissionDetailPage() {
                   <span className="text-xs text-muted-foreground">
                     Points Awarded
                   </span>
-                  <span className="rounded-sm bg-green-500/10 px-2 py-0.5 text-sm font-semibold text-green-500">
+                  <span className="rounded-sm bg-green-500/10 px-2 py-0.5 text-xs font-semibold text-green-500">
                     +{submission.pointsAwarded}
                   </span>
                 </div>
@@ -570,7 +647,7 @@ export default function SubmissionDetailPage() {
                 <span className="text-xs text-muted-foreground">
                   Bounty Points
                 </span>
-                <span className="rounded-sm bg-primary/10 px-2 py-0.5 text-sm font-semibold text-primary">
+                <span className="rounded-sm bg-primary/10 px-2 py-0.5 text-xs font-semibold text-primary">
                   {submission.bounty.points}
                 </span>
               </div>
@@ -587,14 +664,14 @@ export default function SubmissionDetailPage() {
                       {submission.user.name.charAt(0)}
                     </AvatarFallback>
                   </Avatar>
-                  <span className="text-sm">{submission.user.name}</span>
+                  <span className="text-xs">{submission.user.name}</span>
                 </div>
               </div>
 
               {/* Submitted date */}
               <div className="flex items-center justify-between py-1">
                 <span className="text-xs text-muted-foreground">Submitted</span>
-                <span className="text-sm">
+                <span className="text-xs">
                   {new Date(submission.createdAt).toLocaleDateString('en-US', {
                     month: 'short',
                     day: 'numeric',
@@ -617,6 +694,16 @@ export default function SubmissionDetailPage() {
         cancelText="Cancel"
         variant="destructive"
         isLoading={isSending}
+      />
+
+      {/* Edit submission modal */}
+      <SubmitWorkModal
+        open={showEditModal}
+        onClose={() => setShowEditModal(false)}
+        onSubmit={handleEditSubmission}
+        initialDescription={submission.description}
+        isLoading={updateSubmission.isPending}
+        mode="edit"
       />
     </AppBackground>
   )

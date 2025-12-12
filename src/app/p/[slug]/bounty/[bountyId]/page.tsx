@@ -8,9 +8,11 @@ import {
   CheckCircle,
   Circle,
   Clock,
-  Copy01,
   DotsVertical,
+  Edit02,
   FileCheck03,
+  Link03,
+  Pencil01,
   Target01,
   Trash01,
   User01,
@@ -25,6 +27,7 @@ import { notFound } from 'next/navigation'
 import { getTagColor } from '@/lib/bounty/tag-colors'
 import {
   BountyClaimMode,
+  BountyEventType,
   BountyStatus,
   ClaimStatus,
   SubmissionStatus,
@@ -32,6 +35,7 @@ import {
 import { ProjectTab, routes } from '@/lib/routes'
 import { cn } from '@/lib/utils'
 import { AppButton } from '@/components/app'
+import { EditBountyModal } from '@/components/bounty/edit-bounty-modal'
 import { SubmitWorkModal } from '@/components/bounty/submit-work-modal'
 import { CommentInput } from '@/components/comments'
 import { AppBackground } from '@/components/layout/app-background'
@@ -60,22 +64,18 @@ export default function BountyDetailPage() {
   const { data: session } = useSession()
   const [isSubmitting, setIsSubmitting] = useState(false)
   const [showSubmitModal, setShowSubmitModal] = useState(false)
+  const [showEditModal, setShowEditModal] = useState(false)
   const [copied, setCopied] = useState(false)
   const [showReleaseModal, setShowReleaseModal] = useState(false)
+  const [releaseReason, setReleaseReason] = useState('')
   const [newComment, setNewComment] = useState('')
   const [isPostingComment, setIsPostingComment] = useState(false)
-  const [commentToDelete, setCommentToDelete] = useState<string | null>(null)
+  const [eventToDelete, setEventToDelete] = useState<string | null>(null)
 
   const { data: bounty, isLoading } = trpc.bounty.getById.useQuery(
     { id: params.bountyId },
     { enabled: !!params.bountyId },
   )
-
-  const { data: comments = [], refetch: refetchComments } =
-    trpc.bounty.getComments.useQuery(
-      { bountyId: params.bountyId },
-      { enabled: !!params.bountyId },
-    )
 
   const utils = trpc.useUtils()
 
@@ -118,7 +118,7 @@ export default function BountyDetailPage() {
   const addComment = trpc.bounty.addComment.useMutation({
     onSuccess: () => {
       setNewComment('')
-      refetchComments()
+      utils.bounty.getById.invalidate({ id: params.bountyId })
     },
     onError: (error) => {
       toast.error(error.message)
@@ -127,7 +127,7 @@ export default function BountyDetailPage() {
 
   const deleteComment = trpc.bounty.deleteComment.useMutation({
     onSuccess: () => {
-      refetchComments()
+      utils.bounty.getById.invalidate({ id: params.bountyId })
       toast.success('Comment deleted')
     },
     onError: (error) => {
@@ -159,6 +159,7 @@ export default function BountyDetailPage() {
 
   const userClaim = bounty.claims.find((c) => c.userId === session?.user?.id)
   const hasActiveClaim = userClaim?.status === ClaimStatus.ACTIVE
+  const hasSubmittedClaim = userClaim?.status === ClaimStatus.SUBMITTED
   const isFounder = session?.user?.id === bounty.project.founderId
   const canClaim =
     session &&
@@ -180,8 +181,12 @@ export default function BountyDetailPage() {
     if (!userClaim) return
     setIsSubmitting(true)
     try {
-      await releaseClaim.mutateAsync({ claimId: userClaim.id })
+      await releaseClaim.mutateAsync({
+        claimId: userClaim.id,
+        reason: releaseReason.trim() || undefined,
+      })
       setShowReleaseModal(false)
+      setReleaseReason('')
     } finally {
       setIsSubmitting(false)
     }
@@ -293,9 +298,22 @@ export default function BountyDetailPage() {
         </div>
 
         {/* Header */}
-        <h1 className="mb-6 text-xl font-semibold tracking-tight sm:text-2xl">
-          {bounty.title}
-        </h1>
+        <div className="mb-6 flex items-start justify-between gap-4">
+          <h1 className="text-xl font-semibold tracking-tight sm:text-2xl">
+            {bounty.title}
+          </h1>
+          {isFounder && (
+            <AppButton
+              variant="outline"
+              size="sm"
+              onClick={() => setShowEditModal(true)}
+              className="shrink-0"
+            >
+              <Pencil01 className="mr-1.5 size-3.5" />
+              Edit
+            </AppButton>
+          )}
+        </div>
 
         {/* Main layout */}
         <div className="grid gap-6 lg:grid-cols-[1fr_auto_280px]">
@@ -321,18 +339,18 @@ export default function BountyDetailPage() {
               </div>
             )}
 
-            {/* Activity timeline (comments + submissions interleaved) */}
+            {/* Activity timeline (events + submissions interleaved) */}
             <div className="space-y-4">
               {(() => {
-                // Create unified timeline of comments and submissions
+                // Create unified timeline of events and submissions
                 type TimelineItem =
-                  | { type: 'comment'; data: (typeof comments)[0] }
+                  | { type: 'event'; data: (typeof bounty.events)[0] }
                   | { type: 'submission'; data: (typeof bounty.submissions)[0] }
 
                 const timeline: TimelineItem[] = [
-                  ...comments.map((c) => ({
-                    type: 'comment' as const,
-                    data: c,
+                  ...bounty.events.map((e) => ({
+                    type: 'event' as const,
+                    data: e,
                   })),
                   ...bounty.submissions.map((s) => ({
                     type: 'submission' as const,
@@ -368,6 +386,30 @@ export default function BountyDetailPage() {
                     label: 'rejected',
                     color: 'text-red-500',
                   },
+                  [SubmissionStatus.WITHDRAWN]: {
+                    label: 'withdrawn',
+                    color: 'text-muted-foreground',
+                  },
+                }
+
+                // Helper to format edit changes (changes is already an object from JSONB)
+                const formatEditChanges = (
+                  changes: Record<
+                    string,
+                    { from: unknown; to: unknown }
+                  > | null,
+                ) => {
+                  if (!changes) return null
+                  const fieldNames: Record<string, string> = {
+                    title: 'title',
+                    description: 'description',
+                    points: 'points',
+                    tags: 'labels',
+                    evidenceDescription: 'acceptance criteria',
+                  }
+                  return Object.keys(changes)
+                    .map((field) => fieldNames[field] || field)
+                    .join(', ')
                 }
 
                 return timeline.map((item) => {
@@ -412,23 +454,99 @@ export default function BountyDetailPage() {
                     )
                   }
 
-                  // Comment
-                  const comment = item.data
+                  const event = item.data
+
+                  // Edit event
+                  if (event.type === BountyEventType.EDIT) {
+                    const changedFields = formatEditChanges(
+                      event.changes as Record<
+                        string,
+                        { from: unknown; to: unknown }
+                      > | null,
+                    )
+                    return (
+                      <div key={`evt-${event.id}`} className="text-sm">
+                        <div className="flex items-start gap-2">
+                          <Pencil01 className="mt-0.5 size-4 text-muted-foreground" />
+                          <div className="flex flex-wrap items-center gap-x-1.5 gap-y-0.5">
+                            <span className="font-medium">
+                              {event.user.name}
+                            </span>
+                            <span className="text-muted-foreground">
+                              edited{changedFields ? ` ${changedFields}` : ''}
+                            </span>
+                            <span className="text-muted-foreground">·</span>
+                            <span className="text-xs text-muted-foreground">
+                              {new Date(event.createdAt).toLocaleDateString(
+                                'en-US',
+                                {
+                                  month: 'short',
+                                  day: 'numeric',
+                                },
+                              )}
+                            </span>
+                          </div>
+                        </div>
+                      </div>
+                    )
+                  }
+
+                  // Status change event
+                  if (event.type === BountyEventType.STATUS_CHANGE) {
+                    const statusLabels: Record<string, string> = {
+                      [BountyStatus.OPEN]: 'Open',
+                      [BountyStatus.CLAIMED]: 'In Progress',
+                      [BountyStatus.COMPLETED]: 'Completed',
+                      [BountyStatus.CLOSED]: 'Closed',
+                    }
+                    return (
+                      <div key={`evt-${event.id}`} className="text-sm">
+                        <div className="flex items-start gap-2">
+                          <Edit02 className="mt-0.5 size-4 text-muted-foreground" />
+                          <div className="flex flex-wrap items-center gap-x-1.5 gap-y-0.5">
+                            <span className="font-medium">
+                              {event.user.name}
+                            </span>
+                            <span className="text-muted-foreground">
+                              changed status from{' '}
+                              {statusLabels[event.fromStatus ?? ''] ||
+                                event.fromStatus}{' '}
+                              to{' '}
+                              {statusLabels[event.toStatus ?? ''] ||
+                                event.toStatus}
+                            </span>
+                            <span className="text-muted-foreground">·</span>
+                            <span className="text-xs text-muted-foreground">
+                              {new Date(event.createdAt).toLocaleDateString(
+                                'en-US',
+                                {
+                                  month: 'short',
+                                  day: 'numeric',
+                                },
+                              )}
+                            </span>
+                          </div>
+                        </div>
+                      </div>
+                    )
+                  }
+
+                  // Comment event
                   return (
-                    <div key={`com-${comment.id}`} className="group flex gap-3">
+                    <div key={`evt-${event.id}`} className="group flex gap-3">
                       <Avatar className="size-7 shrink-0">
-                        <AvatarImage src={comment.user.image ?? undefined} />
+                        <AvatarImage src={event.user.image ?? undefined} />
                         <AvatarFallback className="text-xs">
-                          {comment.user.name.charAt(0)}
+                          {event.user.name.charAt(0)}
                         </AvatarFallback>
                       </Avatar>
                       <div className="min-w-0 flex-1">
                         <div className="flex items-center gap-2">
                           <span className="text-sm font-medium">
-                            {comment.user.name}
+                            {event.user.name}
                           </span>
                           <span className="text-xs text-muted-foreground">
-                            {new Date(comment.createdAt).toLocaleDateString(
+                            {new Date(event.createdAt).toLocaleDateString(
                               'en-US',
                               {
                                 month: 'short',
@@ -440,12 +558,12 @@ export default function BountyDetailPage() {
                           </span>
                         </div>
                         <Markdown
-                          markdown={comment.content}
+                          markdown={event.content ?? ''}
                           proseSize="sm"
                           className="mt-1"
                         />
                       </div>
-                      {(comment.userId === session?.user?.id || isFounder) && (
+                      {(event.userId === session?.user?.id || isFounder) && (
                         <DropdownMenu>
                           <DropdownMenuTrigger asChild>
                             <Button
@@ -458,7 +576,7 @@ export default function BountyDetailPage() {
                           </DropdownMenuTrigger>
                           <DropdownMenuContent align="end">
                             <DropdownMenuItem
-                              onClick={() => setCommentToDelete(comment.id)}
+                              onClick={() => setEventToDelete(event.id)}
                               className="cursor-pointer text-destructive focus:text-destructive"
                             >
                               <Trash01 className="mr-2 size-4" />
@@ -511,7 +629,7 @@ export default function BountyDetailPage() {
                     onClick={handleCopyLink}
                     className="cursor-pointer rounded-sm p-1.5 text-muted-foreground transition-colors hover:bg-accent hover:text-foreground"
                   >
-                    <Copy01
+                    <Link03
                       className={cn('size-4', copied && 'text-green-500')}
                     />
                   </button>
@@ -547,6 +665,15 @@ export default function BountyDetailPage() {
                   Release Claim
                 </Button>
               </div>
+            ) : hasSubmittedClaim ? (
+              <Button
+                variant="ghost"
+                size="sm"
+                onClick={() => setShowReleaseModal(true)}
+                className="w-full cursor-pointer text-muted-foreground hover:text-foreground"
+              >
+                Release Claim
+              </Button>
             ) : canClaim ? (
               <AppButton
                 onClick={handleClaim}
@@ -571,14 +698,14 @@ export default function BountyDetailPage() {
                 <span className="text-xs text-muted-foreground">Status</span>
                 <div className="flex items-center gap-1.5">
                   <StatusIcon size="sm" />
-                  <span className="text-sm">{statusLabel}</span>
+                  <span className="text-xs">{statusLabel}</span>
                 </div>
               </div>
 
               {/* Points */}
               <div className="flex items-center justify-between py-1">
                 <span className="text-xs text-muted-foreground">Points</span>
-                <span className="rounded-sm bg-primary/10 px-2 py-0.5 text-sm font-semibold text-primary">
+                <span className="rounded-sm bg-primary/10 px-2 py-0.5 text-xs font-semibold text-primary">
                   +{bounty.points}
                 </span>
               </div>
@@ -594,14 +721,14 @@ export default function BountyDetailPage() {
                         {assignee.name.charAt(0)}
                       </AvatarFallback>
                     </Avatar>
-                    <span className="text-sm">{assignee.name}</span>
+                    <span className="text-xs">{assignee.name}</span>
                   </div>
                 ) : (
                   <div className="flex items-center gap-1.5 text-muted-foreground">
                     <div className="flex size-5 items-center justify-center rounded-full border border-dashed border-muted-foreground/30">
                       <User01 className="size-2.5" />
                     </div>
-                    <span className="text-sm">Unassigned</span>
+                    <span className="text-xs">Unassigned</span>
                   </div>
                 )}
               </div>
@@ -648,7 +775,7 @@ export default function BountyDetailPage() {
                       : 'Multiple people can work on this bounty simultaneously.'}
                   </TooltipContent>
                 </Tooltip>
-                <span className="text-sm">
+                <span className="text-xs">
                   {bounty.claimMode === BountyClaimMode.SINGLE
                     ? 'Single'
                     : 'Multiple'}
@@ -669,7 +796,7 @@ export default function BountyDetailPage() {
                     complete and submit your work.
                   </TooltipContent>
                 </Tooltip>
-                <span className="text-sm">
+                <span className="text-xs">
                   {bounty.claimExpiryDays} day
                   {bounty.claimExpiryDays !== 1 ? 's' : ''}
                 </span>
@@ -690,7 +817,7 @@ export default function BountyDetailPage() {
                       this date.
                     </TooltipContent>
                   </Tooltip>
-                  <span className="text-sm">
+                  <span className="text-xs">
                     {new Date(commitmentDate).toLocaleDateString('en-US', {
                       month: 'short',
                       day: 'numeric',
@@ -733,10 +860,26 @@ export default function BountyDetailPage() {
       {/* Release claim modal */}
       <ConfirmModal
         open={showReleaseModal}
-        onClose={() => setShowReleaseModal(false)}
+        onClose={() => {
+          setShowReleaseModal(false)
+          setReleaseReason('')
+        }}
         onConfirm={handleReleaseClaim}
         title="Release this claim?"
-        description="This will free up the bounty for others to claim. Any work you've done won't be lost, but you'll need to claim it again to submit."
+        description={
+          hasSubmittedClaim
+            ? 'This will free up the bounty for others to claim. Your submission will be marked as withdrawn and will no longer be reviewed.'
+            : "This will free up the bounty for others to claim. Any work you've done won't be lost, but you'll need to claim it again to submit."
+        }
+        content={
+          <textarea
+            value={releaseReason}
+            onChange={(e) => setReleaseReason(e.target.value)}
+            placeholder="Reason for releasing (optional)"
+            className="w-full resize-none rounded-md border border-border bg-background px-3 py-2 text-sm placeholder:text-muted-foreground focus:ring-2 focus:ring-ring focus:outline-none"
+            rows={3}
+          />
+        }
         confirmText="Release Claim"
         cancelText="Keep Claim"
         variant="destructive"
@@ -745,13 +888,13 @@ export default function BountyDetailPage() {
 
       {/* Delete comment modal */}
       <ConfirmModal
-        open={!!commentToDelete}
-        onClose={() => setCommentToDelete(null)}
+        open={!!eventToDelete}
+        onClose={() => setEventToDelete(null)}
         onConfirm={() => {
-          if (commentToDelete) {
+          if (eventToDelete) {
             deleteComment.mutate(
-              { commentId: commentToDelete },
-              { onSuccess: () => setCommentToDelete(null) },
+              { eventId: eventToDelete },
+              { onSuccess: () => setEventToDelete(null) },
             )
           }
         }}
@@ -761,6 +904,13 @@ export default function BountyDetailPage() {
         cancelText="Cancel"
         variant="destructive"
         isLoading={deleteComment.isPending}
+      />
+
+      {/* Edit bounty modal */}
+      <EditBountyModal
+        open={showEditModal}
+        onClose={() => setShowEditModal(false)}
+        bounty={bounty}
       />
     </AppBackground>
   )

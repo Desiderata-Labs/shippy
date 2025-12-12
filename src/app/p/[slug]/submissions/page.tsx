@@ -12,6 +12,7 @@ import { useParams } from 'next/navigation'
 import { notFound, redirect } from 'next/navigation'
 import { SubmissionStatus } from '@/lib/db/types'
 import { routes } from '@/lib/routes'
+import { submissionStatusLabels } from '@/lib/status-colors'
 import { cn } from '@/lib/utils'
 import {
   AppCard,
@@ -35,11 +36,11 @@ import { Skeleton } from '@/components/ui/skeleton'
 
 const statusConfig: Record<string, { label: string; color: string }> = {
   [SubmissionStatus.PENDING]: {
-    label: 'Pending',
-    color: 'bg-yellow-500/10 text-yellow-500 border-yellow-500/20',
+    label: submissionStatusLabels.PENDING,
+    color: 'bg-purple-500/10 text-purple-500 border-purple-500/20',
   },
   [SubmissionStatus.NEEDS_INFO]: {
-    label: 'Needs Info',
+    label: submissionStatusLabels.NEEDS_INFO,
     color: 'bg-orange-500/10 text-orange-500 border-orange-500/20',
   },
 }

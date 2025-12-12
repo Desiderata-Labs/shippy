@@ -24,7 +24,7 @@ import {
 import { Loader2 } from 'lucide-react'
 import { useState } from 'react'
 import Link from 'next/link'
-import { useParams, useRouter } from 'next/navigation'
+import { useParams } from 'next/navigation'
 import { notFound } from 'next/navigation'
 import { getLabelColor } from '@/lib/bounty/tag-colors'
 import {
@@ -36,10 +36,14 @@ import {
   generateRandomLabelColor,
 } from '@/lib/db/types'
 import { ProjectTab, routes } from '@/lib/routes'
+import {
+  bountyStatusColors,
+  bountyStatusLabels,
+  submissionStatusColors,
+  submissionStatusLabels,
+} from '@/lib/status-colors'
 import { cn } from '@/lib/utils'
 import { AppButton } from '@/components/app'
-import { EditBountyModal } from '@/components/bounty/edit-bounty-modal'
-import { SubmitWorkModal } from '@/components/bounty/submit-work-modal'
 import { CommentInput } from '@/components/comments'
 import { AppBackground } from '@/components/layout/app-background'
 import { Avatar, AvatarFallback, AvatarImage } from '@/components/ui/avatar'
@@ -68,12 +72,9 @@ import {
 import { toast } from 'sonner'
 
 export default function BountyDetailPage() {
-  const router = useRouter()
   const params = useParams<{ slug: string; bountyId: string }>()
   const { data: session } = useSession()
-  const [isSubmitting, setIsSubmitting] = useState(false)
-  const [showSubmitModal, setShowSubmitModal] = useState(false)
-  const [showEditModal, setShowEditModal] = useState(false)
+  const [isClaiming, setIsClaiming] = useState(false)
   const [copied, setCopied] = useState(false)
   const [showReleaseModal, setShowReleaseModal] = useState(false)
   const [releaseReason, setReleaseReason] = useState('')
@@ -110,22 +111,6 @@ export default function BountyDetailPage() {
     onSuccess: () => {
       toast.success('Claim released')
       utils.bounty.getById.invalidate({ id: params.bountyId })
-    },
-    onError: (error) => {
-      toast.error(error.message)
-    },
-  })
-
-  const createSubmission = trpc.submission.create.useMutation({
-    onSuccess: (submission) => {
-      toast.success('Work submitted!')
-      setShowSubmitModal(false)
-      router.push(
-        routes.project.submissionDetail({
-          slug: params.slug,
-          submissionId: submission.id,
-        }),
-      )
     },
     onError: (error) => {
       toast.error(error.message)
@@ -222,17 +207,17 @@ export default function BountyDetailPage() {
       bounty.claims.length === 0)
 
   const handleClaim = async () => {
-    setIsSubmitting(true)
+    setIsClaiming(true)
     try {
       await claimBounty.mutateAsync({ bountyId: bounty.id })
     } finally {
-      setIsSubmitting(false)
+      setIsClaiming(false)
     }
   }
 
   const handleReleaseClaim = async () => {
     if (!userClaim) return
-    setIsSubmitting(true)
+    setIsClaiming(true)
     try {
       await releaseClaim.mutateAsync({
         claimId: userClaim.id,
@@ -241,19 +226,7 @@ export default function BountyDetailPage() {
       setShowReleaseModal(false)
       setReleaseReason('')
     } finally {
-      setIsSubmitting(false)
-    }
-  }
-
-  const handleSubmitWork = async (description: string) => {
-    setIsSubmitting(true)
-    try {
-      await createSubmission.mutateAsync({
-        bountyId: bounty.id,
-        description,
-      })
-    } finally {
-      setIsSubmitting(false)
+      setIsClaiming(false)
     }
   }
 
@@ -295,26 +268,24 @@ export default function BountyDetailPage() {
   // Status icon helper
   const StatusIcon = ({ size = 'md' }: { size?: 'sm' | 'md' }) => {
     const sizeClass = size === 'sm' ? 'size-4' : 'size-5'
+    const colorClass =
+      bountyStatusColors[bounty.status as BountyStatus]?.icon ??
+      bountyStatusColors.OPEN.icon
+
     if (bounty.status === BountyStatus.COMPLETED) {
-      return <CheckCircle className={`${sizeClass} text-blue-500`} />
+      return <CheckCircle className={cn(sizeClass, colorClass)} />
     }
     if (bounty.status === BountyStatus.CLOSED) {
-      return <XCircle className={`${sizeClass} text-muted-foreground/50`} />
+      return <XCircle className={cn(sizeClass, colorClass)} />
     }
     if (bounty.status === BountyStatus.CLAIMED) {
-      return <Clock className={`${sizeClass} text-yellow-500`} />
+      return <Clock className={cn(sizeClass, colorClass)} />
     }
-    return <Circle className={`${sizeClass} text-muted-foreground`} />
+    return <Circle className={cn(sizeClass, colorClass)} />
   }
 
   const statusLabel =
-    bounty.status === BountyStatus.COMPLETED
-      ? 'Done'
-      : bounty.status === BountyStatus.CLOSED
-        ? 'Closed'
-        : bounty.status === BountyStatus.CLAIMED
-          ? 'In Progress'
-          : 'Open'
+    bountyStatusLabels[bounty.status as BountyStatus] ?? 'Open'
 
   // Show approved submission's user as assignee if completed, otherwise first claimant
   const approvedSubmission = bounty.submissions.find(
@@ -356,14 +327,16 @@ export default function BountyDetailPage() {
             {bounty.title}
           </h1>
           {isFounder && (
-            <AppButton
-              variant="outline"
-              size="sm"
-              onClick={() => setShowEditModal(true)}
-              className="shrink-0"
-            >
-              <Pencil01 className="mr-1.5 size-3.5" />
-              Edit
+            <AppButton variant="outline" size="sm" asChild className="shrink-0">
+              <Link
+                href={routes.project.bountyEdit({
+                  slug: params.slug,
+                  bountyId: params.bountyId,
+                })}
+              >
+                <Pencil01 className="mr-1.5 size-3.5" />
+                Edit
+              </Link>
             </AppButton>
           )}
         </div>
@@ -420,28 +393,28 @@ export default function BountyDetailPage() {
                   { label: string; color: string }
                 > = {
                   [SubmissionStatus.DRAFT]: {
-                    label: 'draft',
-                    color: 'text-muted-foreground',
+                    label: submissionStatusLabels.DRAFT.toLowerCase(),
+                    color: submissionStatusColors.DRAFT.text,
                   },
                   [SubmissionStatus.PENDING]: {
-                    label: 'pending review',
-                    color: 'text-yellow-500',
+                    label: submissionStatusLabels.PENDING.toLowerCase(),
+                    color: submissionStatusColors.PENDING.text,
                   },
                   [SubmissionStatus.NEEDS_INFO]: {
-                    label: 'needs info',
-                    color: 'text-orange-500',
+                    label: submissionStatusLabels.NEEDS_INFO.toLowerCase(),
+                    color: submissionStatusColors.NEEDS_INFO.text,
                   },
                   [SubmissionStatus.APPROVED]: {
-                    label: 'approved',
-                    color: 'text-green-500',
+                    label: submissionStatusLabels.APPROVED.toLowerCase(),
+                    color: submissionStatusColors.APPROVED.text,
                   },
                   [SubmissionStatus.REJECTED]: {
-                    label: 'rejected',
-                    color: 'text-red-500',
+                    label: submissionStatusLabels.REJECTED.toLowerCase(),
+                    color: submissionStatusColors.REJECTED.text,
                   },
                   [SubmissionStatus.WITHDRAWN]: {
-                    label: 'withdrawn',
-                    color: 'text-muted-foreground',
+                    label: submissionStatusLabels.WITHDRAWN.toLowerCase(),
+                    color: submissionStatusColors.WITHDRAWN.text,
                   },
                 }
 
@@ -473,9 +446,9 @@ export default function BountyDetailPage() {
                       submissionStatusConfig[SubmissionStatus.PENDING]
 
                     return (
-                      <div key={`sub-${submission.id}`} className="text-sm">
+                      <div key={`sub-${submission.id}`} className="text-xs">
                         <div className="flex items-start gap-2">
-                          <Check className="mt-0.5 size-4 text-primary" />
+                          <Check className="mt-0.5 size-3.5 text-primary" />
                           <div className="flex flex-wrap items-center gap-x-1.5 gap-y-0.5">
                             <span className="font-medium">
                               {submission.user.name}
@@ -518,9 +491,9 @@ export default function BountyDetailPage() {
                       > | null,
                     )
                     return (
-                      <div key={`evt-${event.id}`} className="text-sm">
+                      <div key={`evt-${event.id}`} className="text-xs">
                         <div className="flex items-start gap-2">
-                          <Pencil01 className="mt-0.5 size-4 text-muted-foreground" />
+                          <Pencil01 className="mt-0.5 size-3.5 text-muted-foreground" />
                           <div className="flex flex-wrap items-center gap-x-1.5 gap-y-0.5">
                             <span className="font-medium">
                               {event.user.name}
@@ -553,9 +526,9 @@ export default function BountyDetailPage() {
                       [BountyStatus.CLOSED]: 'Closed',
                     }
                     return (
-                      <div key={`evt-${event.id}`} className="text-sm">
+                      <div key={`evt-${event.id}`} className="text-xs">
                         <div className="flex items-start gap-2">
-                          <Edit02 className="mt-0.5 size-4 text-muted-foreground" />
+                          <Edit02 className="mt-0.5 size-3.5 text-muted-foreground" />
                           <div className="flex flex-wrap items-center gap-x-1.5 gap-y-0.5">
                             <span className="font-medium">
                               {event.user.name}
@@ -701,13 +674,16 @@ export default function BountyDetailPage() {
               </AppButton>
             ) : hasActiveClaim ? (
               <div className="space-y-2">
-                <AppButton
-                  onClick={() => setShowSubmitModal(true)}
-                  className="w-full"
-                  size="sm"
-                >
-                  <Check className="mr-1.5 size-3.5" />
-                  Submit Work
+                <AppButton asChild className="w-full" size="sm">
+                  <Link
+                    href={routes.project.bountySubmit({
+                      slug: params.slug,
+                      bountyId: params.bountyId,
+                    })}
+                  >
+                    <Check className="mr-1.5 size-3.5" />
+                    Submit Work
+                  </Link>
                 </AppButton>
                 <Button
                   variant="ghost"
@@ -730,13 +706,11 @@ export default function BountyDetailPage() {
             ) : canClaim ? (
               <AppButton
                 onClick={handleClaim}
-                disabled={isSubmitting}
+                disabled={isClaiming}
                 className="w-full"
                 size="sm"
               >
-                {isSubmitting && (
-                  <Loader2 className="mr-2 size-4 animate-spin" />
-                )}
+                {isClaiming && <Loader2 className="mr-2 size-4 animate-spin" />}
                 <Target01 className="mr-1.5 size-3.5" />
                 Claim Bounty
               </AppButton>
@@ -1083,15 +1057,6 @@ export default function BountyDetailPage() {
         </div>
       </div>
 
-      {/* Submit work modal */}
-      <SubmitWorkModal
-        open={showSubmitModal}
-        onClose={() => setShowSubmitModal(false)}
-        onSubmit={handleSubmitWork}
-        evidenceDescription={bounty.evidenceDescription}
-        isLoading={isSubmitting}
-      />
-
       {/* Release claim modal */}
       <ConfirmModal
         open={showReleaseModal}
@@ -1118,7 +1083,7 @@ export default function BountyDetailPage() {
         confirmText="Release Claim"
         cancelText="Keep Claim"
         variant="destructive"
-        isLoading={isSubmitting}
+        isLoading={isClaiming}
       />
 
       {/* Delete comment modal */}
@@ -1139,13 +1104,6 @@ export default function BountyDetailPage() {
         cancelText="Cancel"
         variant="destructive"
         isLoading={deleteComment.isPending}
-      />
-
-      {/* Edit bounty modal */}
-      <EditBountyModal
-        open={showEditModal}
-        onClose={() => setShowEditModal(false)}
-        bounty={bounty}
       />
     </AppBackground>
   )

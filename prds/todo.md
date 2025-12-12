@@ -89,14 +89,14 @@ Building the MVP for Earn A Slice - a platform where contributors earn ongoing r
 
 Implement the capacity-based points system where 1 point = 0.1% of the pool.
 
-- [ ] **Schema Updates** - Add `poolCapacity` to RewardPool (default 1000), add `PoolExpansionEvent` model
-- [ ] **Migration** - Create migration for new fields
-- [ ] **Payout Calculation** - Update formula: payout = (earned pts / capacity) x pool amount
-- [ ] **Bounty Creation Warning** - Show dilution impact when exceeding capacity
-- [ ] **Auto-Expand Flow** - Allow creating bounties beyond capacity with warning
-- [ ] **Expansion Timeline** - Add to Payouts tab showing all capacity changes
-- [ ] **Payouts Tab** - Add as 4th tab on Project Page (already done, needs expansion timeline)
-- [ ] **Pool Stats Display** - Show capacity, allocated, earned, available on project dashboard
+- [x] **Schema Updates** - Add `poolCapacity` to RewardPool (default 1000), add `PoolExpansionEvent` model
+- [x] **Migration** - Create migration for new fields
+- [x] **Payout Calculation** - Update formula: payout = (earned pts / capacity) x pool amount
+- [x] **Bounty Creation Warning** - Show dilution impact when exceeding capacity
+- [x] **Auto-Expand Flow** - Allow creating bounties beyond capacity with warning
+- [x] **Expansion Timeline** - Add to Payouts tab showing all capacity changes
+- [x] **Payouts Tab** - Add as 4th tab on Project Page (already done, needs expansion timeline)
+- [x] **Pool Stats Display** - Show capacity, allocated, earned, available on project dashboard
 
 ---
 

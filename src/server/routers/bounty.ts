@@ -38,6 +38,9 @@ const updateBountySchema = z.object({
   labelIds: z.array(z.string().uuid()).optional(), // Labels are optional
   evidenceDescription: z.string().optional().nullable(),
   status: z.nativeEnum(BountyStatus).optional(),
+  claimMode: z.nativeEnum(BountyClaimMode).optional(),
+  claimExpiryDays: z.number().int().min(1).max(90).optional(),
+  maxClaims: z.number().int().min(1).optional().nullable(),
 })
 
 export const bountyRouter = router({
@@ -348,6 +351,21 @@ export const bountyRouter = router({
       }
       if (data.status !== undefined && data.status !== bounty.status) {
         changes.status = { from: bounty.status, to: data.status }
+      }
+      if (data.claimMode !== undefined && data.claimMode !== bounty.claimMode) {
+        changes.claimMode = { from: bounty.claimMode, to: data.claimMode }
+      }
+      if (
+        data.claimExpiryDays !== undefined &&
+        data.claimExpiryDays !== bounty.claimExpiryDays
+      ) {
+        changes.claimExpiryDays = {
+          from: bounty.claimExpiryDays,
+          to: data.claimExpiryDays,
+        }
+      }
+      if (data.maxClaims !== undefined && data.maxClaims !== bounty.maxClaims) {
+        changes.maxClaims = { from: bounty.maxClaims, to: data.maxClaims }
       }
 
       // Use transaction to update bounty and record the edit event

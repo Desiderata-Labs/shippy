@@ -22,6 +22,7 @@ import {
   SubmissionStatus,
 } from '@/lib/db/types'
 import { routes } from '@/lib/routes'
+import { submissionStatusLabels } from '@/lib/status-colors'
 import { cn } from '@/lib/utils'
 import {
   AppButton,
@@ -214,26 +215,26 @@ export default function ContributorDashboardPage() {
                       { label: string; color: string }
                     > = {
                       [SubmissionStatus.DRAFT]: {
-                        label: 'Draft',
+                        label: submissionStatusLabels.DRAFT,
                         color: 'bg-muted text-muted-foreground border-border',
                       },
                       [SubmissionStatus.PENDING]: {
-                        label: 'Pending',
+                        label: submissionStatusLabels.PENDING,
                         color:
-                          'bg-yellow-500/10 text-yellow-500 border-yellow-500/20',
+                          'bg-purple-500/10 text-purple-500 border-purple-500/20',
                       },
                       [SubmissionStatus.NEEDS_INFO]: {
-                        label: 'Needs Info',
+                        label: submissionStatusLabels.NEEDS_INFO,
                         color:
                           'bg-orange-500/10 text-orange-500 border-orange-500/20',
                       },
                       [SubmissionStatus.APPROVED]: {
-                        label: 'Approved',
+                        label: submissionStatusLabels.APPROVED,
                         color:
                           'bg-green-500/10 text-green-500 border-green-500/20',
                       },
                       [SubmissionStatus.REJECTED]: {
-                        label: 'Rejected',
+                        label: submissionStatusLabels.REJECTED,
                         color: 'bg-red-500/10 text-red-500 border-red-500/20',
                       },
                     }

@@ -31,7 +31,17 @@ export function SiteFooter() {
         <div className="grid gap-12 md:grid-cols-4">
           {/* Brand column */}
           <div className="md:col-span-2">
-            <Link href={routes.home()} className="inline-block">
+            <Link
+              href={routes.home()}
+              className="inline-flex items-center gap-3"
+            >
+              {/* eslint-disable-next-line @next/next/no-img-element */}
+              <img
+                src="/logo-mark.svg"
+                alt=""
+                className="size-8"
+                aria-hidden="true"
+              />
               <Logo size="md" />
             </Link>
             <p className="mt-4 max-w-xs text-sm text-muted-foreground">

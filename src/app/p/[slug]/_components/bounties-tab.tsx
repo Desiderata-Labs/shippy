@@ -13,6 +13,7 @@ import { useState } from 'react'
 import Link from 'next/link'
 import { getLabelColor } from '@/lib/bounty/tag-colors'
 import { routes } from '@/lib/routes'
+import { bountyStatusColors, needsReviewColor } from '@/lib/status-colors'
 import { cn } from '@/lib/utils'
 import { Avatar, AvatarFallback, AvatarImage } from '@/components/ui/avatar'
 import { Button } from '@/components/ui/button'
@@ -144,7 +145,12 @@ export function BountiesTab({
             onClick={() => setFilter(BountyFilter.Open)}
             disabled={openBounties.length === 0}
           >
-            <span className="mr-1.5 size-2 rounded-full bg-green-500" />
+            <span
+              className={cn(
+                'mr-1.5 size-2 rounded-full',
+                bountyStatusColors.OPEN.dot,
+              )}
+            />
             Open ({openBounties.length})
           </FilterButton>
           <FilterButton
@@ -152,7 +158,12 @@ export function BountiesTab({
             onClick={() => setFilter(BountyFilter.InProgress)}
             disabled={inProgressBounties.length === 0}
           >
-            <span className="mr-1.5 size-2 rounded-full bg-yellow-500" />
+            <span
+              className={cn(
+                'mr-1.5 size-2 rounded-full',
+                bountyStatusColors.CLAIMED.dot,
+              )}
+            />
             In Progress ({inProgressBounties.length})
           </FilterButton>
           <FilterButton
@@ -160,7 +171,12 @@ export function BountiesTab({
             onClick={() => setFilter(BountyFilter.Completed)}
             disabled={completedBounties.length === 0}
           >
-            <span className="mr-1.5 size-2 rounded-full bg-blue-500" />
+            <span
+              className={cn(
+                'mr-1.5 size-2 rounded-full',
+                bountyStatusColors.COMPLETED.dot,
+              )}
+            />
             Done ({completedBounties.length})
           </FilterButton>
           <FilterButton
@@ -175,7 +191,9 @@ export function BountiesTab({
               active={filter === BountyFilter.NeedsReview}
               onClick={() => setFilter(BountyFilter.NeedsReview)}
             >
-              <FileCheck02 className="mr-1 size-3 text-purple-500" />
+              <FileCheck02
+                className={cn('mr-1 size-3', needsReviewColor.icon)}
+              />
               Review ({needsReviewBounties.length})
             </FilterButton>
           )}
@@ -290,13 +308,15 @@ function BountyRow({
       {/* Status icon (Linear-style circle) */}
       <span className="flex shrink-0 items-center justify-center">
         {isCompleted ? (
-          <CheckCircle className="size-4 text-blue-500" />
+          <CheckCircle
+            className={cn('size-4', bountyStatusColors.COMPLETED.icon)}
+          />
         ) : isClosed ? (
-          <Circle className="size-4 text-muted-foreground/50" />
+          <Circle className={cn('size-4', bountyStatusColors.CLOSED.icon)} />
         ) : isClaimed ? (
-          <Clock className="size-4 text-yellow-500" />
+          <Clock className={cn('size-4', bountyStatusColors.CLAIMED.icon)} />
         ) : (
-          <Circle className="size-4 text-muted-foreground" />
+          <Circle className={cn('size-4', bountyStatusColors.OPEN.icon)} />
         )}
       </span>
 
@@ -335,7 +355,12 @@ function BountyRow({
 
       {/* Needs review badge (founder only) */}
       {showNeedsReview && (
-        <span className="hidden shrink-0 items-center gap-1 rounded-full bg-purple-500/15 px-1.5 py-0.5 text-[10px] font-medium text-purple-600 sm:flex dark:text-purple-400">
+        <span
+          className={cn(
+            'hidden shrink-0 items-center gap-1 rounded-full px-1.5 py-0.5 text-[10px] font-medium sm:flex',
+            needsReviewColor.badge,
+          )}
+        >
           <FileCheck02 className="size-3" />
           {bounty._count.pendingSubmissions}
         </span>

@@ -19,9 +19,12 @@ import { useParams } from 'next/navigation'
 import { notFound } from 'next/navigation'
 import { SubmissionEventType, SubmissionStatus } from '@/lib/db/types'
 import { routes } from '@/lib/routes'
+import {
+  submissionStatusColors,
+  submissionStatusLabels,
+} from '@/lib/status-colors'
 import { cn } from '@/lib/utils'
 import { AppButton, AppTextarea } from '@/components/app'
-import { SubmitWorkModal } from '@/components/bounty/submit-work-modal'
 import { CommentInput } from '@/components/comments'
 import { AppBackground } from '@/components/layout/app-background'
 import { Avatar, AvatarFallback, AvatarImage } from '@/components/ui/avatar'
@@ -47,33 +50,33 @@ const statusConfig: Record<
   { label: string; color: string; icon: typeof Check }
 > = {
   [SubmissionStatus.DRAFT]: {
-    label: 'Draft',
-    color: 'text-muted-foreground',
+    label: submissionStatusLabels.DRAFT,
+    color: submissionStatusColors.DRAFT.text,
     icon: Clock,
   },
   [SubmissionStatus.PENDING]: {
-    label: 'Pending',
-    color: 'text-yellow-500',
+    label: submissionStatusLabels.PENDING,
+    color: submissionStatusColors.PENDING.text,
     icon: Clock,
   },
   [SubmissionStatus.NEEDS_INFO]: {
-    label: 'Needs Info',
-    color: 'text-orange-500',
+    label: submissionStatusLabels.NEEDS_INFO,
+    color: submissionStatusColors.NEEDS_INFO.text,
     icon: MessageTextSquare02,
   },
   [SubmissionStatus.APPROVED]: {
-    label: 'Approved',
-    color: 'text-green-500',
+    label: submissionStatusLabels.APPROVED,
+    color: submissionStatusColors.APPROVED.text,
     icon: CheckCircle,
   },
   [SubmissionStatus.REJECTED]: {
-    label: 'Rejected',
-    color: 'text-red-500',
+    label: submissionStatusLabels.REJECTED,
+    color: submissionStatusColors.REJECTED.text,
     icon: XCircle,
   },
   [SubmissionStatus.WITHDRAWN]: {
-    label: 'Withdrawn',
-    color: 'text-muted-foreground',
+    label: submissionStatusLabels.WITHDRAWN,
+    color: submissionStatusColors.WITHDRAWN.text,
     icon: XCircle,
   },
 }
@@ -89,7 +92,6 @@ export default function SubmissionDetailPage() {
   const [reviewAction, setReviewAction] = useState<ReviewAction>('comment')
   const [showReviewPopover, setShowReviewPopover] = useState(false)
   const [showRejectModal, setShowRejectModal] = useState(false)
-  const [showEditModal, setShowEditModal] = useState(false)
   const [copied, setCopied] = useState(false)
 
   const { data: submission, isLoading } = trpc.submission.getById.useQuery(
@@ -121,24 +123,6 @@ export default function SubmissionDetailPage() {
       toast.error(error.message)
     },
   })
-
-  const updateSubmission = trpc.submission.update.useMutation({
-    onSuccess: () => {
-      toast.success('Submission updated')
-      setShowEditModal(false)
-      utils.submission.getById.invalidate({ id: params.submissionId })
-    },
-    onError: (error) => {
-      toast.error(error.message)
-    },
-  })
-
-  const handleEditSubmission = async (description: string) => {
-    await updateSubmission.mutateAsync({
-      id: params.submissionId,
-      description,
-    })
-  }
 
   if (isLoading) {
     return (
@@ -295,13 +279,16 @@ export default function SubmissionDetailPage() {
           <div className="flex shrink-0 gap-2">
             {/* Edit button (submitter only, before finalization) */}
             {canEdit && (
-              <AppButton
-                variant="outline"
-                size="sm"
-                onClick={() => setShowEditModal(true)}
-              >
-                <Pencil01 className="mr-1.5 size-3.5" />
-                Edit
+              <AppButton variant="outline" size="sm" asChild>
+                <Link
+                  href={routes.project.submissionEdit({
+                    slug: params.slug,
+                    submissionId: params.submissionId,
+                  })}
+                >
+                  <Pencil01 className="mr-1.5 size-3.5" />
+                  Edit
+                </Link>
               </AppButton>
             )}
 
@@ -454,10 +441,10 @@ export default function SubmissionDetailPage() {
                     const EventIcon = statusInfo?.icon ?? Clock
 
                     return (
-                      <div key={event.id} className="text-sm">
+                      <div key={event.id} className="text-xs">
                         <div className="flex items-start gap-2">
                           <EventIcon
-                            className={cn('mt-0.5 size-4', statusInfo?.color)}
+                            className={cn('mt-0.5 size-3.5', statusInfo?.color)}
                           />
                           <div className="flex flex-wrap items-center gap-x-1.5 gap-y-0.5">
                             <span className="font-medium">
@@ -494,9 +481,9 @@ export default function SubmissionDetailPage() {
                   // Edit events
                   if (event.type === SubmissionEventType.EDIT) {
                     return (
-                      <div key={event.id} className="text-sm">
+                      <div key={event.id} className="text-xs">
                         <div className="flex items-start gap-2">
-                          <Pencil01 className="mt-0.5 size-4 text-muted-foreground" />
+                          <Pencil01 className="mt-0.5 size-3.5 text-muted-foreground" />
                           <div className="flex flex-wrap items-center gap-x-1.5 gap-y-0.5">
                             <span className="font-medium">
                               {event.user.name}
@@ -694,16 +681,6 @@ export default function SubmissionDetailPage() {
         cancelText="Cancel"
         variant="destructive"
         isLoading={isSending}
-      />
-
-      {/* Edit submission modal */}
-      <SubmitWorkModal
-        open={showEditModal}
-        onClose={() => setShowEditModal(false)}
-        onSubmit={handleEditSubmission}
-        initialDescription={submission.description}
-        isLoading={updateSubmission.isPending}
-        mode="edit"
       />
     </AppBackground>
   )

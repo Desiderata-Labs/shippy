@@ -1,4 +1,14 @@
-# Shippy
+<picture>
+  <source media="(prefers-color-scheme: dark)" srcset="public/logo-mark.svg" width="48">
+  <source media="(prefers-color-scheme: light)" srcset="public/logo-mark-dark.svg" width="48">
+  <img alt="" src="public/logo-mark-dark.svg" width="48">
+</picture>
+<picture>
+  <source media="(prefers-color-scheme: dark)" srcset="public/logo-text.svg" width="94">
+  <source media="(prefers-color-scheme: light)" srcset="public/logo-text-dark.svg" width="94">
+  <img alt="Shippy" src="public/logo-text-dark.svg" width="94">
+</picture>
+<br /><br />
 
 ![Next.js](https://img.shields.io/badge/Next.js-16-black?logo=next.js) ![React](https://img.shields.io/badge/React-19-61DAFB?logo=react) ![TypeScript](https://img.shields.io/badge/TypeScript-strict-3178C6?logo=typescript) ![Tailwind CSS](https://img.shields.io/badge/Tailwind-4-06B6D4?logo=tailwindcss) ![Prisma](https://img.shields.io/badge/Prisma-ORM-2D3748?logo=prisma) ![pnpm](https://img.shields.io/badge/pnpm-package%20manager-F69220?logo=pnpm)
 

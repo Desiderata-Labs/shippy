@@ -29,6 +29,9 @@ async function getProject(slug: string) {
         // Always include past bounties (COMPLETED/CLOSED), not just active ones.
         orderBy: [{ createdAt: 'desc' }],
         include: {
+          labels: {
+            include: { label: true },
+          },
           _count: {
             select: {
               claims: {

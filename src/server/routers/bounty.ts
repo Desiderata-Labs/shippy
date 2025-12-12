@@ -2,7 +2,6 @@ import {
   BountyClaimMode,
   BountyEventType,
   BountyStatus,
-  BountyTag,
   ClaimStatus,
   DEFAULT_CLAIM_EXPIRY_DAYS,
   SubmissionEventType,
@@ -19,7 +18,7 @@ const createBountySchema = z.object({
   title: z.string().min(1).max(200),
   description: z.string().min(1),
   points: z.number().int().min(1),
-  tags: z.array(z.nativeEnum(BountyTag)).min(1),
+  labelIds: z.array(z.string().uuid()).optional().default([]), // Labels are optional
   claimMode: z.nativeEnum(BountyClaimMode).default(BountyClaimMode.SINGLE),
   claimExpiryDays: z
     .number()
@@ -36,7 +35,7 @@ const updateBountySchema = z.object({
   title: z.string().min(1).max(200).optional(),
   description: z.string().min(1).optional(),
   points: z.number().int().min(1).optional(),
-  tags: z.array(z.nativeEnum(BountyTag)).min(1).optional(),
+  labelIds: z.array(z.string().uuid()).optional(), // Labels are optional
   evidenceDescription: z.string().optional().nullable(),
   status: z.nativeEnum(BountyStatus).optional(),
 })
@@ -50,7 +49,7 @@ export const bountyRouter = router({
       z.object({
         projectId: z.string().uuid(),
         status: z.nativeEnum(BountyStatus).optional(),
-        tags: z.array(z.nativeEnum(BountyTag)).optional(),
+        labelIds: z.array(z.string().uuid()).optional(),
       }),
     )
     .query(async ({ ctx, input }) => {
@@ -58,11 +57,16 @@ export const bountyRouter = router({
         where: {
           projectId: input.projectId,
           ...(input.status && { status: input.status }),
-          ...(input.tags &&
-            input.tags.length > 0 && { tags: { hasSome: input.tags } }),
+          ...(input.labelIds &&
+            input.labelIds.length > 0 && {
+              labels: { some: { labelId: { in: input.labelIds } } },
+            }),
         },
         orderBy: [{ status: 'asc' }, { points: 'desc' }, { createdAt: 'desc' }],
         include: {
+          labels: {
+            include: { label: true },
+          },
           _count: {
             select: {
               claims: {
@@ -91,6 +95,9 @@ export const bountyRouter = router({
               founder: { select: { id: true, name: true, image: true } },
               rewardPool: true,
             },
+          },
+          labels: {
+            include: { label: true },
           },
           claims: {
             where: {
@@ -215,21 +222,32 @@ export const bountyRouter = router({
             },
           })
 
-          // Create the bounty
-          return tx.bounty.create({
+          // Create the bounty with labels
+          const bounty = await tx.bounty.create({
             data: {
               projectId: input.projectId,
               number: bountyNumber,
               title: input.title,
               description: input.description,
               points: input.points,
-              tags: input.tags,
               claimMode: input.claimMode,
               claimExpiryDays: input.claimExpiryDays,
               maxClaims: input.maxClaims,
               evidenceDescription: input.evidenceDescription,
             },
           })
+
+          // Add labels if provided
+          if (input.labelIds.length > 0) {
+            await tx.bountyLabel.createMany({
+              data: input.labelIds.map((labelId) => ({
+                bountyId: bounty.id,
+                labelId,
+              })),
+            })
+          }
+
+          return bounty
         })
       }
 
@@ -242,20 +260,31 @@ export const bountyRouter = router({
         })
         const bountyNumber = updatedProject.nextBountyNumber - 1
 
-        return tx.bounty.create({
+        const bounty = await tx.bounty.create({
           data: {
             projectId: input.projectId,
             number: bountyNumber,
             title: input.title,
             description: input.description,
             points: input.points,
-            tags: input.tags,
             claimMode: input.claimMode,
             claimExpiryDays: input.claimExpiryDays,
             maxClaims: input.maxClaims,
             evidenceDescription: input.evidenceDescription,
           },
         })
+
+        // Add labels if provided
+        if (input.labelIds.length > 0) {
+          await tx.bountyLabel.createMany({
+            data: input.labelIds.map((labelId) => ({
+              bountyId: bounty.id,
+              labelId,
+            })),
+          })
+        }
+
+        return bounty
       })
     }),
 
@@ -265,12 +294,15 @@ export const bountyRouter = router({
   update: protectedProcedure
     .input(updateBountySchema)
     .mutation(async ({ ctx, input }) => {
-      const { id, ...data } = input
+      const { id, labelIds, ...data } = input
 
       // Verify ownership via project
       const bounty = await ctx.prisma.bounty.findUnique({
         where: { id },
-        include: { project: { select: { founderId: true } } },
+        include: {
+          project: { select: { founderId: true } },
+          labels: { select: { labelId: true } },
+        },
       })
 
       if (!bounty) {
@@ -299,11 +331,11 @@ export const bountyRouter = router({
       if (data.points !== undefined && data.points !== bounty.points) {
         changes.points = { from: bounty.points, to: data.points }
       }
-      if (data.tags !== undefined) {
-        const oldTags = bounty.tags.sort().join(',')
-        const newTags = data.tags.sort().join(',')
-        if (oldTags !== newTags) {
-          changes.tags = { from: bounty.tags, to: data.tags }
+      if (labelIds !== undefined) {
+        const oldLabelIds = bounty.labels.map((l) => l.labelId).sort()
+        const newLabelIds = [...labelIds].sort()
+        if (oldLabelIds.join(',') !== newLabelIds.join(',')) {
+          changes.labels = { from: oldLabelIds, to: newLabelIds }
         }
       }
       if (data.evidenceDescription !== undefined) {
@@ -324,6 +356,23 @@ export const bountyRouter = router({
           where: { id },
           data,
         })
+
+        // Update labels if provided
+        if (labelIds !== undefined) {
+          // Delete all existing labels
+          await tx.bountyLabel.deleteMany({
+            where: { bountyId: id },
+          })
+          // Create new labels
+          if (labelIds.length > 0) {
+            await tx.bountyLabel.createMany({
+              data: labelIds.map((labelId) => ({
+                bountyId: id,
+                labelId,
+              })),
+            })
+          }
+        }
 
         // Only create an event if something actually changed
         if (Object.keys(changes).length > 0) {

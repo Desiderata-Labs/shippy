@@ -119,6 +119,7 @@ model Project {
   rewardPool RewardPool?
   bounties   Bounty[]
   payouts    Payout[]
+  labels     Label[]
 
   @@index([founderId])
   @@index([isPublic])
@@ -170,6 +171,26 @@ model PoolExpansionEvent {
   @@map("pool_expansion_event")
 }
 
+/// Custom labels for bounties (per-project, like Linear)
+model Label {
+  id        String  @id @default(uuid())
+  projectId String
+  project   Project @relation(fields: [projectId], references: [id], onDelete: Cascade)
+
+  name  String // Display name (e.g., "Growth", "Bug Fix")
+  color String // Color key: "grey" | "dark_grey" | "purple" | "teal" | "green" | "yellow" | "orange" | "pink" | "red"
+
+  createdAt DateTime @default(now()) @db.Timestamptz(3)
+  updatedAt DateTime @updatedAt @db.Timestamptz(3)
+
+  // Relations
+  bounties BountyLabel[]
+
+  @@unique([projectId, name]) // Label names must be unique per project
+  @@index([projectId])
+  @@map("label")
+}
+
 /// A bounty is a specific task with point rewards
 model Bounty {
   id        String  @id @default(uuid())
@@ -180,10 +201,9 @@ model Bounty {
   /// Per-project sequential number used in display IDs (e.g., "OTH-32")
   number      Int
   title       String
-  description String  @db.Text // What's required, how success is verified
+  description String @db.Text // What's required, how success is verified
   points      Int // Point reward for completing this bounty
-  tags        String[] // ["GROWTH", "SALES", "CONTENT", "DESIGN", "DEV"]
-  status      String   @default("OPEN") // "OPEN" | "CLAIMED" | "COMPLETED" | "CLOSED"
+  status      String @default("OPEN") // "OPEN" | "CLAIMED" | "COMPLETED" | "CLOSED"
 
   // Claim configuration
   claimMode       String   @default("SINGLE") // "SINGLE" | "MULTIPLE"
@@ -197,6 +217,7 @@ model Bounty {
   updatedAt DateTime @updatedAt @db.Timestamptz(3)
 
   // Relations
+  labels      BountyLabel[]
   claims      BountyClaim[]
   submissions Submission[]
   events      BountyEvent[]
@@ -205,6 +226,22 @@ model Bounty {
   @@index([status])
   @@unique([projectId, number])
   @@map("bounty")
+}
+
+/// Join table for bounty-label many-to-many relationship
+model BountyLabel {
+  id       String @id @default(uuid())
+  bountyId String
+  bounty   Bounty @relation(fields: [bountyId], references: [id], onDelete: Cascade)
+  labelId  String
+  label    Label  @relation(fields: [labelId], references: [id], onDelete: Cascade)
+
+  createdAt DateTime @default(now()) @db.Timestamptz(3)
+
+  @@unique([bountyId, labelId])
+  @@index([bountyId])
+  @@index([labelId])
+  @@map("bounty_label")
 }
 
 /// Timeline events for bounties (comments, edits, status changes - like Linear's activity feed)

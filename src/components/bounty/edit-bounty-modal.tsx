@@ -1,7 +1,7 @@
 'use client'
 
 import { trpc } from '@/lib/trpc/react'
-import { BountyStatus, BountyTag } from '@/lib/db/types'
+import { BountyStatus } from '@/lib/db/types'
 import {
   BountyForm,
   type BountyFormData,
@@ -15,15 +15,24 @@ import {
 } from '@/components/ui/dialog'
 import { toast } from 'sonner'
 
+interface BountyLabel {
+  label: {
+    id: string
+    name: string
+    color: string
+  }
+}
+
 interface EditBountyModalProps {
   open: boolean
   onClose: () => void
   bounty: {
     id: string
+    projectId: string
     title: string
     description: string
     points: number
-    tags: string[]
+    labels: BountyLabel[]
     status: string
     claimMode: string
     claimExpiryDays: number
@@ -40,6 +49,12 @@ export function EditBountyModal({
   onSuccess,
 }: EditBountyModalProps) {
   const utils = trpc.useUtils()
+
+  // Fetch project labels for the form
+  const { data: projectLabels } = trpc.label.getByProject.useQuery(
+    { projectId: bounty.projectId },
+    { enabled: open },
+  )
 
   const updateBounty = trpc.bounty.update.useMutation({
     onSuccess: () => {
@@ -59,7 +74,7 @@ export function EditBountyModal({
       title: data.title,
       description: data.description,
       points: data.points,
-      tags: data.tags,
+      labelIds: data.labelIds,
       status: bounty.status as BountyStatus, // Keep current status
       evidenceDescription: data.evidenceDescription || null,
     })
@@ -81,7 +96,7 @@ export function EditBountyModal({
             title: bounty.title,
             description: bounty.description,
             points: bounty.points,
-            tags: bounty.tags as BountyTag[],
+            labelIds: bounty.labels.map((l) => l.label.id),
             claimMode: bounty.claimMode as BountyFormData['claimMode'],
             claimExpiryDays: bounty.claimExpiryDays,
             maxClaims: bounty.maxClaims ?? undefined,
@@ -90,6 +105,7 @@ export function EditBountyModal({
           isLoading={updateBounty.isPending}
           onSubmit={handleSubmit}
           onCancel={onClose}
+          projectLabels={projectLabels ?? []}
         />
       </DialogContent>
     </Dialog>

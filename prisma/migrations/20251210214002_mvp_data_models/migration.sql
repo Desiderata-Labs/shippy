@@ -109,6 +109,18 @@ CREATE TABLE "pool_expansion_event" (
 );
 
 -- CreateTable
+CREATE TABLE "label" (
+    "id" TEXT NOT NULL,
+    "projectId" TEXT NOT NULL,
+    "name" TEXT NOT NULL,
+    "color" TEXT NOT NULL,
+    "createdAt" TIMESTAMPTZ(3) NOT NULL DEFAULT CURRENT_TIMESTAMP,
+    "updatedAt" TIMESTAMPTZ(3) NOT NULL,
+
+    CONSTRAINT "label_pkey" PRIMARY KEY ("id")
+);
+
+-- CreateTable
 CREATE TABLE "bounty" (
     "id" TEXT NOT NULL,
     "projectId" TEXT NOT NULL,
@@ -116,7 +128,6 @@ CREATE TABLE "bounty" (
     "title" TEXT NOT NULL,
     "description" TEXT NOT NULL,
     "points" INTEGER NOT NULL,
-    "tags" TEXT[],
     "status" TEXT NOT NULL DEFAULT 'OPEN',
     "claimMode" TEXT NOT NULL DEFAULT 'SINGLE',
     "claimExpiryDays" INTEGER NOT NULL DEFAULT 14,
@@ -126,6 +137,16 @@ CREATE TABLE "bounty" (
     "updatedAt" TIMESTAMPTZ(3) NOT NULL,
 
     CONSTRAINT "bounty_pkey" PRIMARY KEY ("id")
+);
+
+-- CreateTable
+CREATE TABLE "bounty_label" (
+    "id" TEXT NOT NULL,
+    "bountyId" TEXT NOT NULL,
+    "labelId" TEXT NOT NULL,
+    "createdAt" TIMESTAMPTZ(3) NOT NULL DEFAULT CURRENT_TIMESTAMP,
+
+    CONSTRAINT "bounty_label_pkey" PRIMARY KEY ("id")
 );
 
 -- CreateTable
@@ -277,6 +298,12 @@ CREATE UNIQUE INDEX "project_founderId_projectKey_key" ON "project"("founderId",
 CREATE UNIQUE INDEX "reward_pool_projectId_key" ON "reward_pool"("projectId");
 
 -- CreateIndex
+CREATE UNIQUE INDEX "label_projectId_name_key" ON "label"("projectId", "name");
+
+-- CreateIndex
+CREATE INDEX "label_projectId_idx" ON "label"("projectId");
+
+-- CreateIndex
 CREATE INDEX "bounty_projectId_idx" ON "bounty"("projectId");
 
 -- CreateIndex
@@ -284,6 +311,15 @@ CREATE INDEX "bounty_status_idx" ON "bounty"("status");
 
 -- CreateIndex
 CREATE UNIQUE INDEX "bounty_projectId_number_key" ON "bounty"("projectId", "number");
+
+-- CreateIndex
+CREATE UNIQUE INDEX "bounty_label_bountyId_labelId_key" ON "bounty_label"("bountyId", "labelId");
+
+-- CreateIndex
+CREATE INDEX "bounty_label_bountyId_idx" ON "bounty_label"("bountyId");
+
+-- CreateIndex
+CREATE INDEX "bounty_label_labelId_idx" ON "bounty_label"("labelId");
 
 -- CreateIndex
 CREATE INDEX "bounty_event_bountyId_idx" ON "bounty_event"("bountyId");
@@ -355,7 +391,16 @@ ALTER TABLE "reward_pool" ADD CONSTRAINT "reward_pool_projectId_fkey" FOREIGN KE
 ALTER TABLE "pool_expansion_event" ADD CONSTRAINT "pool_expansion_event_rewardPoolId_fkey" FOREIGN KEY ("rewardPoolId") REFERENCES "reward_pool"("id") ON DELETE CASCADE ON UPDATE CASCADE;
 
 -- AddForeignKey
+ALTER TABLE "label" ADD CONSTRAINT "label_projectId_fkey" FOREIGN KEY ("projectId") REFERENCES "project"("id") ON DELETE CASCADE ON UPDATE CASCADE;
+
+-- AddForeignKey
 ALTER TABLE "bounty" ADD CONSTRAINT "bounty_projectId_fkey" FOREIGN KEY ("projectId") REFERENCES "project"("id") ON DELETE CASCADE ON UPDATE CASCADE;
+
+-- AddForeignKey
+ALTER TABLE "bounty_label" ADD CONSTRAINT "bounty_label_bountyId_fkey" FOREIGN KEY ("bountyId") REFERENCES "bounty"("id") ON DELETE CASCADE ON UPDATE CASCADE;
+
+-- AddForeignKey
+ALTER TABLE "bounty_label" ADD CONSTRAINT "bounty_label_labelId_fkey" FOREIGN KEY ("labelId") REFERENCES "label"("id") ON DELETE CASCADE ON UPDATE CASCADE;
 
 -- AddForeignKey
 ALTER TABLE "bounty_event" ADD CONSTRAINT "bounty_event_bountyId_fkey" FOREIGN KEY ("bountyId") REFERENCES "bounty"("id") ON DELETE CASCADE ON UPDATE CASCADE;

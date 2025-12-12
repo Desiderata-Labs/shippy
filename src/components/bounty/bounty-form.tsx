@@ -3,11 +3,9 @@
 import { AlertTriangle, PieChart01 } from '@untitled-ui/icons-react'
 import { Loader2 } from 'lucide-react'
 import { useState } from 'react'
-import {
-  BountyClaimMode,
-  BountyTag,
-  DEFAULT_CLAIM_EXPIRY_DAYS,
-} from '@/lib/db/types'
+import { getLabelColor } from '@/lib/bounty/tag-colors'
+import { BountyClaimMode, DEFAULT_CLAIM_EXPIRY_DAYS } from '@/lib/db/types'
+import { cn } from '@/lib/utils'
 import {
   AppButton,
   AppCard,
@@ -29,11 +27,17 @@ import {
 } from '@/components/ui/select'
 import { Slider } from '@/components/ui/slider'
 
+interface ProjectLabel {
+  id: string
+  name: string
+  color: string
+}
+
 export interface BountyFormData {
   title: string
   description: string
   points: number
-  tags: BountyTag[]
+  labelIds: string[]
   claimMode: BountyClaimMode
   claimExpiryDays: number
   maxClaims?: number
@@ -54,82 +58,8 @@ interface BountyFormProps {
   onSubmit: (data: BountyFormData) => void
   onCancel: () => void
   poolStats?: PoolStats
+  projectLabels?: ProjectLabel[]
 }
-
-const TAG_OPTIONS: { value: BountyTag; label: string; color: string }[] = [
-  {
-    value: BountyTag.GROWTH,
-    label: 'Growth',
-    color: 'bg-green-500/10 text-green-500 border-green-500/20',
-  },
-  {
-    value: BountyTag.SALES,
-    label: 'Sales',
-    color: 'bg-blue-500/10 text-blue-500 border-blue-500/20',
-  },
-  {
-    value: BountyTag.CONTENT,
-    label: 'Content',
-    color: 'bg-purple-500/10 text-purple-500 border-purple-500/20',
-  },
-  {
-    value: BountyTag.DESIGN,
-    label: 'Design',
-    color: 'bg-pink-500/10 text-pink-500 border-pink-500/20',
-  },
-  {
-    value: BountyTag.DEV,
-    label: 'Dev',
-    color: 'bg-orange-500/10 text-orange-500 border-orange-500/20',
-  },
-]
-
-const BOUNTY_TEMPLATES = [
-  {
-    title: 'Bring in a new customer (90-day retention)',
-    description:
-      'Refer a new paying customer who stays active for at least 90 days. You will receive points once the customer completes their first 90 days.',
-    points: 100,
-    tags: [BountyTag.SALES, BountyTag.GROWTH],
-    evidenceDescription:
-      'Provide the customer name/company, signup date, and confirmation of their 90-day retention. Screenshots from billing/CRM are helpful.',
-  },
-  {
-    title: 'Write a case study that converts',
-    description:
-      'Create a compelling case study featuring one of our customers. The case study should include the problem, solution, and measurable results.',
-    points: 50,
-    tags: [BountyTag.CONTENT],
-    evidenceDescription:
-      'Submit the published case study URL. Bonus points if you can attribute a lead/customer to the case study.',
-  },
-  {
-    title: 'Hit MRR milestone',
-    description:
-      'Help us reach our next MRR milestone. This is a team bounty - points will be awarded to all active contributors who helped achieve it.',
-    points: 500,
-    tags: [BountyTag.GROWTH],
-    evidenceDescription:
-      'MRR milestones are verified by the founder through internal dashboards.',
-  },
-  {
-    title: 'Design improvement',
-    description:
-      'Improve the design of a specific feature or page. Must be approved and implemented.',
-    points: 25,
-    tags: [BountyTag.DESIGN],
-    evidenceDescription:
-      'Submit your design files (Figma, screenshots) and wait for approval before implementation.',
-  },
-  {
-    title: 'Bug fix or feature implementation',
-    description:
-      'Fix a reported bug or implement a small feature. Must follow our code standards and pass review.',
-    points: 30,
-    tags: [BountyTag.DEV],
-    evidenceDescription: 'Submit a link to your merged pull request.',
-  },
-]
 
 export function BountyForm({
   mode,
@@ -138,11 +68,14 @@ export function BountyForm({
   onSubmit,
   onCancel,
   poolStats,
+  projectLabels = [],
 }: BountyFormProps) {
   const [title, setTitle] = useState(initialData?.title ?? '')
   const [description, setDescription] = useState(initialData?.description ?? '')
   const [points, setPoints] = useState(initialData?.points ?? 100)
-  const [tags, setTags] = useState<BountyTag[]>(initialData?.tags ?? [])
+  const [selectedLabelIds, setSelectedLabelIds] = useState<string[]>(
+    initialData?.labelIds ?? [],
+  )
   const [claimMode, setClaimMode] = useState<BountyClaimMode>(
     initialData?.claimMode ?? BountyClaimMode.SINGLE,
   )
@@ -156,18 +89,12 @@ export function BountyForm({
     initialData?.evidenceDescription ?? '',
   )
 
-  const toggleTag = (tag: BountyTag) => {
-    setTags((prev) =>
-      prev.includes(tag) ? prev.filter((t) => t !== tag) : [...prev, tag],
+  const toggleLabel = (labelId: string) => {
+    setSelectedLabelIds((prev) =>
+      prev.includes(labelId)
+        ? prev.filter((id) => id !== labelId)
+        : [...prev, labelId],
     )
-  }
-
-  const applyTemplate = (template: (typeof BOUNTY_TEMPLATES)[number]) => {
-    setTitle(template.title)
-    setDescription(template.description)
-    setPoints(template.points)
-    setTags(template.tags)
-    setEvidenceDescription(template.evidenceDescription)
   }
 
   const handleSubmit = (e: React.FormEvent) => {
@@ -176,7 +103,7 @@ export function BountyForm({
       title,
       description,
       points,
-      tags,
+      labelIds: selectedLabelIds,
       claimMode,
       claimExpiryDays,
       maxClaims: claimMode === BountyClaimMode.MULTIPLE ? maxClaims : undefined,
@@ -184,40 +111,11 @@ export function BountyForm({
     })
   }
 
-  const isValid =
-    title.trim() && description.trim() && points > 0 && tags.length > 0
+  // Labels are optional now
+  const isValid = title.trim() && description.trim() && points > 0
 
   return (
     <form onSubmit={handleSubmit} className="space-y-6">
-      {/* Templates */}
-      {mode === 'create' && (
-        <AppCard>
-          <AppCardHeader>
-            <AppCardTitle>Quick Start Templates</AppCardTitle>
-            <AppCardDescription>
-              Start with a template or create from scratch
-            </AppCardDescription>
-          </AppCardHeader>
-          <AppCardContent>
-            <div className="flex flex-wrap gap-2">
-              {BOUNTY_TEMPLATES.map((template, index) => (
-                <button
-                  key={index}
-                  type="button"
-                  onClick={() => applyTemplate(template)}
-                  className="cursor-pointer rounded-lg border border-border bg-muted/50 px-3 py-2 text-left text-sm transition-colors hover:bg-muted"
-                >
-                  <span className="font-medium">{template.title}</span>
-                  <span className="ml-2 text-muted-foreground">
-                    +{template.points} pts
-                  </span>
-                </button>
-              ))}
-            </div>
-          </AppCardContent>
-        </AppCard>
-      )}
-
       {/* Pool Allocation & Points Input */}
       {poolStats && mode === 'create' && (
         <PoolAllocationCard
@@ -287,32 +185,49 @@ export function BountyForm({
           )}
 
           <div className="space-y-2">
-            <Label>Tags *</Label>
+            <Label>Labels</Label>
             <div className="flex flex-wrap gap-2">
-              {TAG_OPTIONS.map((tag) => (
-                <button
-                  key={tag.value}
-                  type="button"
-                  onClick={() => toggleTag(tag.value)}
-                  disabled={isLoading}
-                  className="cursor-pointer"
-                >
-                  <Badge
-                    variant="outline"
-                    className={`${
-                      tags.includes(tag.value)
-                        ? tag.color
-                        : 'border-border bg-transparent text-muted-foreground hover:bg-muted'
-                    } transition-colors`}
-                  >
-                    {tag.label}
-                  </Badge>
-                </button>
-              ))}
+              {projectLabels.length === 0 ? (
+                <p className="text-sm text-muted-foreground">
+                  No labels available for this project
+                </p>
+              ) : (
+                projectLabels.map((label) => {
+                  const color = getLabelColor(label.color)
+                  const isSelected = selectedLabelIds.includes(label.id)
+                  return (
+                    <button
+                      key={label.id}
+                      type="button"
+                      onClick={() => toggleLabel(label.id)}
+                      disabled={isLoading}
+                      className="cursor-pointer"
+                    >
+                      <Badge
+                        variant="outline"
+                        className={cn(
+                          'transition-colors',
+                          isSelected
+                            ? `${color.border} ${color.text}`
+                            : 'border-border bg-transparent text-muted-foreground hover:bg-muted',
+                        )}
+                      >
+                        <span
+                          className="mr-1.5 size-2 rounded-full"
+                          style={{
+                            backgroundColor: isSelected ? color.dot : undefined,
+                          }}
+                        />
+                        {label.name}
+                      </Badge>
+                    </button>
+                  )
+                })
+              )}
             </div>
-            {tags.length === 0 && (
+            {selectedLabelIds.length === 0 && projectLabels.length > 0 && (
               <p className="text-xs text-muted-foreground">
-                Select at least one tag
+                Labels are optional
               </p>
             )}
           </div>

@@ -11,7 +11,7 @@ import {
 } from '@untitled-ui/icons-react'
 import { useState } from 'react'
 import Link from 'next/link'
-import { getTagColor } from '@/lib/bounty/tag-colors'
+import { getLabelColor } from '@/lib/bounty/tag-colors'
 import { routes } from '@/lib/routes'
 import { cn } from '@/lib/utils'
 import { Avatar, AvatarFallback, AvatarImage } from '@/components/ui/avatar'
@@ -27,6 +27,14 @@ enum BountyFilter {
   Closed = 'closed',
 }
 
+interface BountyLabel {
+  label: {
+    id: string
+    name: string
+    color: string
+  }
+}
+
 interface BountiesTabProps {
   projectSlug: string
   projectKey: string
@@ -36,7 +44,7 @@ interface BountiesTabProps {
     title: string
     description: string
     points: number
-    tags: string[]
+    labels: BountyLabel[]
     status: string
     claimMode: string
     evidenceDescription: string | null
@@ -302,21 +310,24 @@ function BountyRow({
         {bounty.title}
       </span>
 
-      {/* Tags (Linear-style: dot + border, no bg) */}
+      {/* Labels (Linear-style: dot + border, no bg) */}
       <span className="hidden shrink-0 items-center gap-1.5 lg:flex">
-        {bounty.tags.slice(0, 3).map((tag) => {
-          const color = getTagColor(tag)
+        {bounty.labels.slice(0, 3).map(({ label }) => {
+          const color = getLabelColor(label.color)
           return (
             <span
-              key={tag}
+              key={label.id}
               className={cn(
-                'inline-flex items-center gap-1.5 rounded-full border px-2 py-0.5 text-[10px] font-medium capitalize',
+                'inline-flex items-center gap-1.5 rounded-full border px-2 py-0.5 text-[10px] font-medium',
                 color.border,
                 color.text,
               )}
             >
-              <span className={cn('size-2 rounded-full', color.dot)} />
-              {tag.toLowerCase()}
+              <span
+                className="size-2 rounded-full"
+                style={{ backgroundColor: color.dot }}
+              />
+              {label.name}
             </span>
           )
         })}

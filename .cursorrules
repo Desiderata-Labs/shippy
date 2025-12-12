@@ -117,6 +117,7 @@ When changing the Prisma schema:
 - Always use kebab-case for file names and directories (except for Next.js route conventions)
 - Follow Next.js 16 App Router conventions for file structure
 - Use server components by default, only add "use client" when necessary
+- **Prefer surgical edits over full rewrites** to minimize token costs—only rewrite larger sections when the rewrite would use fewer tokens than targeted changes
 
 ### Server/Client Code Separation
 

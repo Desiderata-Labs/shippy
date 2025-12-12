@@ -177,6 +177,11 @@ export const projectRouter = router({
           bounties: {
             // Always include past bounties (COMPLETED/CLOSED), not just active ones.
             orderBy: [{ createdAt: 'desc' }],
+            include: {
+              labels: {
+                include: { label: true },
+              },
+            },
           },
           _count: {
             select: {
@@ -224,11 +229,10 @@ export const projectRouter = router({
           .enum(['newest', 'totalPaidOut', 'openBounties'])
           .default('newest'),
         hasOpenBounties: z.boolean().optional(),
-        tags: z.array(z.string()).optional(),
       }),
     )
     .query(async ({ ctx, input }) => {
-      const { cursor, limit, hasOpenBounties, tags } = input
+      const { cursor, limit, hasOpenBounties } = input
 
       const projects = await ctx.prisma.project.findMany({
         where: {
@@ -236,10 +240,6 @@ export const projectRouter = router({
           ...(hasOpenBounties && {
             bounties: { some: { status: BountyStatus.OPEN } },
           }),
-          ...(tags &&
-            tags.length > 0 && {
-              bounties: { some: { tags: { hasSome: tags } } },
-            }),
         },
         orderBy: { createdAt: 'desc' },
         take: limit + 1, // Get one extra to check for more

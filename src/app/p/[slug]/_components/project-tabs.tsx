@@ -36,7 +36,13 @@ interface ProjectTabsProps {
       title: string
       description: string
       points: number
-      tags: string[]
+      labels: Array<{
+        label: {
+          id: string
+          name: string
+          color: string
+        }
+      }>
       status: string
       claimMode: string
       evidenceDescription: string | null

@@ -13,6 +13,8 @@ import {
   FileCheck03,
   Link03,
   Pencil01,
+  Plus,
+  RefreshCcw01,
   Target01,
   Trash01,
   User01,
@@ -24,13 +26,14 @@ import { useState } from 'react'
 import Link from 'next/link'
 import { useParams, useRouter } from 'next/navigation'
 import { notFound } from 'next/navigation'
-import { getTagColor } from '@/lib/bounty/tag-colors'
+import { getLabelColor } from '@/lib/bounty/tag-colors'
 import {
   BountyClaimMode,
   BountyEventType,
   BountyStatus,
   ClaimStatus,
   SubmissionStatus,
+  generateRandomLabelColor,
 } from '@/lib/db/types'
 import { ProjectTab, routes } from '@/lib/routes'
 import { cn } from '@/lib/utils'
@@ -40,6 +43,7 @@ import { SubmitWorkModal } from '@/components/bounty/submit-work-modal'
 import { CommentInput } from '@/components/comments'
 import { AppBackground } from '@/components/layout/app-background'
 import { Avatar, AvatarFallback, AvatarImage } from '@/components/ui/avatar'
+import { Badge } from '@/components/ui/badge'
 import { Button } from '@/components/ui/button'
 import { ConfirmModal } from '@/components/ui/confirm-modal'
 import {
@@ -49,6 +53,11 @@ import {
   DropdownMenuTrigger,
 } from '@/components/ui/dropdown-menu'
 import { Markdown } from '@/components/ui/markdown'
+import {
+  Popover,
+  PopoverContent,
+  PopoverTrigger,
+} from '@/components/ui/popover'
 import { Separator } from '@/components/ui/separator'
 import { Skeleton } from '@/components/ui/skeleton'
 import {
@@ -71,6 +80,14 @@ export default function BountyDetailPage() {
   const [newComment, setNewComment] = useState('')
   const [isPostingComment, setIsPostingComment] = useState(false)
   const [eventToDelete, setEventToDelete] = useState<string | null>(null)
+
+  // Label management state
+  const [showLabelPicker, setShowLabelPicker] = useState(false)
+  const [showCreateLabel, setShowCreateLabel] = useState(false)
+  const [newLabelName, setNewLabelName] = useState('')
+  const [newLabelColor, setNewLabelColor] = useState(() =>
+    generateRandomLabelColor(),
+  )
 
   const { data: bounty, isLoading } = trpc.bounty.getById.useQuery(
     { id: params.bountyId },
@@ -129,6 +146,42 @@ export default function BountyDetailPage() {
     onSuccess: () => {
       utils.bounty.getById.invalidate({ id: params.bountyId })
       toast.success('Comment deleted')
+    },
+    onError: (error) => {
+      toast.error(error.message)
+    },
+  })
+
+  // Fetch project labels for the label picker
+  const { data: projectLabels } = trpc.label.getByProject.useQuery(
+    { projectId: bounty?.project.id ?? '' },
+    { enabled: !!bounty?.project.id },
+  )
+
+  const createLabel = trpc.label.create.useMutation({
+    onSuccess: (label) => {
+      toast.success(`Label "${label.name}" created`)
+      utils.label.getByProject.invalidate({ projectId: bounty?.project.id })
+      setNewLabelName('')
+      setNewLabelColor(generateRandomLabelColor())
+      setShowCreateLabel(false)
+      // Auto-add to bounty
+      if (bounty) {
+        const currentLabelIds = bounty.labels.map((l) => l.label.id)
+        updateBountyLabels.mutate({
+          id: bounty.id,
+          labelIds: [...currentLabelIds, label.id],
+        })
+      }
+    },
+    onError: (error) => {
+      toast.error(error.message)
+    },
+  })
+
+  const updateBountyLabels = trpc.bounty.update.useMutation({
+    onSuccess: () => {
+      utils.bounty.getById.invalidate({ id: params.bountyId })
     },
     onError: (error) => {
       toast.error(error.message)
@@ -733,32 +786,214 @@ export default function BountyDetailPage() {
                 )}
               </div>
 
-              {/* Labels (tags) */}
-              {bounty.tags.length > 0 && (
-                <div className="flex items-center justify-between py-1">
+              {/* Labels */}
+              <div className="space-y-2 py-1">
+                <div className="flex items-center justify-between">
                   <span className="text-xs text-muted-foreground">Labels</span>
-                  <div className="flex flex-wrap justify-end gap-1">
-                    {bounty.tags.map((tag) => {
-                      const color = getTagColor(tag)
-                      return (
-                        <span
-                          key={tag}
-                          className={cn(
-                            'inline-flex items-center gap-1 rounded-full border px-2 py-0.5 text-[10px] font-medium capitalize',
-                            color.border,
-                            color.text,
+                  {isFounder && (
+                    <Popover
+                      open={showLabelPicker}
+                      onOpenChange={setShowLabelPicker}
+                    >
+                      <PopoverTrigger asChild>
+                        <button
+                          type="button"
+                          className="cursor-pointer text-xs text-muted-foreground transition-colors hover:text-foreground"
+                        >
+                          <Plus className="size-3.5" />
+                        </button>
+                      </PopoverTrigger>
+                      <PopoverContent className="w-56 p-2" align="end">
+                        <div className="space-y-2">
+                          <div className="text-xs font-medium text-muted-foreground">
+                            Select labels
+                          </div>
+                          <div className="max-h-48 space-y-1 overflow-y-auto">
+                            {(projectLabels ?? []).map((label) => {
+                              const color = getLabelColor(label.color)
+                              const isSelected = bounty.labels.some(
+                                (l) => l.label.id === label.id,
+                              )
+                              return (
+                                <button
+                                  key={label.id}
+                                  type="button"
+                                  onClick={() => {
+                                    const currentIds = bounty.labels.map(
+                                      (l) => l.label.id,
+                                    )
+                                    const newIds = isSelected
+                                      ? currentIds.filter(
+                                          (id) => id !== label.id,
+                                        )
+                                      : [...currentIds, label.id]
+                                    updateBountyLabels.mutate({
+                                      id: bounty.id,
+                                      labelIds: newIds,
+                                    })
+                                  }}
+                                  className={cn(
+                                    'flex w-full cursor-pointer items-center gap-2 rounded-md px-2 py-1.5 text-left text-xs transition-colors hover:bg-muted',
+                                    isSelected && 'bg-muted',
+                                  )}
+                                >
+                                  <span
+                                    className="size-2.5 shrink-0 rounded-full"
+                                    style={{ backgroundColor: color.dot }}
+                                  />
+                                  <span className="flex-1 truncate">
+                                    {label.name}
+                                  </span>
+                                  {isSelected && (
+                                    <Check className="size-3.5 text-primary" />
+                                  )}
+                                </button>
+                              )
+                            })}
+                            {(projectLabels ?? []).length === 0 && (
+                              <p className="px-2 py-1 text-xs text-muted-foreground">
+                                No labels yet
+                              </p>
+                            )}
+                          </div>
+                          <Separator />
+                          {showCreateLabel ? (
+                            <div className="space-y-2 pt-1">
+                              <input
+                                type="text"
+                                value={newLabelName}
+                                onChange={(e) =>
+                                  setNewLabelName(e.target.value)
+                                }
+                                placeholder="Label name"
+                                className="w-full rounded-md border border-border bg-background px-2 py-1 text-xs placeholder:text-muted-foreground focus:ring-1 focus:ring-ring focus:outline-none"
+                                autoFocus
+                                onKeyDown={(e) => {
+                                  if (
+                                    e.key === 'Enter' &&
+                                    newLabelName.trim()
+                                  ) {
+                                    e.preventDefault()
+                                    createLabel.mutate({
+                                      projectId: bounty.project.id,
+                                      name: newLabelName.trim(),
+                                      color: newLabelColor,
+                                    })
+                                  }
+                                  if (e.key === 'Escape') {
+                                    setShowCreateLabel(false)
+                                    setNewLabelName('')
+                                  }
+                                }}
+                              />
+                              <div className="flex items-center gap-1.5">
+                                <button
+                                  type="button"
+                                  onClick={() =>
+                                    setNewLabelColor(generateRandomLabelColor())
+                                  }
+                                  className="flex size-6 cursor-pointer items-center justify-center rounded-sm border border-border transition-colors hover:bg-muted"
+                                  style={{
+                                    backgroundColor: `${newLabelColor}30`,
+                                  }}
+                                >
+                                  <RefreshCcw01
+                                    className="size-3"
+                                    style={{ color: newLabelColor }}
+                                  />
+                                </button>
+                                <input
+                                  type="text"
+                                  value={newLabelColor.replace('#', '')}
+                                  onChange={(e) => {
+                                    const value = e.target.value.replace(
+                                      /[^0-9A-Fa-f]/g,
+                                      '',
+                                    )
+                                    if (value.length <= 6) {
+                                      setNewLabelColor(`#${value}`)
+                                    }
+                                  }}
+                                  className="w-full flex-1 rounded-sm border border-border bg-background px-2 py-1 font-mono text-xs focus:ring-1 focus:ring-ring focus:outline-none"
+                                  placeholder="d73a4a"
+                                  maxLength={6}
+                                />
+                              </div>
+                              <div className="flex gap-1">
+                                <Button
+                                  size="sm"
+                                  variant="ghost"
+                                  className="h-6 flex-1 cursor-pointer text-xs"
+                                  onClick={() => {
+                                    setShowCreateLabel(false)
+                                    setNewLabelName('')
+                                  }}
+                                >
+                                  Cancel
+                                </Button>
+                                <Button
+                                  size="sm"
+                                  className="h-6 flex-1 cursor-pointer text-xs"
+                                  disabled={
+                                    !newLabelName.trim() ||
+                                    newLabelColor.length !== 7 ||
+                                    createLabel.isPending
+                                  }
+                                  onClick={() => {
+                                    createLabel.mutate({
+                                      projectId: bounty.project.id,
+                                      name: newLabelName.trim(),
+                                      color: newLabelColor,
+                                    })
+                                  }}
+                                >
+                                  {createLabel.isPending ? (
+                                    <Loader2 className="size-3 animate-spin" />
+                                  ) : (
+                                    'Create'
+                                  )}
+                                </Button>
+                              </div>
+                            </div>
+                          ) : (
+                            <button
+                              type="button"
+                              onClick={() => {
+                                setShowCreateLabel(true)
+                                setNewLabelColor(generateRandomLabelColor())
+                              }}
+                              className="flex w-full cursor-pointer items-center gap-2 rounded-md px-2 py-1.5 text-xs text-muted-foreground transition-colors hover:bg-muted hover:text-foreground"
+                            >
+                              <Plus className="size-3.5" />
+                              Create new label
+                            </button>
                           )}
+                        </div>
+                      </PopoverContent>
+                    </Popover>
+                  )}
+                </div>
+                {bounty.labels.length > 0 ? (
+                  <div className="flex flex-wrap gap-1">
+                    {bounty.labels.map(({ label }) => {
+                      const color = getLabelColor(label.color)
+                      return (
+                        <Badge
+                          key={label.id}
+                          variant="outline"
+                          className="text-[10px]"
                         >
                           <span
-                            className={cn('size-1.5 rounded-full', color.dot)}
+                            className="mr-1 size-1.5 rounded-full"
+                            style={{ backgroundColor: color.dot }}
                           />
-                          {tag.toLowerCase()}
-                        </span>
+                          {label.name}
+                        </Badge>
                       )
                     })}
                   </div>
-                </div>
-              )}
+                ) : null}
+              </div>
 
               {/* Claim mode */}
               <div className="flex items-center justify-between py-1">

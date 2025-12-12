@@ -1,36 +1,50 @@
-This is a [Next.js](https://nextjs.org) project bootstrapped with [`create-next-app`](https://nextjs.org/docs/app/api-reference/cli/create-next-app).
+# Shippy
+
+![Next.js](https://img.shields.io/badge/Next.js-16-black?logo=next.js) ![React](https://img.shields.io/badge/React-19-61DAFB?logo=react) ![TypeScript](https://img.shields.io/badge/TypeScript-strict-3178C6?logo=typescript) ![Tailwind CSS](https://img.shields.io/badge/Tailwind-4-06B6D4?logo=tailwindcss) ![Prisma](https://img.shields.io/badge/Prisma-ORM-2D3748?logo=prisma) ![pnpm](https://img.shields.io/badge/pnpm-package%20manager-F69220?logo=pnpm)
+
+A platform where contributors earn recurring royalties for helping startups ship real work.
+
+## Tech Stack
+
+- **Framework**: Next.js 16 + React 19 + TypeScript
+- **Styling**: Tailwind CSS 4 + shadcn/ui
+- **Database**: PostgreSQL (Supabase) + Prisma ORM
+- **API**: tRPC + TanStack Query v5
+- **Auth**: BetterAuth
 
 ## Getting Started
 
-First, run the development server:
-
 ```bash
-npm run dev
-# or
-yarn dev
-# or
+# Install dependencies
+pnpm install
+
+# Set up environment (copy and fill in values)
+cp .env.example .env
+
+# Start the database
+tilt up
+
+# Run database migrations
+pnpm db:migrate:deploy
+
+# Start dev server
 pnpm dev
-# or
-bun dev
 ```
 
-Open [http://localhost:3000](http://localhost:3000) with your browser to see the result.
+Open [http://localhost:3050](http://localhost:3050)
 
-You can start editing the page by modifying `app/page.tsx`. The page auto-updates as you edit the file.
+## Commands
 
-This project uses [`next/font`](https://nextjs.org/docs/app/building-your-application/optimizing/fonts) to automatically optimize and load [Geist](https://vercel.com/font), a new font family for Vercel.
+| Command                                | Description              |
+| -------------------------------------- | ------------------------ |
+| `pnpm dev`                             | Start development server |
+| `pnpm lint`                            | Run ESLint               |
+| `pnpm format`                          | Format with Prettier     |
+| `pnpm check-types`                     | TypeScript type checking |
+| `pnpm db:generate`                     | Regenerate Prisma client |
+| `pnpm db:migrate:create --name <name>` | Create new migration     |
+| `pnpm db:migrate:deploy`               | Apply migrations         |
 
-## Learn More
+## Documentation
 
-To learn more about Next.js, take a look at the following resources:
-
-- [Next.js Documentation](https://nextjs.org/docs) - learn about Next.js features and API.
-- [Learn Next.js](https://nextjs.org/learn) - an interactive Next.js tutorial.
-
-You can check out [the Next.js GitHub repository](https://github.com/vercel/next.js) - your feedback and contributions are welcome!
-
-## Deploy on Vercel
-
-The easiest way to deploy your Next.js app is to use the [Vercel Platform](https://vercel.com/new?utm_medium=default-template&filter=next.js&utm_source=create-next-app&utm_campaign=create-next-app-readme) from the creators of Next.js.
-
-Check out our [Next.js deployment documentation](https://nextjs.org/docs/app/building-your-application/deploying) for more details.
+Full product spec: [`prds/shippy.md`](./prds/shippy.md)

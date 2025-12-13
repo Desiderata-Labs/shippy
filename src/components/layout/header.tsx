@@ -46,8 +46,8 @@ export function Header({ padded = false }: HeaderProps) {
 
   // Get user's URLs based on username
   const username = (session?.user as { username?: string })?.username
-  const projectsUrl = username
-    ? routes.user.projects({ username })
+  const profileUrl = username
+    ? routes.user.profile({ username })
     : routes.dashboard.root()
   const newProjectUrl = username
     ? routes.user.newProject({ username })
@@ -104,7 +104,7 @@ export function Header({ padded = false }: HeaderProps) {
                   </Link>
                   {username && (
                     <Link
-                      href={projectsUrl}
+                      href={profileUrl}
                       className="text-muted-foreground transition-colors duration-150 hover:text-foreground"
                     >
                       My Projects

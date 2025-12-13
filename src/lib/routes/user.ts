@@ -8,7 +8,6 @@ export interface UserParams {
 export const userPaths = {
   profile: '/u/[username]',
   settings: '/u/[username]/settings',
-  projects: '/u/[username]/projects',
   newProject: '/u/[username]/projects/new',
 } as const
 
@@ -16,6 +15,5 @@ export const userPaths = {
 export const userRoutes = {
   profile: (params: UserParams) => `/u/${params.username}`,
   settings: (params: UserParams) => `/u/${params.username}/settings`,
-  projects: (params: UserParams) => `/u/${params.username}/projects`,
   newProject: (params: UserParams) => `/u/${params.username}/projects/new`,
 } as const

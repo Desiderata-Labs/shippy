@@ -1,3 +1,4 @@
+import { BountyStatus } from '@/lib/db/types'
 import {
   isUsernameAvailable,
   setUserUsername,
@@ -5,9 +6,69 @@ import {
   validateUsername,
 } from '@/lib/username/server'
 import { protectedProcedure, publicProcedure, router } from '@/server/trpc'
+import { TRPCError } from '@trpc/server'
 import { z } from 'zod'
 
 export const userRouter = router({
+  /**
+   * Get a user's public profile by username
+   */
+  getByUsername: publicProcedure
+    .input(z.object({ username: z.string() }))
+    .query(async ({ ctx, input }) => {
+      const user = await ctx.prisma.user.findUnique({
+        where: { username: input.username },
+        select: {
+          id: true,
+          name: true,
+          username: true,
+          image: true,
+          createdAt: true,
+        },
+      })
+
+      if (!user) {
+        throw new TRPCError({ code: 'NOT_FOUND', message: 'User not found' })
+      }
+
+      return user
+    }),
+
+  /**
+   * Get a user's public projects by username
+   */
+  getPublicProjects: publicProcedure
+    .input(z.object({ username: z.string() }))
+    .query(async ({ ctx, input }) => {
+      const user = await ctx.prisma.user.findUnique({
+        where: { username: input.username },
+        select: { id: true },
+      })
+
+      if (!user) {
+        throw new TRPCError({ code: 'NOT_FOUND', message: 'User not found' })
+      }
+
+      return ctx.prisma.project.findMany({
+        where: {
+          founderId: user.id,
+          isPublic: true,
+        },
+        orderBy: { createdAt: 'desc' },
+        include: {
+          founder: {
+            select: { id: true, name: true, image: true },
+          },
+          rewardPool: true,
+          _count: {
+            select: {
+              bounties: { where: { status: BountyStatus.OPEN } },
+            },
+          },
+        },
+      })
+    }),
+
   /**
    * Check if a username is available
    */

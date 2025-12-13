@@ -123,9 +123,9 @@ async function getProject(slug: string) {
   const uniqueContributorIds = new Set(allRecipients.map((r) => r.userId))
   const contributorCount = uniqueContributorIds.size
 
-  // Total paid out = sum of pool amounts (what founders distribute)
+  // Total paid out = sum of actual amounts distributed to contributors
   const totalPaidOutCents = project.payouts.reduce(
-    (sum, p) => sum + p.poolAmountCents,
+    (sum, p) => sum + p.recipients.reduce((rSum, r) => rSum + r.amountCents, 0),
     0,
   )
 

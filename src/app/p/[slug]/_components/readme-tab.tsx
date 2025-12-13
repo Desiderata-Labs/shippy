@@ -1,6 +1,7 @@
 'use client'
 
 import { HelpCircle, InfoCircle } from '@untitled-ui/icons-react'
+import { Markdown } from '@/components/ui/markdown'
 import { GlassCard, GlassCardHeader } from './glass-card'
 
 interface ReadmeTabProps {
@@ -18,20 +19,14 @@ interface ReadmeTabProps {
 export function ReadmeTab({ project }: ReadmeTabProps) {
   return (
     <div className="space-y-6">
-      {/* About */}
-      <div>
-        <h2 className="mb-3 text-sm font-medium">About</h2>
-        {project.description ? (
-          <p className="text-sm leading-relaxed whitespace-pre-wrap text-muted-foreground">
-            {project.description}
-          </p>
-        ) : (
-          <div className="flex items-center gap-2 py-4 text-muted-foreground">
-            <InfoCircle className="size-4" />
-            <p className="text-sm italic">No description provided yet.</p>
-          </div>
-        )}
-      </div>
+      {project.description ? (
+        <Markdown markdown={project.description} proseSize="sm" />
+      ) : (
+        <div className="flex items-center gap-2 py-4 text-muted-foreground">
+          <InfoCircle className="size-4" />
+          <p className="text-sm italic">No description provided yet.</p>
+        </div>
+      )}
 
       {/* How It Works (if reward pool exists) */}
       {project.rewardPool && (

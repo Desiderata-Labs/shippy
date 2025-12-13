@@ -344,7 +344,7 @@ export function SubmissionEditor({
             )}
 
             {/* Description editor */}
-            <div className="rounded-lg border border-border bg-card">
+            <div className="rounded-lg border border-border bg-accent">
               <div className="px-4 py-3">
                 <label className="mb-2 block text-sm font-medium">
                   Description

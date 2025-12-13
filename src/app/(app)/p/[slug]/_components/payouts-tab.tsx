@@ -24,8 +24,8 @@ import { routes } from '@/lib/routes'
 import { cn } from '@/lib/utils'
 import { AppButton } from '@/components/app'
 import { Badge } from '@/components/ui/badge'
+import { Card } from '@/components/ui/card'
 import { Skeleton } from '@/components/ui/skeleton'
-import { GlassCard } from './glass-card'
 
 interface PayoutsTabProps {
   projectId: string
@@ -106,7 +106,7 @@ export function PayoutsTab({
 
   if (!payouts || payouts.length === 0) {
     return (
-      <GlassCard className="py-12 text-center">
+      <Card className="py-12 text-center">
         <div className="mx-auto flex max-w-xs flex-col items-center">
           <div className="mb-3 flex size-12 items-center justify-center rounded-xl bg-muted">
             <CoinsStacked01 className="size-6 text-foreground opacity-50" />
@@ -126,7 +126,7 @@ export function PayoutsTab({
             </AppButton>
           )}
         </div>
-      </GlassCard>
+      </Card>
     )
   }
 
@@ -174,48 +174,6 @@ export function PayoutsTab({
         </div>
       )}
 
-      {/* Pool Expansion Timeline */}
-      {poolStats &&
-        poolStats.expansionEvents &&
-        poolStats.expansionEvents.length > 0 && (
-          <GlassCard className="overflow-hidden p-0">
-            <div className="border-b border-border px-4 py-2.5">
-              <h3 className="flex items-center gap-2 text-xs font-medium tracking-wider text-muted-foreground uppercase">
-                <ArrowUp className="size-3" />
-                Pool Expansion History
-              </h3>
-            </div>
-            <div className="divide-y divide-border">
-              {poolStats.expansionEvents.map((event) => (
-                <div key={event.id} className="px-4 py-3">
-                  <div className="flex items-start justify-between gap-3">
-                    <div>
-                      <p className="text-sm font-medium">
-                        Pool expanded: {event.previousCapacity} →{' '}
-                        {event.newCapacity} pts
-                      </p>
-                      <p className="mt-0.5 text-xs text-muted-foreground">
-                        {event.reason}
-                      </p>
-                    </div>
-                    <div className="text-right">
-                      <p className="text-xs text-yellow-600 dark:text-yellow-400">
-                        {parseFloat(event.dilutionPercent.toString()).toFixed(
-                          1,
-                        )}
-                        % dilution
-                      </p>
-                      <p className="text-[10px] text-muted-foreground">
-                        {new Date(event.createdAt).toLocaleDateString()}
-                      </p>
-                    </div>
-                  </div>
-                </div>
-              ))}
-            </div>
-          </GlassCard>
-        )}
-
       {/* Header with New Payout button */}
       <div className="flex items-center justify-between">
         <span className="text-xs font-medium tracking-wider text-muted-foreground uppercase">
@@ -257,7 +215,7 @@ export function PayoutsTab({
                 slug: projectSlug,
                 payoutId: payout.id,
               })}
-              className="group block rounded-lg border border-border bg-card transition-colors hover:bg-muted/50"
+              className="group block rounded-lg border border-border bg-card shadow-md transition-all duration-300 hover:border-primary/75 hover:shadow-lg"
             >
               <div className="p-3">
                 <div className="flex items-center justify-between gap-3">
@@ -346,6 +304,48 @@ export function PayoutsTab({
           )
         })}
       </div>
+
+      {/* Pool Expansion Timeline */}
+      {poolStats &&
+        poolStats.expansionEvents &&
+        poolStats.expansionEvents.length > 0 && (
+          <div className="overflow-hidden p-0">
+            <div className="border-b border-border py-2.5">
+              <h3 className="flex items-center gap-2 text-xs font-medium tracking-wider text-muted-foreground uppercase">
+                <ArrowUp className="size-3" />
+                Pool Expansion History
+              </h3>
+            </div>
+            <div className="divide-y divide-border">
+              {poolStats.expansionEvents.map((event) => (
+                <div key={event.id} className="py-3">
+                  <div className="flex items-start justify-between gap-3">
+                    <div>
+                      <p className="text-sm font-medium">
+                        Pool expanded: {event.previousCapacity} →{' '}
+                        {event.newCapacity} pts
+                      </p>
+                      <p className="mt-0.5 text-xs text-muted-foreground">
+                        {event.reason}
+                      </p>
+                    </div>
+                    <div className="text-right">
+                      <p className="text-xs text-yellow-600 dark:text-yellow-400">
+                        {parseFloat(event.dilutionPercent.toString()).toFixed(
+                          1,
+                        )}
+                        % dilution
+                      </p>
+                      <p className="text-[10px] text-muted-foreground">
+                        {new Date(event.createdAt).toLocaleDateString()}
+                      </p>
+                    </div>
+                  </div>
+                </div>
+              ))}
+            </div>
+          </div>
+        )}
     </div>
   )
 }
@@ -360,7 +360,7 @@ function StatCard({
   label: string
 }) {
   return (
-    <GlassCard className="p-3">
+    <Card className="p-3">
       <div className="flex items-start gap-2">
         <div
           className={cn('flex size-6 items-center justify-center rounded-sm')}
@@ -372,6 +372,6 @@ function StatCard({
           <p className="text-[10px] text-muted-foreground">{label}</p>
         </div>
       </div>
-    </GlassCard>
+    </Card>
   )
 }

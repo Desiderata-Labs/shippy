@@ -442,7 +442,7 @@ export function ProjectEditor({ mode, username, slug }: ProjectEditorProps) {
             {/* Main content - left side */}
             <div className="space-y-6">
               {/* Main input area - bordered container */}
-              <div className="rounded-lg border border-border bg-card">
+              <div className="rounded-lg border border-border bg-accent">
                 {/* Project name input */}
                 <div className="px-4 py-3">
                   <input

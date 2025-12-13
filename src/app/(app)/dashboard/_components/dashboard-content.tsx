@@ -28,6 +28,8 @@ import { cn } from '@/lib/utils'
 import { AppButton, AppTextarea } from '@/components/app'
 import { AppBackground } from '@/components/layout/app-background'
 import { Badge } from '@/components/ui/badge'
+import { Card } from '@/components/ui/card'
+import { Separator } from '@/components/ui/separator'
 import { Skeleton } from '@/components/ui/skeleton'
 import { toast } from 'sonner'
 
@@ -40,60 +42,27 @@ function formatCurrency(cents: number): string {
   }).format(cents / 100)
 }
 
-function GlassCard({
-  children,
-  className,
-}: {
-  children: React.ReactNode
-  className?: string
-}) {
-  return (
-    <div
-      className={cn(
-        'isolate rounded-xl bg-card/50 p-4 shadow-lg ring-1 ring-border backdrop-blur-xl',
-        className,
-      )}
-    >
-      {children}
-    </div>
-  )
-}
-
 function StatCard({
   icon: Icon,
   value,
   label,
-  highlight,
 }: {
   icon: React.ComponentType<{ className?: string }>
   value: React.ReactNode
   label: string
-  highlight?: boolean
 }) {
   return (
-    <GlassCard className="p-3">
-      <div className="flex items-center gap-2">
-        <div
-          className={cn(
-            'flex size-6 items-center justify-center rounded-sm',
-            highlight ? 'bg-primary/10' : 'bg-muted',
-          )}
-        >
-          <Icon
-            className={cn(
-              'size-3.5',
-              highlight ? 'text-primary' : 'text-muted-foreground',
-            )}
-          />
+    <Card className="p-3">
+      <div className="flex items-start gap-2">
+        <div className="flex size-6 items-center justify-center rounded-sm">
+          <Icon className="-mt-1 size-3.5 text-muted-foreground" />
         </div>
         <div>
-          <p className={cn('text-sm font-bold', highlight && 'text-primary')}>
-            {value}
-          </p>
+          <p className="text-sm font-bold">{value}</p>
           <p className="text-[10px] text-muted-foreground">{label}</p>
         </div>
       </div>
-    </GlassCard>
+    </Card>
   )
 }
 
@@ -185,7 +154,6 @@ export function DashboardContent() {
             icon={CoinsStacked01}
             value={formatCurrency(data?.totalLifetimeEarnings ?? 0)}
             label="Lifetime earnings"
-            highlight
           />
           <StatCard
             icon={Clock}
@@ -203,14 +171,14 @@ export function DashboardContent() {
         <div className="grid gap-4 lg:grid-cols-2">
           {/* My Submissions */}
           {submissions && submissions.length > 0 && (
-            <GlassCard className="overflow-hidden p-0 lg:col-span-2">
+            <div className="overflow-hidden p-0 lg:col-span-2">
               <div className="border-b border-border px-4 py-2.5">
                 <h3 className="text-xs font-medium tracking-wider text-muted-foreground uppercase">
                   My Submissions
                 </h3>
               </div>
-              <div className="divide-y divide-border">
-                {submissions.slice(0, 5).map((submission) => {
+              <div>
+                {submissions.slice(0, 5).map((submission, index) => {
                   const statusConfig: Record<
                     string,
                     { label: string; color: string }
@@ -244,57 +212,59 @@ export function DashboardContent() {
                     statusConfig[SubmissionStatus.PENDING]
 
                   return (
-                    <Link
-                      key={submission.id}
-                      href={routes.project.submissionDetail({
-                        slug: submission.bounty.project.slug,
-                        submissionId: submission.id,
-                        title: submission.bounty.title,
-                      })}
-                      className="group flex items-center justify-between gap-3 px-4 py-3 transition-colors hover:bg-muted/50"
-                    >
-                      <div className="min-w-0 flex-1">
-                        <div className="flex items-center gap-2">
-                          <p className="truncate text-sm font-medium transition-colors group-hover:text-primary">
-                            {submission.bounty.title}
+                    <div key={submission.id}>
+                      {index > 0 && <Separator className="ml-4" />}
+                      <Link
+                        href={routes.project.submissionDetail({
+                          slug: submission.bounty.project.slug,
+                          submissionId: submission.id,
+                          title: submission.bounty.title,
+                        })}
+                        className="group ml-4 flex items-center justify-between gap-3 px-4 py-3 transition-colors hover:bg-muted/50"
+                      >
+                        <div className="min-w-0 flex-1">
+                          <div className="flex items-center gap-2">
+                            <p className="truncate text-sm font-medium transition-colors group-hover:text-primary">
+                              {submission.bounty.title}
+                            </p>
+                            {submission._count.events > 0 && (
+                              <span className="flex items-center gap-1 text-xs text-muted-foreground">
+                                <MessageTextSquare02 className="size-3" />
+                                {submission._count.events}
+                              </span>
+                            )}
+                          </div>
+                          <p className="mt-0.5 text-xs text-muted-foreground">
+                            {submission.bounty.project.name}
                           </p>
-                          {submission._count.events > 0 && (
-                            <span className="flex items-center gap-1 text-xs text-muted-foreground">
-                              <MessageTextSquare02 className="size-3" />
-                              {submission._count.events}
+                        </div>
+                        <div className="flex shrink-0 items-center gap-2">
+                          <Badge
+                            variant="outline"
+                            className={cn('text-[10px]', status.color)}
+                          >
+                            {status.label}
+                          </Badge>
+                          {submission.pointsAwarded && (
+                            <span className="text-xs font-medium text-primary">
+                              +{submission.pointsAwarded} pts
                             </span>
                           )}
+                          <ChevronRight className="size-4 text-muted-foreground transition-transform group-hover:translate-x-0.5" />
                         </div>
-                        <p className="mt-0.5 text-xs text-muted-foreground">
-                          {submission.bounty.project.name}
-                        </p>
-                      </div>
-                      <div className="flex shrink-0 items-center gap-2">
-                        <Badge
-                          variant="outline"
-                          className={cn('text-[10px]', status.color)}
-                        >
-                          {status.label}
-                        </Badge>
-                        {submission.pointsAwarded && (
-                          <span className="text-xs font-medium text-primary">
-                            +{submission.pointsAwarded} pts
-                          </span>
-                        )}
-                        <ChevronRight className="size-4 text-muted-foreground transition-transform group-hover:translate-x-0.5" />
-                      </div>
-                    </Link>
+                      </Link>
+                    </div>
                   )
                 })}
               </div>
-            </GlassCard>
+            </div>
           )}
 
-          {/* My Projects */}
-          <GlassCard className="overflow-hidden p-0">
+          {/* Contributed Projects */}
+          <div className="overflow-hidden p-0">
             <div className="border-b border-border px-4 py-2.5">
               <h3 className="text-xs font-medium tracking-wider text-muted-foreground uppercase">
-                My Projects
+                Projects You&apos;ve Contributed To
               </h3>
             </div>
             {!data || data.projects.length === 0 ? (
@@ -311,45 +281,47 @@ export function DashboardContent() {
                 </AppButton>
               </div>
             ) : (
-              <div className="divide-y divide-border">
-                {data.projects.map((project) => (
-                  <Link
-                    key={project.projectId}
-                    href={routes.project.detail({
-                      slug: project.projectSlug,
-                    })}
-                    className="group flex items-center justify-between gap-3 px-4 py-3 transition-colors hover:bg-muted/50"
-                  >
-                    <div className="min-w-0 flex-1">
-                      <p className="truncate text-sm font-medium transition-colors group-hover:text-primary">
-                        {project.projectName}
-                      </p>
-                      <p className="mt-0.5 text-xs text-muted-foreground">
-                        {project.points.toLocaleString()} points
-                      </p>
-                    </div>
-                    <div className="flex shrink-0 items-center gap-2">
-                      <span className="text-sm font-semibold text-primary">
-                        {formatCurrency(project.lifetimeEarningsCents)}
-                      </span>
-                      {project.pendingPayouts > 0 && (
-                        <Badge
-                          variant="outline"
-                          className="border-yellow-500/20 bg-yellow-500/10 text-[10px] text-yellow-600 dark:text-yellow-400"
-                        >
-                          {project.pendingPayouts} pending
-                        </Badge>
-                      )}
-                      <ChevronRight className="size-4 text-muted-foreground transition-transform group-hover:translate-x-0.5" />
-                    </div>
-                  </Link>
+              <div>
+                {data.projects.map((project, index) => (
+                  <div key={project.projectId}>
+                    {index > 0 && <Separator className="ml-4" />}
+                    <Link
+                      href={routes.project.detail({
+                        slug: project.projectSlug,
+                      })}
+                      className="group ml-4 flex items-center justify-between gap-3 px-4 py-3 transition-colors hover:bg-muted/50"
+                    >
+                      <div className="min-w-0 flex-1">
+                        <p className="truncate text-sm font-medium transition-colors group-hover:text-primary">
+                          {project.projectName}
+                        </p>
+                        <p className="mt-0.5 text-xs text-muted-foreground">
+                          {project.points.toLocaleString()} points
+                        </p>
+                      </div>
+                      <div className="flex shrink-0 items-center gap-2">
+                        <span className="text-sm font-semibold text-primary">
+                          {formatCurrency(project.lifetimeEarningsCents)}
+                        </span>
+                        {project.pendingPayouts > 0 && (
+                          <Badge
+                            variant="outline"
+                            className="border-yellow-500/20 bg-yellow-500/10 text-[10px] text-yellow-600 dark:text-yellow-400"
+                          >
+                            {project.pendingPayouts} pending
+                          </Badge>
+                        )}
+                        <ChevronRight className="size-4 text-muted-foreground transition-transform group-hover:translate-x-0.5" />
+                      </div>
+                    </Link>
+                  </div>
                 ))}
               </div>
             )}
-          </GlassCard>
+          </div>
 
           {/* Recent Payouts */}
-          <GlassCard className="overflow-hidden p-0">
+          <div className="overflow-hidden p-0">
             <div className="border-b border-border px-4 py-2.5">
               <h3 className="text-xs font-medium tracking-wider text-muted-foreground uppercase">
                 Recent Payouts
@@ -357,8 +329,8 @@ export function DashboardContent() {
             </div>
             {!data || data.recentPayouts.length === 0 ? (
               <div className="flex flex-col items-center justify-center py-12 text-center">
-                <div className="mb-3 flex size-12 items-center justify-center rounded-xl bg-primary/10">
-                  <CoinsStacked01 className="size-6 text-primary" />
+                <div className="mb-3 flex size-12 items-center justify-center rounded-xl bg-muted">
+                  <CoinsStacked01 className="size-6" />
                 </div>
                 <h3 className="text-base font-semibold">No payouts yet</h3>
                 <p className="mt-1.5 text-sm text-muted-foreground">
@@ -366,8 +338,8 @@ export function DashboardContent() {
                 </p>
               </div>
             ) : (
-              <div className="divide-y divide-border">
-                {data.recentPayouts.map((recipient) => {
+              <div>
+                {data.recentPayouts.map((recipient, index) => {
                   const needsConfirmation =
                     recipient.status === PayoutRecipientStatus.PENDING &&
                     recipient.payout.status === PayoutStatus.SENT
@@ -418,116 +390,145 @@ export function DashboardContent() {
                     statusBadge[PayoutRecipientStatus.PENDING]
 
                   return (
-                    <div key={recipient.id} className="px-4 py-3">
-                      <div className="flex items-center justify-between gap-3">
-                        <div className="min-w-0 flex-1">
-                          <p className="truncate text-sm font-medium">
-                            {recipient.payout.project.name}
-                          </p>
-                          <p className="mt-0.5 text-xs text-muted-foreground">
-                            {recipient.payout.periodLabel}
-                          </p>
+                    <div key={recipient.id}>
+                      {index > 0 && <Separator className="ml-4" />}
+                      <div className="ml-4 px-4 py-3">
+                        <div className="flex items-center justify-between gap-3">
+                          <div className="min-w-0 flex-1">
+                            <p className="truncate text-sm font-medium">
+                              {recipient.payout.project.name}
+                            </p>
+                            <p className="mt-0.5 text-xs text-muted-foreground">
+                              {recipient.payout.periodLabel}
+                            </p>
+                          </div>
+                          <div className="flex shrink-0 items-center gap-2">
+                            <span className="text-sm font-semibold text-primary">
+                              {formatCurrency(recipient.amountCents)}
+                            </span>
+                            <Badge
+                              variant="outline"
+                              className={cn('text-[10px]', badge.color)}
+                            >
+                              {badge.label}
+                            </Badge>
+                          </div>
                         </div>
-                        <div className="flex shrink-0 items-center gap-2">
-                          <span className="text-sm font-semibold text-primary">
-                            {formatCurrency(recipient.amountCents)}
-                          </span>
-                          <Badge
-                            variant="outline"
-                            className={cn('text-[10px]', badge.color)}
-                          >
-                            {badge.label}
-                          </Badge>
-                        </div>
-                      </div>
 
-                      {/* Confirmation actions */}
-                      {needsConfirmation &&
-                        showDisputeForm !== recipient.payoutId && (
-                          <div className="mt-3 flex gap-2">
+                        {/* Confirmation actions */}
+                        {needsConfirmation &&
+                          showDisputeForm !== recipient.payoutId && (
+                            <div className="mt-3 flex gap-2">
+                              <AppButton
+                                size="sm"
+                                onClick={handleConfirm}
+                                disabled={
+                                  confirmingPayoutId === recipient.payoutId
+                                }
+                                className="flex-1 bg-primary hover:bg-primary/90"
+                              >
+                                {confirmingPayoutId === recipient.payoutId ? (
+                                  <Loader2 className="mr-2 size-3 animate-spin" />
+                                ) : (
+                                  <Check className="mr-2 size-3" />
+                                )}
+                                Confirm
+                              </AppButton>
+                              <AppButton
+                                size="sm"
+                                variant="outline"
+                                onClick={() =>
+                                  setShowDisputeForm(recipient.payoutId)
+                                }
+                                disabled={
+                                  confirmingPayoutId === recipient.payoutId
+                                }
+                                className="text-red-500 hover:bg-red-500/10"
+                              >
+                                <X className="mr-2 size-3" />
+                                Dispute
+                              </AppButton>
+                            </div>
+                          )}
+
+                        {/* Dispute form */}
+                        {showDisputeForm === recipient.payoutId && (
+                          <div className="mt-3 space-y-2 rounded-lg border border-red-500/20 bg-red-500/5 p-3">
+                            <p className="text-xs font-medium text-red-500">
+                              Report a problem with this payout
+                            </p>
+                            <AppTextarea
+                              value={disputeReason}
+                              onChange={(e) => setDisputeReason(e.target.value)}
+                              placeholder="Describe the issue..."
+                              rows={2}
+                              disabled={
+                                confirmingPayoutId === recipient.payoutId
+                              }
+                            />
+                            <div className="flex gap-2">
+                              <AppButton
+                                size="sm"
+                                variant="outline"
+                                onClick={() => {
+                                  setShowDisputeForm(null)
+                                  setDisputeReason('')
+                                }}
+                                disabled={
+                                  confirmingPayoutId === recipient.payoutId
+                                }
+                              >
+                                Cancel
+                              </AppButton>
+                              <AppButton
+                                size="sm"
+                                onClick={handleDispute}
+                                disabled={
+                                  confirmingPayoutId === recipient.payoutId
+                                }
+                                className="bg-red-600 hover:bg-red-700"
+                              >
+                                {confirmingPayoutId === recipient.payoutId ? (
+                                  <Loader2 className="mr-2 size-3 animate-spin" />
+                                ) : (
+                                  <X className="mr-2 size-3" />
+                                )}
+                                Submit
+                              </AppButton>
+                            </div>
+                          </div>
+                        )}
+
+                        {/* Resolve dispute - allow marking as received after dispute */}
+                        {recipient.status ===
+                          PayoutRecipientStatus.DISPUTED && (
+                          <div className="mt-3 flex items-center justify-between rounded-lg border border-red-500/20 bg-red-500/5 p-3">
+                            <p className="text-xs text-muted-foreground">
+                              Received it after all?
+                            </p>
                             <AppButton
                               size="sm"
                               onClick={handleConfirm}
                               disabled={
                                 confirmingPayoutId === recipient.payoutId
                               }
-                              className="flex-1 bg-primary hover:bg-primary/90"
                             >
                               {confirmingPayoutId === recipient.payoutId ? (
-                                <Loader2 className="mr-2 size-3 animate-spin" />
+                                <Loader2 className="mr-1.5 size-3 animate-spin" />
                               ) : (
-                                <Check className="mr-2 size-3" />
+                                <Check className="mr-1.5 size-3" />
                               )}
-                              Confirm
-                            </AppButton>
-                            <AppButton
-                              size="sm"
-                              variant="outline"
-                              onClick={() =>
-                                setShowDisputeForm(recipient.payoutId)
-                              }
-                              disabled={
-                                confirmingPayoutId === recipient.payoutId
-                              }
-                              className="text-red-500 hover:bg-red-500/10"
-                            >
-                              <X className="mr-2 size-3" />
-                              Dispute
+                              Mark as Received
                             </AppButton>
                           </div>
                         )}
-
-                      {/* Dispute form */}
-                      {showDisputeForm === recipient.payoutId && (
-                        <div className="mt-3 space-y-2 rounded-lg border border-red-500/20 bg-red-500/5 p-3">
-                          <p className="text-xs font-medium text-red-500">
-                            Report a problem with this payout
-                          </p>
-                          <AppTextarea
-                            value={disputeReason}
-                            onChange={(e) => setDisputeReason(e.target.value)}
-                            placeholder="Describe the issue..."
-                            rows={2}
-                            disabled={confirmingPayoutId === recipient.payoutId}
-                          />
-                          <div className="flex gap-2">
-                            <AppButton
-                              size="sm"
-                              variant="outline"
-                              onClick={() => {
-                                setShowDisputeForm(null)
-                                setDisputeReason('')
-                              }}
-                              disabled={
-                                confirmingPayoutId === recipient.payoutId
-                              }
-                            >
-                              Cancel
-                            </AppButton>
-                            <AppButton
-                              size="sm"
-                              onClick={handleDispute}
-                              disabled={
-                                confirmingPayoutId === recipient.payoutId
-                              }
-                              className="bg-red-600 hover:bg-red-700"
-                            >
-                              {confirmingPayoutId === recipient.payoutId ? (
-                                <Loader2 className="mr-2 size-3 animate-spin" />
-                              ) : (
-                                <X className="mr-2 size-3" />
-                              )}
-                              Submit
-                            </AppButton>
-                          </div>
-                        </div>
-                      )}
+                      </div>
                     </div>
                   )
                 })}
               </div>
             )}
-          </GlassCard>
+          </div>
         </div>
       </div>
     </AppBackground>

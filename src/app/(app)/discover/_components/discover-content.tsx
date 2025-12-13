@@ -13,25 +13,7 @@ import {
   ProjectCard,
   ProjectCardSkeleton,
 } from '@/components/project/project-card'
-
-function GlassCard({
-  children,
-  className,
-}: {
-  children: React.ReactNode
-  className?: string
-}) {
-  return (
-    <div
-      className={cn(
-        'isolate rounded-xl bg-card/50 p-4 shadow-lg ring-1 ring-border backdrop-blur-xl',
-        className,
-      )}
-    >
-      {children}
-    </div>
-  )
-}
+import { Card } from '@/components/ui/card'
 
 type SortOption = 'newest' | 'openBounties' | 'totalPaidOut'
 
@@ -85,7 +67,7 @@ export function DiscoverContent() {
             ))}
           </div>
         ) : error ? (
-          <GlassCard className="py-12 text-center">
+          <Card className="py-12 text-center">
             <p className="text-sm text-muted-foreground">
               Failed to load projects. Please try again.
             </p>
@@ -97,9 +79,9 @@ export function DiscoverContent() {
             >
               Retry
             </AppButton>
-          </GlassCard>
+          </Card>
         ) : data?.projects.length === 0 ? (
-          <GlassCard className="py-12 text-center">
+          <Card className="py-12 text-center">
             <div className="mx-auto flex max-w-xs flex-col items-center">
               <div className="mb-3 flex size-12 items-center justify-center rounded-xl bg-primary/10">
                 <SearchLg className="size-6 text-primary" />
@@ -112,7 +94,7 @@ export function DiscoverContent() {
                 <Link href={routes.auth.signUp()}>Create Project</Link>
               </AppButton>
             </div>
-          </GlassCard>
+          </Card>
         ) : (
           <div className="grid gap-3 sm:grid-cols-2">
             {data?.projects.map((project) => (

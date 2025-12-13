@@ -3,7 +3,6 @@
 import { useSession } from '@/lib/auth/react'
 import { trpc } from '@/lib/trpc/react'
 import {
-  AlertTriangle,
   Clock,
   PieChart01,
   Plus,
@@ -454,16 +453,9 @@ export function BountyEditor({ mode, slug, bountyId }: BountyEditorProps) {
 
   // Pool calculations
   const poolCapacity = poolStats?.poolCapacity ?? 1000
-  const allocatedPoints = poolStats?.allocatedPoints ?? 0
   const availablePoints = poolStats?.availablePoints ?? 1000
-  // In edit mode, don't count the current bounty's points as "new"
-  const effectiveNewPoints =
-    mode === 'edit' ? points - (bounty?.points ?? 0) : points
-  const newTotalAllocated = allocatedPoints + effectiveNewPoints
-  const wouldExceedCapacity = newTotalAllocated > poolCapacity
-  const bountyPercent = (points / poolCapacity) * 100
 
-  const pageTitle = mode === 'create' ? 'New Bounty' : 'Edit Bounty'
+  const pageTitle = mode === 'create' ? 'New' : 'Edit'
   const submitLabel = mode === 'create' ? 'Create Bounty' : 'Save Changes'
 
   return (
@@ -498,7 +490,7 @@ export function BountyEditor({ mode, slug, bountyId }: BountyEditorProps) {
                 })}
                 className="text-muted-foreground transition-colors hover:text-foreground"
               >
-                {bounty.title}
+                {project.projectKey}-{bounty.number}
               </Link>
               <span className="text-muted-foreground/50">/</span>
             </>
@@ -531,7 +523,7 @@ export function BountyEditor({ mode, slug, bountyId }: BountyEditorProps) {
               )}
 
               {/* Main input area - bordered container */}
-              <div className="rounded-lg border border-border bg-card">
+              <div className="rounded-lg border border-border bg-accent">
                 {/* Title input - inline style */}
                 <div className="px-4 py-3">
                   <input
@@ -828,41 +820,23 @@ export function BountyEditor({ mode, slug, bountyId }: BountyEditorProps) {
                   </div>
 
                   {/* Pool share info */}
-                  <div className="space-y-1 rounded-md bg-primary/5 px-3 py-2 text-xs">
-                    <div className="whitespace-nowrap text-muted-foreground">
-                      Pays{' '}
-                      <span className="font-semibold text-primary">
-                        {bountyPercent.toFixed(1)}%
-                      </span>{' '}
-                      of pool per payout
-                    </div>
+                  <div className="space-y-0.5 rounded-md bg-primary/5 px-3 py-2 text-xs">
                     {project.rewardPool && (
-                      <div className="whitespace-nowrap text-muted-foreground/70">
-                        e.g. $
+                      <div className="text-muted-foreground/70">
+                        Roughly $
                         {(
                           (10000 *
                             project.rewardPool.poolPercentage *
-                            bountyPercent) /
-                          10000
+                            (points / poolCapacity)) /
+                          100
                         ).toLocaleString(undefined, {
                           minimumFractionDigits: 0,
                           maximumFractionDigits: 0,
                         })}{' '}
-                        on $10k profit
+                        per $10k profit for current reward pool size
                       </div>
                     )}
                   </div>
-
-                  {/* Capacity warning */}
-                  {wouldExceedCapacity && (
-                    <div className="flex items-start gap-2 rounded-md bg-amber-500/10 px-3 py-2">
-                      <AlertTriangle className="mt-0.5 size-3.5 shrink-0 text-amber-500" />
-                      <span className="text-xs text-amber-600 dark:text-amber-400">
-                        This expands pool capacity, diluting existing
-                        contributors
-                      </span>
-                    </div>
-                  )}
                 </div>
 
                 <Separator />

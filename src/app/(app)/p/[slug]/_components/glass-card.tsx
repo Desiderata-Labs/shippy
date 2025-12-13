@@ -18,8 +18,9 @@ export function GlassCard({
   return (
     <div
       className={cn(
-        'isolate rounded-xl bg-card p-4 ring-1 ring-border backdrop-blur-xl',
-        hover && 'transition-colors duration-200 hover:bg-card/60',
+        'isolate rounded-xl p-4 backdrop-blur-xl',
+        hover &&
+          'transition-colors duration-200 hover:bg-card/60 hover:shadow-lg',
         className,
       )}
     >

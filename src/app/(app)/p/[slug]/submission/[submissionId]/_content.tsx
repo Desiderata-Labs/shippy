@@ -109,6 +109,12 @@ export function SubmissionDetailContent() {
     { enabled: !!submissionId, retry: false },
   )
 
+  // Fetch pool stats to check if approval would expand the pool
+  const { data: poolStats } = trpc.project.getPoolStats.useQuery(
+    { projectId: submission?.bounty.project.id ?? '' },
+    { enabled: !!submission?.bounty.project.id },
+  )
+
   const utils = trpc.useUtils()
 
   const addComment = trpc.submission.addComment.useMutation({
@@ -197,14 +203,20 @@ export function SubmissionDetailContent() {
 
   const isFounder = session?.user?.id === submission.bounty.project.founderId
   const isSubmitter = session?.user?.id === submission.userId
-  const isTerminalStatus = [
+  // Terminal states where no further action is possible
+  const isFullyTerminalStatus = [
+    SubmissionStatus.APPROVED,
+    SubmissionStatus.WITHDRAWN,
+  ].includes(submission.status as SubmissionStatus)
+  // Founder can review rejected submissions to retroactively approve
+  const canReview = isFounder && !isFullyTerminalStatus
+  // Submitter cannot edit once rejected, approved, or withdrawn
+  const isTerminalForSubmitter = [
     SubmissionStatus.APPROVED,
     SubmissionStatus.REJECTED,
     SubmissionStatus.WITHDRAWN,
   ].includes(submission.status as SubmissionStatus)
-  const canReview = isFounder && !isTerminalStatus
-  // Submitter can edit if not in terminal state
-  const canEdit = isSubmitter && !isTerminalStatus
+  const canEdit = isSubmitter && !isTerminalForSubmitter
   // Allow comments on any submission (even terminal states) for clarifications
   const canComment = true
 
@@ -407,12 +419,37 @@ export function SubmissionDetailContent() {
                           onChange={() => setReviewAction('approve')}
                           className="mt-0.5"
                         />
-                        <div>
+                        <div className="flex-1">
                           <div className="text-sm font-medium">Approve</div>
                           <div className="text-xs text-muted-foreground">
                             Award {submission.bounty.points} points to the
                             contributor.
                           </div>
+                          {/* Pool expansion info */}
+                          {poolStats &&
+                            poolStats.earnedPoints + submission.bounty.points >
+                              poolStats.poolCapacity && (
+                              <div className="mt-2 flex items-center rounded-md bg-primary/5 px-2 py-1.5">
+                                <span className="text-[11px] text-muted-foreground">
+                                  Expands reward pool from{' '}
+                                  {poolStats.poolCapacity.toLocaleString()} to{' '}
+                                  {(
+                                    poolStats.earnedPoints +
+                                    submission.bounty.points
+                                  ).toLocaleString()}{' '}
+                                  pts (
+                                  {(
+                                    ((poolStats.earnedPoints +
+                                      submission.bounty.points -
+                                      poolStats.poolCapacity) /
+                                      (poolStats.earnedPoints +
+                                        submission.bounty.points)) *
+                                    100
+                                  ).toFixed(1)}
+                                  % dilution)
+                                </span>
+                              </div>
+                            )}
                         </div>
                       </label>
 

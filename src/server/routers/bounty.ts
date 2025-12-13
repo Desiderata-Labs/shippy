@@ -186,76 +186,9 @@ export const bountyRouter = router({
         })
       }
 
-      // Calculate current allocated points and check if we need to expand
-      const currentAllocated = project.bounties.reduce(
-        (sum, b) => sum + b.points,
-        0,
-      )
-      const newTotalAllocated = currentAllocated + input.points
-      const currentCapacity = project.rewardPool.poolCapacity
-
-      // Auto-expand pool capacity if needed
-      if (newTotalAllocated > currentCapacity) {
-        const dilutionPercent =
-          ((newTotalAllocated - currentCapacity) / newTotalAllocated) * 100
-
-        // Use transaction to expand pool and create bounty together
-        return ctx.prisma.$transaction(async (tx) => {
-          // Atomically reserve the next bounty number for this project
-          const updatedProject = await tx.project.update({
-            where: { id: input.projectId },
-            data: { nextBountyNumber: { increment: 1 } },
-            select: { nextBountyNumber: true },
-          })
-          const bountyNumber = updatedProject.nextBountyNumber - 1
-
-          // Expand pool capacity
-          await tx.rewardPool.update({
-            where: { id: project.rewardPool!.id },
-            data: { poolCapacity: newTotalAllocated },
-          })
-
-          // Log the expansion event
-          await tx.poolExpansionEvent.create({
-            data: {
-              rewardPoolId: project.rewardPool!.id,
-              previousCapacity: currentCapacity,
-              newCapacity: newTotalAllocated,
-              reason: `Auto-expanded to accommodate bounty: "${input.title}"`,
-              dilutionPercent,
-            },
-          })
-
-          // Create the bounty with labels
-          const bounty = await tx.bounty.create({
-            data: {
-              projectId: input.projectId,
-              number: bountyNumber,
-              title: input.title,
-              description: input.description,
-              points: input.points,
-              claimMode: input.claimMode,
-              claimExpiryDays: input.claimExpiryDays,
-              maxClaims: input.maxClaims,
-              evidenceDescription: input.evidenceDescription,
-            },
-          })
-
-          // Add labels if provided
-          if (input.labelIds.length > 0) {
-            await tx.bountyLabel.createMany({
-              data: input.labelIds.map((labelId) => ({
-                bountyId: bounty.id,
-                labelId,
-              })),
-            })
-          }
-
-          return bounty
-        })
-      }
-
-      // No expansion needed: reserve number + create bounty in a transaction
+      // Reserve number + create bounty in a transaction
+      // Note: Pool expansion only happens when submissions are approved (points earned),
+      // not when bounties are created (points allocated)
       return ctx.prisma.$transaction(async (tx) => {
         const updatedProject = await tx.project.update({
           where: { id: input.projectId },

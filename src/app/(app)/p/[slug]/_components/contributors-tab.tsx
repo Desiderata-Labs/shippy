@@ -9,8 +9,8 @@ import {
 } from '@untitled-ui/icons-react'
 import { cn } from '@/lib/utils'
 import { Avatar, AvatarFallback, AvatarImage } from '@/components/ui/avatar'
+import { Card } from '@/components/ui/card'
 import { Skeleton } from '@/components/ui/skeleton'
-import { GlassCard } from './glass-card'
 
 interface ContributorsTabProps {
   projectId: string
@@ -32,7 +32,7 @@ export function ContributorsTab({ projectId }: ContributorsTabProps) {
 
   if (isLoading) {
     return (
-      <GlassCard className="p-4">
+      <Card className="p-4">
         <div className="space-y-3">
           {Array.from({ length: 3 }).map((_, i) => (
             <div key={i} className="flex items-center gap-3">
@@ -46,23 +46,23 @@ export function ContributorsTab({ projectId }: ContributorsTabProps) {
             </div>
           ))}
         </div>
-      </GlassCard>
+      </Card>
     )
   }
 
   if (error) {
     return (
-      <GlassCard className="py-12 text-center">
+      <Card className="py-12 text-center">
         <p className="text-sm text-muted-foreground">
           Failed to load contributors.
         </p>
-      </GlassCard>
+      </Card>
     )
   }
 
   if (!data || data.contributors.length === 0) {
     return (
-      <GlassCard className="py-12 text-center">
+      <Card className="py-12 text-center">
         <div className="mx-auto flex max-w-xs flex-col items-center">
           <div className="mb-3 flex size-12 items-center justify-center rounded-xl bg-muted">
             <Users01 className="size-6 text-foreground opacity-50" />
@@ -72,7 +72,7 @@ export function ContributorsTab({ projectId }: ContributorsTabProps) {
             Contributors appear when their submissions are approved.
           </p>
         </div>
-      </GlassCard>
+      </Card>
     )
   }
 
@@ -108,7 +108,7 @@ export function ContributorsTab({ projectId }: ContributorsTabProps) {
       </div>
 
       {/* Leaderboard */}
-      <GlassCard className="p-0">
+      <div className="p-0">
         {/* Header */}
         <div className="border-b border-border px-4 py-2.5">
           <h3 className="text-xs font-medium tracking-wider text-muted-foreground uppercase">
@@ -126,7 +126,7 @@ export function ContributorsTab({ projectId }: ContributorsTabProps) {
             />
           ))}
         </div>
-      </GlassCard>
+      </div>
     </div>
   )
 }
@@ -141,7 +141,7 @@ function StatCard({
   label: string
 }) {
   return (
-    <GlassCard className="p-3">
+    <Card className="p-3">
       <div className="flex items-start gap-2">
         <div
           className={cn('flex size-6 items-center justify-center rounded-sm')}
@@ -153,7 +153,7 @@ function StatCard({
           <p className="text-[10px] text-muted-foreground">{label}</p>
         </div>
       </div>
-    </GlassCard>
+    </Card>
   )
 }
 

@@ -17,7 +17,7 @@ import { bountyStatusColors, needsReviewColor } from '@/lib/status-colors'
 import { cn } from '@/lib/utils'
 import { AppButton } from '@/components/app/app-button'
 import { Avatar, AvatarFallback, AvatarImage } from '@/components/ui/avatar'
-import { GlassCard } from './glass-card'
+import { Card } from '@/components/ui/card'
 
 enum BountyFilter {
   All = 'all',
@@ -112,7 +112,7 @@ export function BountiesTab({
 
   if (bounties.length === 0) {
     return (
-      <GlassCard className="py-12 text-center">
+      <Card className="py-12 text-center">
         <div className="mx-auto flex max-w-xs flex-col items-center">
           <div className="mb-3 flex size-12 items-center justify-center rounded-xl bg-primary/10">
             <Target01 className="size-6 text-primary" />
@@ -136,7 +136,7 @@ export function BountiesTab({
             </AppButton>
           )}
         </div>
-      </GlassCard>
+      </Card>
     )
   }
 
@@ -225,15 +225,13 @@ export function BountiesTab({
           No bounties match this filter
         </div>
       ) : (
-        <div className="divide-y divide-border rounded-lg border border-border bg-card">
-          {filteredBounties.map((bounty, idx) => (
+        <div className="space-y-2">
+          {filteredBounties.map((bounty) => (
             <BountyRow
               key={bounty.id}
               bounty={bounty}
               projectSlug={projectSlug}
               projectKey={projectKey}
-              isFirst={idx === 0}
-              isLast={idx === filteredBounties.length - 1}
               showNeedsReview={
                 isFounder && bounty._count.pendingSubmissions > 0
               }
@@ -278,8 +276,6 @@ interface BountyRowProps {
   bounty: BountiesTabProps['bounties'][number]
   projectSlug: string
   projectKey: string
-  isFirst: boolean
-  isLast: boolean
   showNeedsReview: boolean
 }
 
@@ -287,8 +283,6 @@ function BountyRow({
   bounty,
   projectSlug,
   projectKey,
-  isFirst,
-  isLast,
   showNeedsReview,
 }: BountyRowProps) {
   const isClaimed = bounty.status === 'CLAIMED'
@@ -313,11 +307,7 @@ function BountyRow({
         bountyId: bounty.id,
         title: bounty.title,
       })}
-      className={cn(
-        'group flex min-h-[44px] items-center gap-3 px-3 py-4 transition-colors hover:bg-accent/50',
-        isFirst && 'rounded-t-lg',
-        isLast && 'rounded-b-lg',
-      )}
+      className="group flex min-h-[44px] items-center gap-3 rounded-lg border border-border bg-card px-3 py-4 shadow-md transition-all duration-300 hover:border-primary/75 hover:shadow-lg"
     >
       {/* Status icon (Linear-style circle) */}
       <span className="flex shrink-0 items-center justify-center">
@@ -333,7 +323,7 @@ function BountyRow({
       </span>
 
       {/* Issue key: "OTH-32" */}
-      <span className="shrink-0 font-mono text-xs text-muted-foreground">
+      <span className="shrink-0 text-xs text-muted-foreground">
         {projectKey}-{bounty.number}
       </span>
 

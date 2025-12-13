@@ -370,7 +370,7 @@ export function BountyDetailContent() {
             Bounties
           </Link>
           <span className="text-muted-foreground/50">/</span>
-          <span className="font-mono text-foreground">{bountyDisplayId}</span>
+          <span className="text-foreground">{bountyDisplayId}</span>
         </div>
 
         {/* Header */}
@@ -506,19 +506,23 @@ export function BountyDetailContent() {
                             <span className="font-medium">
                               {submission.user.name}
                             </span>
+                            <span className="text-muted-foreground">
+                              submitted work
+                            </span>
+                            <span className={cn('text-xs', status.color)}>
+                              ({status.label})
+                            </span>
+                            <span className="text-muted-foreground">·</span>
                             <Link
                               href={routes.project.submissionDetail({
                                 slug: params.slug,
                                 submissionId: submission.id,
                                 title: bounty.title,
                               })}
-                              className="text-muted-foreground hover:text-foreground hover:underline"
+                              className="text-primary hover:underline"
                             >
-                              submitted work
+                              Review Submission →
                             </Link>
-                            <span className={cn('text-xs', status.color)}>
-                              ({status.label})
-                            </span>
                             <span className="text-muted-foreground">·</span>
                             <span className="text-xs text-muted-foreground">
                               {new Date(

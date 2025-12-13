@@ -6,7 +6,6 @@ import { Folder, Plus, User01 } from '@untitled-ui/icons-react'
 import Link from 'next/link'
 import { notFound, useParams } from 'next/navigation'
 import { routes } from '@/lib/routes'
-import { cn } from '@/lib/utils'
 import { AppButton } from '@/components/app'
 import { AppBackground } from '@/components/layout/app-background'
 import {
@@ -15,25 +14,7 @@ import {
 } from '@/components/project/project-card'
 import { Avatar, AvatarFallback, AvatarImage } from '@/components/ui/avatar'
 import { Skeleton } from '@/components/ui/skeleton'
-
-function GlassCard({
-  children,
-  className,
-}: {
-  children: React.ReactNode
-  className?: string
-}) {
-  return (
-    <div
-      className={cn(
-        'isolate rounded-xl bg-card/50 p-4 shadow-lg ring-1 ring-border backdrop-blur-xl',
-        className,
-      )}
-    >
-      {children}
-    </div>
-  )
-}
+import { GlassCard } from '@/app/(app)/p/[slug]/_components/glass-card'
 
 export function UserProfileContent() {
   const params = useParams<{ username: string }>()

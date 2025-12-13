@@ -27,6 +27,7 @@ import { AppButton } from '@/components/app'
 import { AppBackground } from '@/components/layout/app-background'
 import { Avatar, AvatarFallback, AvatarImage } from '@/components/ui/avatar'
 import { Badge } from '@/components/ui/badge'
+import { ConfirmModal } from '@/components/ui/confirm-modal'
 import { ErrorState } from '@/components/ui/error-state'
 import { NotFoundState } from '@/components/ui/not-found-state'
 import { Separator } from '@/components/ui/separator'
@@ -117,6 +118,11 @@ export function PayoutDetailContent() {
   )
   const [confirmingReceipt, setConfirmingReceipt] = useState(false)
   const [filter, setFilter] = useState<RecipientFilter>(RecipientFilter.All)
+  const [confirmPayRecipient, setConfirmPayRecipient] = useState<{
+    id: string
+    name: string
+    amount: number
+  } | null>(null)
 
   // Fetch payout data
   const {
@@ -526,7 +532,7 @@ export function PayoutDetailContent() {
                 </div>
               )}
 
-            {/* Contributor: Disputed message */}
+            {/* Contributor: Disputed message with option to resolve */}
             {myRecipient &&
               myRecipient.status === PayoutRecipientStatus.DISPUTED && (
                 <div className="rounded-lg border border-red-500/20 bg-red-500/10 p-4">
@@ -541,6 +547,24 @@ export function PayoutDetailContent() {
                       Reason: {myRecipient.disputeReason}
                     </p>
                   )}
+                  <div className="mt-3 border-t border-red-500/20 pt-3">
+                    <p className="mb-2 text-xs text-muted-foreground">
+                      Received the payment after all? You can mark it as
+                      received.
+                    </p>
+                    <AppButton
+                      size="sm"
+                      onClick={() => handleConfirmReceipt(true)}
+                      disabled={confirmingReceipt}
+                    >
+                      {confirmingReceipt ? (
+                        <Loader2 className="mr-2 size-3 animate-spin" />
+                      ) : (
+                        <Check className="mr-2 size-3" />
+                      )}
+                      Mark as Received
+                    </AppButton>
+                  </div>
                 </div>
               )}
 
@@ -773,7 +797,11 @@ export function PayoutDetailContent() {
                               size="sm"
                               variant="ghost"
                               onClick={() =>
-                                handleMarkRecipientPaid(recipient.id)
+                                setConfirmPayRecipient({
+                                  id: recipient.id,
+                                  name: recipient.user.name,
+                                  amount: recipient.amountCents,
+                                })
                               }
                               disabled={isMarking}
                               className="size-7 p-0"
@@ -860,6 +888,28 @@ export function PayoutDetailContent() {
           </div>
         </div>
       </div>
+
+      {/* Confirm mark as paid modal */}
+      <ConfirmModal
+        open={!!confirmPayRecipient}
+        onClose={() => setConfirmPayRecipient(null)}
+        onConfirm={async () => {
+          if (confirmPayRecipient) {
+            await handleMarkRecipientPaid(confirmPayRecipient.id)
+            setConfirmPayRecipient(null)
+          }
+        }}
+        title="Mark as Paid"
+        description={
+          confirmPayRecipient
+            ? `Confirm that you've sent ${formatCurrency(confirmPayRecipient.amount)} to ${confirmPayRecipient.name}?`
+            : ''
+        }
+        confirmText="Yes, I've Paid"
+        cancelText="Cancel"
+        variant="default"
+        isLoading={!!markingRecipientId}
+      />
     </AppBackground>
   )
 }

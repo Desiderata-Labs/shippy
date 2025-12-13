@@ -351,10 +351,6 @@ export const submissionRouter = router({
           bounty: {
             include: {
               project: {
-                select: {
-                  id: true,
-                  founderId: true,
-                },
                 include: {
                   rewardPool: true,
                 },
@@ -415,12 +411,13 @@ export const submissionRouter = router({
               })
 
               // Log the expansion event
+              const bountyDisplayId = `${project.projectKey}-${submission.bounty.number}`
               await ctx.prisma.poolExpansionEvent.create({
                 data: {
                   rewardPoolId: rewardPool.id,
                   previousCapacity: rewardPool.poolCapacity,
                   newCapacity: newTotalEarned,
-                  reason: `Auto-expanded when awarding ${pointsAwarded} pts for: "${submission.bounty.title}"`,
+                  reason: `Auto-expanded when awarding ${pointsAwarded} pts for ${bountyDisplayId}`,
                   dilutionPercent,
                 },
               })

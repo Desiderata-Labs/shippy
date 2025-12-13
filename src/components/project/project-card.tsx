@@ -10,6 +10,7 @@ import {
 import Image from 'next/image'
 import Link from 'next/link'
 import { routes } from '@/lib/routes'
+import { cn } from '@/lib/utils'
 import { Skeleton } from '@/components/ui/skeleton'
 
 export interface ProjectCardProject {
@@ -43,7 +44,7 @@ export function ProjectCard({ project }: ProjectCardProps) {
   return (
     <Link
       href={routes.project.detail({ slug: project.slug })}
-      className="group block rounded-2xl border bg-card transition-all duration-300 hover:border-primary/75 hover:shadow-lg"
+      className="group block rounded-2xl border bg-accent shadow-md transition-all duration-300 hover:border-primary/75 hover:shadow-lg"
     >
       <div className="p-4">
         {/* Header with logo and title */}
@@ -80,8 +81,16 @@ export function ProjectCard({ project }: ProjectCardProps) {
           </span>
           <span className="flex items-center gap-1">
             <Target01 className="size-3.5 opacity-50" />
-            {project._count.bounties}{' '}
-            {project._count.bounties === 1 ? 'bounty' : 'bounties'}
+            <span
+              className={cn(
+                project._count.bounties > 0
+                  ? 'text-primary'
+                  : 'text-foreground',
+              )}
+            >
+              {project._count.bounties}{' '}
+              {project._count.bounties === 1 ? 'open bounty' : 'open bounties'}
+            </span>
           </span>
           {project.rewardPool && (
             <>

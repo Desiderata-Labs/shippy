@@ -1,8 +1,7 @@
 'use client'
 
-import { HelpCircle, InfoCircle } from '@untitled-ui/icons-react'
+import { InfoCircle } from '@untitled-ui/icons-react'
 import { Markdown } from '@/components/ui/markdown'
-import { GlassCard, GlassCardHeader } from './glass-card'
 
 interface ReadmeTabProps {
   project: {
@@ -20,7 +19,11 @@ export function ReadmeTab({ project }: ReadmeTabProps) {
   return (
     <div className="space-y-6">
       {project.description ? (
-        <Markdown markdown={project.description} proseSize="sm" />
+        <Markdown
+          className="px-4"
+          markdown={project.description}
+          proseSize="sm"
+        />
       ) : (
         <div className="flex items-center gap-2 py-4 text-muted-foreground">
           <InfoCircle className="size-4" />
@@ -30,12 +33,13 @@ export function ReadmeTab({ project }: ReadmeTabProps) {
 
       {/* How It Works (if reward pool exists) */}
       {project.rewardPool && (
-        <GlassCard className="p-4">
-          <GlassCardHeader
-            icon={HelpCircle}
-            title="How to Earn"
-            description="Complete bounties, earn points, get paid"
-          />
+        <div className="mt-10 rounded-lg border border-border p-4">
+          <div>
+            <h3 className="text-lg font-semibold">How to Earn</h3>
+            <p className="text-sm text-muted-foreground">
+              Complete bounties, earn points, get paid
+            </p>
+          </div>
           <div className="mt-4 grid gap-3 sm:grid-cols-3">
             <StepCard
               number={1}
@@ -53,7 +57,7 @@ export function ReadmeTab({ project }: ReadmeTabProps) {
               description="Earn recurring payouts from points"
             />
           </div>
-        </GlassCard>
+        </div>
       )}
     </div>
   )

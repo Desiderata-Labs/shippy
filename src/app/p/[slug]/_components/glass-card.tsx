@@ -18,7 +18,7 @@ export function GlassCard({
   return (
     <div
       className={cn(
-        'isolate rounded-xl bg-card/50 p-4 shadow-lg ring-1 ring-border backdrop-blur-xl',
+        'isolate rounded-xl bg-card p-4 ring-1 ring-border backdrop-blur-xl',
         hover && 'transition-colors duration-200 hover:bg-card/60',
         className,
       )}
@@ -45,8 +45,8 @@ export function GlassCardHeader({
     <div className="flex items-start justify-between gap-3">
       <div className="flex items-center gap-2">
         {Icon && (
-          <div className="flex size-6 items-center justify-center rounded-sm bg-primary/10">
-            <Icon className="size-3.5 text-primary" />
+          <div className="flex size-6 items-center justify-center rounded-sm bg-muted">
+            <Icon className="size-3.5 text-foreground opacity-50" />
           </div>
         )}
         <div>

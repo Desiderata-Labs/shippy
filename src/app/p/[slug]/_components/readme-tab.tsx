@@ -70,7 +70,7 @@ function StepCard({
 }) {
   return (
     <div className="relative rounded-lg border border-border bg-muted p-3">
-      <div className="mb-2 flex size-6 items-center justify-center rounded-full bg-primary/10 text-xs font-bold text-primary">
+      <div className="mb-2 flex size-6 items-center justify-center rounded-full bg-card text-xs font-bold">
         {number}
       </div>
       <h4 className="text-sm font-medium">{title}</h4>

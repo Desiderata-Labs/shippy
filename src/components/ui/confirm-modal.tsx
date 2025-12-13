@@ -2,13 +2,13 @@
 
 import { Loader2 } from 'lucide-react'
 import { ReactNode } from 'react'
-import { Button } from '@/components/ui/button'
 import {
   Dialog,
   DialogContent,
   DialogDescription,
   DialogTitle,
 } from '@/components/ui/dialog'
+import { AppButton } from '../app/app-button'
 
 interface ConfirmModalProps {
   open: boolean
@@ -52,14 +52,14 @@ export function ConfirmModal({
           <>
             {content && <div className="mt-4">{content}</div>}
             <div className="mt-6 grid grid-cols-2 gap-4">
-              <Button
+              <AppButton
                 onClick={onClose}
                 variant="secondary"
                 disabled={isLoading}
               >
                 {cancelText}
-              </Button>
-              <Button
+              </AppButton>
+              <AppButton
                 variant={variant}
                 onClick={onConfirm}
                 disabled={isLoading}
@@ -69,7 +69,7 @@ export function ConfirmModal({
                 ) : (
                   confirmText
                 )}
-              </Button>
+              </AppButton>
             </div>
           </>
         )}

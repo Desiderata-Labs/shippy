@@ -150,7 +150,7 @@ function SortButton({
       className={cn(
         'cursor-pointer rounded-full px-3 py-1 text-xs font-medium transition-colors',
         active
-          ? 'bg-accent text-accent-foreground'
+          ? 'bg-primary text-primary-foreground'
           : 'text-muted-foreground hover:bg-accent/50 hover:text-foreground',
       )}
     >

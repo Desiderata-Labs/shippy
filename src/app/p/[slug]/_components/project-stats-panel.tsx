@@ -68,11 +68,7 @@ export function ProjectStatsPanel({ project }: ProjectStatsPanelProps) {
             About
           </span>
 
-          {tagline && (
-            <p className="text-sm leading-relaxed text-muted-foreground">
-              {tagline}
-            </p>
-          )}
+          {tagline && <p className="text-sm leading-relaxed">{tagline}</p>}
 
           {/* Links */}
           {hasLinks && (
@@ -82,9 +78,9 @@ export function ProjectStatsPanel({ project }: ProjectStatsPanelProps) {
                   href={websiteUrl}
                   target="_blank"
                   rel="noopener noreferrer"
-                  className="flex items-center gap-2 text-sm text-primary transition-colors hover:underline"
+                  className="flex items-center gap-2 text-sm"
                 >
-                  <Link03 className="size-3.5 shrink-0 text-muted-foreground" />
+                  <Link03 className="size-3.5 shrink-0 opacity-50" />
                   <span className="truncate">{formatUrl(websiteUrl)}</span>
                 </a>
               )}
@@ -93,9 +89,9 @@ export function ProjectStatsPanel({ project }: ProjectStatsPanelProps) {
                   href={discordUrl}
                   target="_blank"
                   rel="noopener noreferrer"
-                  className="flex items-center gap-2 text-sm text-muted-foreground transition-colors hover:text-foreground"
+                  className="flex items-center gap-2 text-sm"
                 >
-                  <MessageSquare01 className="size-3.5 shrink-0" />
+                  <MessageSquare01 className="size-3.5 shrink-0 opacity-50" />
                   <span className="truncate">{formatUrl(discordUrl)}</span>
                 </a>
               )}
@@ -113,7 +109,6 @@ export function ProjectStatsPanel({ project }: ProjectStatsPanelProps) {
       {/* Total Paid Out - Lead with this for trust */}
       <StatItem
         icon={CoinsStacked01}
-        iconColor="text-green-500"
         label="Paid out"
         value={formatCurrency(stats.totalPaidOutCents)}
       />
@@ -125,7 +120,6 @@ export function ProjectStatsPanel({ project }: ProjectStatsPanelProps) {
       {/* Contributors */}
       <StatItem
         icon={Users01}
-        iconColor="text-purple-500"
         label={stats.contributorCount === 1 ? 'Contributor' : 'Contributors'}
         value={stats.contributorCount.toString()}
       />
@@ -133,7 +127,6 @@ export function ProjectStatsPanel({ project }: ProjectStatsPanelProps) {
       {/* Verified Payouts */}
       <StatItem
         icon={ShieldTick}
-        iconColor="text-blue-500"
         label="Verified payouts"
         value={stats.verifiedPayoutCount.toString()}
       />
@@ -145,7 +138,6 @@ export function ProjectStatsPanel({ project }: ProjectStatsPanelProps) {
       {/* Reward Pool */}
       <StatItem
         icon={CoinsStacked01}
-        iconColor="text-primary"
         label={
           rewardPool.payoutFrequency === 'MONTHLY'
             ? 'Monthly pool'
@@ -157,7 +149,6 @@ export function ProjectStatsPanel({ project }: ProjectStatsPanelProps) {
       {/* Open Bounties */}
       <StatItem
         icon={Target01}
-        iconColor="text-orange-500"
         label={_count.bounties === 1 ? 'Bounty' : 'Bounties'}
         value={_count.bounties.toString()}
       />
@@ -165,7 +156,6 @@ export function ProjectStatsPanel({ project }: ProjectStatsPanelProps) {
       {/* Commitment */}
       <StatItem
         icon={Calendar}
-        iconColor="text-muted-foreground"
         label="Commitment"
         value={new Date(rewardPool.commitmentEndsAt).toLocaleDateString(
           'en-US',
@@ -181,19 +171,17 @@ export function ProjectStatsPanel({ project }: ProjectStatsPanelProps) {
 
 function StatItem({
   icon: Icon,
-  iconColor,
   label,
   value,
 }: {
   icon: React.ComponentType<{ className?: string }>
-  iconColor: string
   label: string
   value: string
 }) {
   return (
     <div className="flex items-center justify-between">
       <div className="flex items-center gap-2">
-        <Icon className={`size-3.5 ${iconColor}`} />
+        <Icon className="size-3.5 text-foreground opacity-50" />
         <span className="text-xs text-muted-foreground">{label}</span>
       </div>
       <span className="text-xs font-semibold">{value}</span>

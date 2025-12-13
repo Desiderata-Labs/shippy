@@ -48,7 +48,6 @@ import { CommentInput } from '@/components/comments'
 import { AppBackground } from '@/components/layout/app-background'
 import { Avatar, AvatarFallback, AvatarImage } from '@/components/ui/avatar'
 import { Badge } from '@/components/ui/badge'
-import { Button } from '@/components/ui/button'
 import { ConfirmModal } from '@/components/ui/confirm-modal'
 import {
   DropdownMenu,
@@ -647,13 +646,13 @@ export function BountyDetailContent() {
                       {(event.userId === session?.user?.id || isFounder) && (
                         <DropdownMenu>
                           <DropdownMenuTrigger asChild>
-                            <Button
+                            <AppButton
                               variant="ghost"
                               size="icon-sm"
                               className="size-6 cursor-pointer text-muted-foreground opacity-0 transition-opacity group-hover:opacity-100"
                             >
                               <DotsVertical className="size-3.5" />
-                            </Button>
+                            </AppButton>
                           </DropdownMenuTrigger>
                           <DropdownMenuContent align="end">
                             <DropdownMenuItem
@@ -741,24 +740,24 @@ export function BountyDetailContent() {
                     Submit Work
                   </Link>
                 </AppButton>
-                <Button
+                <AppButton
                   variant="ghost"
                   size="sm"
                   onClick={() => setShowReleaseModal(true)}
                   className="w-full cursor-pointer text-muted-foreground hover:text-foreground"
                 >
                   Release Claim
-                </Button>
+                </AppButton>
               </div>
             ) : hasSubmittedClaim ? (
-              <Button
+              <AppButton
                 variant="ghost"
                 size="sm"
                 onClick={() => setShowReleaseModal(true)}
                 className="w-full cursor-pointer text-muted-foreground hover:text-foreground"
               >
                 Release Claim
-              </Button>
+              </AppButton>
             ) : canClaim ? (
               <AppButton
                 onClick={handleClaim}
@@ -950,7 +949,7 @@ export function BountyDetailContent() {
                                 />
                               </div>
                               <div className="flex gap-1">
-                                <Button
+                                <AppButton
                                   size="sm"
                                   variant="ghost"
                                   className="h-6 flex-1 cursor-pointer text-xs"
@@ -960,8 +959,8 @@ export function BountyDetailContent() {
                                   }}
                                 >
                                   Cancel
-                                </Button>
-                                <Button
+                                </AppButton>
+                                <AppButton
                                   size="sm"
                                   className="h-6 flex-1 cursor-pointer text-xs"
                                   disabled={
@@ -982,7 +981,7 @@ export function BountyDetailContent() {
                                   ) : (
                                     'Create'
                                   )}
-                                </Button>
+                                </AppButton>
                               </div>
                             </div>
                           ) : (
@@ -1030,7 +1029,7 @@ export function BountyDetailContent() {
                 <Tooltip>
                   <TooltipTrigger asChild>
                     <span className="flex cursor-help items-center gap-1 text-xs text-muted-foreground">
-                      <Users01 className="size-3" />
+                      <Users01 className="size-3 text-foreground opacity-50" />
                       Claim Type
                     </span>
                   </TooltipTrigger>
@@ -1052,7 +1051,7 @@ export function BountyDetailContent() {
                 <Tooltip>
                   <TooltipTrigger asChild>
                     <span className="flex cursor-help items-center gap-1 text-xs text-muted-foreground">
-                      <Clock className="size-3" />
+                      <Clock className="size-3 text-foreground opacity-50" />
                       Claim Expires
                     </span>
                   </TooltipTrigger>
@@ -1073,7 +1072,7 @@ export function BountyDetailContent() {
                   <Tooltip>
                     <TooltipTrigger asChild>
                       <span className="flex cursor-help items-center gap-1 text-xs text-muted-foreground">
-                        <Target01 className="size-3" />
+                        <Target01 className="size-3 text-foreground opacity-50" />
                         Pool Ends
                       </span>
                     </TooltipTrigger>

@@ -12,8 +12,8 @@ import { useState } from 'react'
 import Image from 'next/image'
 import Link from 'next/link'
 import { routes } from '@/lib/routes'
+import { AppButton } from '@/components/app'
 import { Avatar, AvatarFallback, AvatarImage } from '@/components/ui/avatar'
-import { Button } from '@/components/ui/button'
 import {
   DropdownMenu,
   DropdownMenuContent,
@@ -67,7 +67,7 @@ export function ProjectHeader({ project, isFounder }: ProjectHeaderProps) {
                 href={routes.user.profile({
                   username: project.founder.username,
                 })}
-                className="flex items-center gap-1.5 text-muted-foreground transition-colors hover:text-foreground"
+                className="flex items-center gap-1.5"
               >
                 <Avatar className="size-5 ring-1 ring-border">
                   <AvatarImage src={project.founder.image ?? undefined} />
@@ -78,7 +78,7 @@ export function ProjectHeader({ project, isFounder }: ProjectHeaderProps) {
                 <span className="font-medium">{project.founder.username}</span>
               </Link>
             ) : (
-              <div className="flex items-center gap-1.5 text-muted-foreground">
+              <div className="flex items-center gap-1.5">
                 <Avatar className="size-5 ring-1 ring-border">
                   <AvatarImage src={project.founder.image ?? undefined} />
                   <AvatarFallback className="text-[10px]">
@@ -103,7 +103,7 @@ export function ProjectHeader({ project, isFounder }: ProjectHeaderProps) {
                   className="size-5 rounded-sm object-cover ring-1 ring-border"
                 />
               ) : (
-                <div className="flex size-5 items-center justify-center rounded-sm bg-primary/10 text-xs font-bold text-primary ring-1 ring-border">
+                <div className="flex size-5 items-center justify-center rounded-sm bg-muted text-xs font-bold">
                   {project.name.charAt(0).toUpperCase()}
                 </div>
               )}
@@ -117,7 +117,7 @@ export function ProjectHeader({ project, isFounder }: ProjectHeaderProps) {
           <TooltipProvider>
             <Tooltip>
               <TooltipTrigger asChild>
-                <Button
+                <AppButton
                   variant="outline"
                   size="sm"
                   className="size-8 cursor-pointer border-border bg-secondary p-0 hover:bg-accent"
@@ -128,7 +128,7 @@ export function ProjectHeader({ project, isFounder }: ProjectHeaderProps) {
                   ) : (
                     <Share07 className="size-3.5" />
                   )}
-                </Button>
+                </AppButton>
               </TooltipTrigger>
               <TooltipContent>
                 {copied ? 'Copied!' : 'Share project'}
@@ -139,14 +139,14 @@ export function ProjectHeader({ project, isFounder }: ProjectHeaderProps) {
           {isFounder && (
             <DropdownMenu>
               <DropdownMenuTrigger asChild>
-                <Button
+                <AppButton
                   variant="outline"
                   size="sm"
                   className="cursor-pointer border-border bg-secondary hover:bg-accent"
                 >
                   <Settings01 className="mr-1.5 size-3.5" />
                   Manage
-                </Button>
+                </AppButton>
               </DropdownMenuTrigger>
               <DropdownMenuContent align="end" className="w-48">
                 <DropdownMenuItem asChild className="cursor-pointer">

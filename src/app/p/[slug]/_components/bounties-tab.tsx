@@ -15,8 +15,8 @@ import { getLabelColor } from '@/lib/bounty/tag-colors'
 import { routes } from '@/lib/routes'
 import { bountyStatusColors, needsReviewColor } from '@/lib/status-colors'
 import { cn } from '@/lib/utils'
+import { AppButton } from '@/components/app/app-button'
 import { Avatar, AvatarFallback, AvatarImage } from '@/components/ui/avatar'
-import { Button } from '@/components/ui/button'
 import { GlassCard } from './glass-card'
 
 enum BountyFilter {
@@ -124,12 +124,16 @@ export function BountiesTab({
               : 'Check back later for new opportunities.'}
           </p>
           {isFounder && (
-            <Button size="sm" asChild className="mt-4 cursor-pointer gap-1.5">
+            <AppButton
+              size="sm"
+              asChild
+              className="mt-4 cursor-pointer gap-1.5"
+            >
               <Link href={routes.project.newBounty({ slug: projectSlug })}>
                 <Plus className="size-3.5" />
                 Create Bounty
               </Link>
-            </Button>
+            </AppButton>
           )}
         </div>
       </GlassCard>
@@ -137,7 +141,7 @@ export function BountiesTab({
   }
 
   return (
-    <div className="space-y-3">
+    <div className="space-y-4">
       {/* Filter bar */}
       <div className="flex flex-wrap items-center justify-between gap-3">
         <div className="flex flex-wrap items-center gap-1">
@@ -206,12 +210,12 @@ export function BountiesTab({
           )}
         </div>
         {isFounder && (
-          <Button size="sm" asChild className="cursor-pointer gap-1.5">
+          <AppButton size="sm" asChild className="cursor-pointer gap-1.5">
             <Link href={routes.project.newBounty({ slug: projectSlug })}>
               <Plus className="size-3.5" />
               Create
             </Link>
-          </Button>
+          </AppButton>
         )}
       </div>
 
@@ -310,7 +314,7 @@ function BountyRow({
         title: bounty.title,
       })}
       className={cn(
-        'group flex min-h-[44px] items-center gap-3 px-3 py-2 transition-colors hover:bg-accent/50',
+        'group flex min-h-[44px] items-center gap-3 px-3 py-4 transition-colors hover:bg-accent/50',
         isFirst && 'rounded-t-lg',
         isLast && 'rounded-b-lg',
       )}
@@ -318,15 +322,13 @@ function BountyRow({
       {/* Status icon (Linear-style circle) */}
       <span className="flex shrink-0 items-center justify-center">
         {isCompleted ? (
-          <CheckCircle
-            className={cn('size-4', bountyStatusColors.COMPLETED.icon)}
-          />
+          <CheckCircle className="size-3.5 text-foreground opacity-50" />
         ) : isClosed ? (
-          <Circle className={cn('size-4', bountyStatusColors.CLOSED.icon)} />
+          <Circle className="size-3.5 text-foreground opacity-50" />
         ) : isClaimed ? (
-          <Clock className={cn('size-4', bountyStatusColors.CLAIMED.icon)} />
+          <Clock className="size-3.5 text-foreground opacity-50" />
         ) : (
-          <Circle className={cn('size-4', bountyStatusColors.OPEN.icon)} />
+          <Circle className="size-3.5 text-foreground opacity-50" />
         )}
       </span>
 
@@ -336,7 +338,7 @@ function BountyRow({
       </span>
 
       {/* Title */}
-      <span className="min-w-0 flex-1 truncate text-sm transition-colors group-hover:text-primary">
+      <span className="min-w-0 flex-1 truncate text-sm transition-colors">
         {bounty.title}
       </span>
 

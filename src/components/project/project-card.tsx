@@ -10,7 +10,6 @@ import {
 import Image from 'next/image'
 import Link from 'next/link'
 import { routes } from '@/lib/routes'
-import { Badge } from '@/components/ui/badge'
 import { Skeleton } from '@/components/ui/skeleton'
 
 export interface ProjectCardProject {
@@ -35,17 +34,16 @@ export interface ProjectCardProject {
 
 export interface ProjectCardProps {
   project: ProjectCardProject
-  showManageButton?: boolean
 }
 
 /**
  * Project card for grid views - balanced between compact and readable.
  */
-export function ProjectCard({ project, showManageButton }: ProjectCardProps) {
+export function ProjectCard({ project }: ProjectCardProps) {
   return (
     <Link
       href={routes.project.detail({ slug: project.slug })}
-      className="group block rounded-lg border border-border bg-card transition-colors hover:bg-muted/50"
+      className="group block rounded-2xl border bg-card transition-all duration-300 hover:border-primary/75 hover:shadow-lg"
     >
       <div className="p-4">
         {/* Header with logo and title */}
@@ -59,51 +57,40 @@ export function ProjectCard({ project, showManageButton }: ProjectCardProps) {
               className="size-11 shrink-0 rounded-lg object-cover"
             />
           ) : (
-            <div className="flex size-11 shrink-0 items-center justify-center rounded-lg bg-primary/10 text-base font-bold text-primary">
+            <div className="flex size-11 shrink-0 items-center justify-center rounded-lg bg-muted text-base font-bold">
               {project.name.charAt(0).toUpperCase()}
             </div>
           )}
           <div className="min-w-0 flex-1">
             <div className="flex items-center justify-between gap-2">
-              <p className="truncate font-medium transition-colors group-hover:text-primary">
-                {project.name}
-              </p>
-              {showManageButton ? (
-                <Badge
-                  variant="outline"
-                  className="shrink-0 border-primary/20 bg-primary/5 text-xs text-primary"
-                >
-                  Manage
-                </Badge>
-              ) : (
-                <ChevronRight className="size-4 shrink-0 text-muted-foreground transition-transform group-hover:translate-x-0.5" />
-              )}
+              <p className="truncate font-medium">{project.name}</p>
+              <ChevronRight className="size-4 shrink-0 text-muted-foreground transition-transform group-hover:translate-x-0.5" />
             </div>
-            <p className="mt-0.5 line-clamp-2 text-sm text-muted-foreground">
+            <p className="mt-0.5 line-clamp-2 text-xs text-muted-foreground">
               {project.tagline || 'No description'}
             </p>
           </div>
         </div>
 
         {/* Stats row */}
-        <div className="mt-3 flex flex-wrap items-center gap-x-4 gap-y-1 text-xs text-muted-foreground">
+        <div className="mt-6 flex flex-wrap items-center gap-x-6 gap-y-1 text-xs text-foreground">
           <span className="flex items-center gap-1">
-            <Users01 className="size-3.5" />
+            <Users01 className="size-3.5 opacity-50" />
             {project.founder.name || 'Unknown'}
           </span>
           <span className="flex items-center gap-1">
-            <Target01 className="size-3.5" />
+            <Target01 className="size-3.5 opacity-50" />
             {project._count.bounties}{' '}
             {project._count.bounties === 1 ? 'bounty' : 'bounties'}
           </span>
           {project.rewardPool && (
             <>
-              <span className="flex items-center gap-1 font-medium text-green-600 dark:text-green-400">
-                <CoinsStacked01 className="size-3.5" />
+              <span className="flex items-center gap-1 font-medium">
+                <CoinsStacked01 className="size-3.5 opacity-50" />
                 {project.rewardPool.poolPercentage}% pool
               </span>
               <span className="flex items-center gap-1">
-                <Calendar className="size-3.5" />
+                <Calendar className="size-3.5 opacity-50" />
                 {project.rewardPool.payoutFrequency === 'MONTHLY'
                   ? 'Monthly'
                   : 'Quarterly'}

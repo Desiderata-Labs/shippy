@@ -4,7 +4,7 @@ import React, { memo, useState } from 'react'
 import ReactMarkdown, { type Components } from 'react-markdown'
 import Image from 'next/image'
 import { cn } from '@/lib/utils'
-import { Button } from './button'
+import { AppButton } from '../app/app-button'
 import rehypeRaw from 'rehype-raw'
 import remarkGfm from 'remark-gfm'
 
@@ -133,13 +133,13 @@ const NonMemoizedMarkdownViewer = ({
           <div className="absolute inset-x-0 bottom-0 h-24 bg-linear-to-t from-background to-transparent" />
         )}
       </div>
-      <Button
+      <AppButton
         variant="link"
         className="mt-2 w-fit cursor-pointer self-start px-0 font-bold text-muted-foreground hover:underline"
         onClick={() => setIsExpanded(!isExpanded)}
       >
         {isExpanded ? 'Show Less' : 'Read More'}
-      </Button>
+      </AppButton>
     </div>
   )
 }

@@ -133,7 +133,7 @@ export function UserProfileContent() {
               <h1 className="text-2xl font-bold tracking-tight">
                 {displayName ?? params.username}
               </h1>
-              <p className="text-sm text-muted-foreground">
+              <p className="text-xs text-muted-foreground">
                 @{params.username}
               </p>
             </div>
@@ -185,11 +185,7 @@ export function UserProfileContent() {
         ) : (
           <div className="grid gap-3 sm:grid-cols-2">
             {projects.map((project) => (
-              <ProjectCard
-                key={project.id}
-                project={project}
-                showManageButton={isOwnProfile}
-              />
+              <ProjectCard key={project.id} project={project} />
             ))}
           </div>
         )}

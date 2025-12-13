@@ -64,8 +64,8 @@ export function ContributorsTab({ projectId }: ContributorsTabProps) {
     return (
       <GlassCard className="py-12 text-center">
         <div className="mx-auto flex max-w-xs flex-col items-center">
-          <div className="mb-3 flex size-12 items-center justify-center rounded-xl bg-primary/10">
-            <Users01 className="size-6 text-primary" />
+          <div className="mb-3 flex size-12 items-center justify-center rounded-xl bg-muted">
+            <Users01 className="size-6 text-foreground opacity-50" />
           </div>
           <h3 className="text-base font-semibold">No contributors yet</h3>
           <p className="mt-1.5 text-sm text-muted-foreground">
@@ -99,7 +99,6 @@ export function ContributorsTab({ projectId }: ContributorsTabProps) {
             ),
           )}
           label="Total paid out"
-          highlight
         />
         <StatCard
           icon={ShieldTick}
@@ -124,7 +123,6 @@ export function ContributorsTab({ projectId }: ContributorsTabProps) {
               key={contributor.userId}
               contributor={contributor}
               rank={index + 1}
-              isTop3={index < 3}
             />
           ))}
         </div>
@@ -137,33 +135,21 @@ function StatCard({
   icon: Icon,
   value,
   label,
-  highlight,
 }: {
   icon: React.ComponentType<{ className?: string }>
   value: string
   label: string
-  highlight?: boolean
 }) {
   return (
     <GlassCard className="p-3">
-      <div className="flex items-center gap-2">
+      <div className="flex items-start gap-2">
         <div
-          className={cn(
-            'flex size-6 items-center justify-center rounded-sm',
-            highlight ? 'bg-green-500/10' : 'bg-muted',
-          )}
+          className={cn('flex size-6 items-center justify-center rounded-sm')}
         >
-          <Icon
-            className={cn(
-              'size-3.5',
-              highlight ? 'text-green-500' : 'text-muted-foreground',
-            )}
-          />
+          <Icon className="-mt-1 size-3.5 text-foreground opacity-50" />
         </div>
         <div>
-          <p className={cn('text-sm font-bold', highlight && 'text-green-500')}>
-            {value}
-          </p>
+          <p className="text-xs font-bold">{value}</p>
           <p className="text-[10px] text-muted-foreground">{label}</p>
         </div>
       </div>
@@ -174,7 +160,6 @@ function StatCard({
 function ContributorRow({
   contributor,
   rank,
-  isTop3,
 }: {
   contributor: {
     userId: string
@@ -185,23 +170,13 @@ function ContributorRow({
     lifetimeEarningsCents: number
   }
   rank: number
-  isTop3: boolean
 }) {
-  const rankColors = {
-    1: 'bg-yellow-500/10 text-yellow-500 border-yellow-500/20',
-    2: 'bg-gray-400/10 text-gray-400 border-gray-400/20',
-    3: 'bg-orange-600/10 text-orange-600 border-orange-600/20',
-  }
-
   return (
-    <div className="flex items-center gap-3 px-4 py-3 transition-colors hover:bg-muted">
+    <div className="flex items-center gap-3 px-4 py-3 last:rounded-b-lg">
       {/* Rank */}
       <div
         className={cn(
-          'flex size-6 items-center justify-center rounded-full border text-xs font-bold',
-          isTop3
-            ? rankColors[rank as 1 | 2 | 3]
-            : 'border-border bg-muted text-muted-foreground',
+          'flex size-6 items-center justify-center rounded-full text-xs font-bold',
         )}
       >
         {rank}
@@ -210,7 +185,7 @@ function ContributorRow({
       {/* Avatar */}
       <Avatar className="size-7 ring-1 ring-border">
         <AvatarImage src={contributor.userImage ?? undefined} />
-        <AvatarFallback className="bg-primary/10 text-xs text-primary">
+        <AvatarFallback className="bg-muted text-xs text-muted-foreground">
           {contributor.userName.charAt(0).toUpperCase()}
         </AvatarFallback>
       </Avatar>
@@ -237,8 +212,7 @@ function ContributorRow({
 
       {/* Earnings */}
       {contributor.lifetimeEarningsCents > 0 && (
-        <div className="flex items-center gap-1 rounded-full border border-green-500/20 bg-green-500/10 px-2 py-1 text-xs font-medium text-green-500">
-          <CoinsStacked01 className="size-3" />
+        <div className="rounded-full border border-border px-4 py-1 text-xs font-medium text-foreground">
           {formatCurrency(contributor.lifetimeEarningsCents)}
         </div>
       )}

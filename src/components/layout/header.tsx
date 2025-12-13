@@ -8,7 +8,6 @@ import Link from 'next/link'
 import { routes } from '@/lib/routes'
 import { cn } from '@/lib/utils'
 import { Avatar, AvatarFallback, AvatarImage } from '@/components/ui/avatar'
-import { Button } from '@/components/ui/button'
 import {
   DropdownMenu,
   DropdownMenuContent,
@@ -17,6 +16,7 @@ import {
   DropdownMenuTrigger,
 } from '@/components/ui/dropdown-menu'
 import { Logo } from '@/components/ui/logo'
+import { AppButton } from '../app/app-button'
 
 interface HeaderProps {
   /** Add horizontal padding to the header container (for landing page). */
@@ -124,21 +124,16 @@ export function Header({ padded = false }: HeaderProps) {
               ) : session ? (
                 <>
                   {username && (
-                    <Button
-                      variant="outline"
-                      size="sm"
-                      asChild
-                      className="hidden cursor-pointer border-border bg-secondary backdrop-blur-sm transition-colors hover:bg-accent sm:flex"
-                    >
+                    <AppButton variant="outline" size="sm" asChild>
                       <Link href={newProjectUrl}>
                         <Plus className="mr-1 size-4" />
                         New Project
                       </Link>
-                    </Button>
+                    </AppButton>
                   )}
                   <DropdownMenu>
                     <DropdownMenuTrigger asChild>
-                      <Button
+                      <AppButton
                         variant="ghost"
                         className="relative size-8 cursor-pointer rounded-full"
                       >
@@ -155,7 +150,7 @@ export function Header({ padded = false }: HeaderProps) {
                               .toUpperCase() ?? 'U'}
                           </AvatarFallback>
                         </Avatar>
-                      </Button>
+                      </AppButton>
                     </DropdownMenuTrigger>
                     <DropdownMenuContent
                       align="end"
@@ -189,21 +184,21 @@ export function Header({ padded = false }: HeaderProps) {
                 </>
               ) : (
                 <>
-                  <Button
+                  <AppButton
                     variant="ghost"
                     size="sm"
                     asChild
                     className="cursor-pointer text-muted-foreground hover:text-foreground"
                   >
                     <Link href={routes.auth.signIn()}>Sign in</Link>
-                  </Button>
-                  <Button
+                  </AppButton>
+                  <AppButton
                     size="sm"
                     asChild
                     className="cursor-pointer rounded-lg"
                   >
                     <Link href={routes.auth.signUp()}>Get Started</Link>
-                  </Button>
+                  </AppButton>
                 </>
               )}
             </div>

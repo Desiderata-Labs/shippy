@@ -85,7 +85,7 @@
   --background: oklch(0.235 0 0);
   --foreground: oklch(0.985 0 0);
   --card: oklch(0.269 0.0018 286.28);
-  --card-foreground: oklch(0.985 0 0);
+  --card-foreground: oklch(1 0 0);
   --popover: oklch(0.269 0.0018 286.28);
   --popover-foreground: oklch(0.985 0 0);
   --primary: oklch(0.7 0.17 40.35); /* Slightly lighter orange for dark mode */
@@ -97,7 +97,7 @@
   --accent: oklch(0.3375 0.0035 286.21);
   --accent-foreground: oklch(0.985 0 0);
   --destructive: oklch(0.704 0.191 22.216);
-  --border: oklch(1 0 0 / 10%);
+  --border: oklch(1 0 0 / 7%);
   --input: oklch(1 0 0 / 15%);
   --ring: oklch(0.7 0.17 40.35); /* matches primary */
   --chart-1: oklch(0.7 0.17 40.35); /* Primary Orange */

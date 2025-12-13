@@ -109,8 +109,8 @@ export function PayoutsTab({
     return (
       <GlassCard className="py-12 text-center">
         <div className="mx-auto flex max-w-xs flex-col items-center">
-          <div className="mb-3 flex size-12 items-center justify-center rounded-xl bg-primary/10">
-            <CoinsStacked01 className="size-6 text-primary" />
+          <div className="mb-3 flex size-12 items-center justify-center rounded-xl bg-muted">
+            <CoinsStacked01 className="size-6 text-foreground opacity-50" />
           </div>
           <h3 className="text-base font-semibold">No payouts yet</h3>
           <p className="mt-1.5 text-sm text-muted-foreground">
@@ -145,7 +145,6 @@ export function PayoutsTab({
                   : '—'
               }
               label="Total paid out"
-              highlight
             />
             <StatCard
               icon={Calendar}
@@ -308,7 +307,7 @@ export function PayoutsTab({
                   {/* Right: Amount and status counts */}
                   <div className="flex items-center gap-3">
                     <div className="text-right">
-                      <div className="text-sm font-semibold text-primary">
+                      <div className="text-sm font-semibold">
                         {isFounder || isPublicMode
                           ? formatCurrency(payout.poolAmountCents)
                           : `${payout.recipients.length} recipient${payout.recipients.length !== 1 ? 's' : ''}`}
@@ -327,7 +326,7 @@ export function PayoutsTab({
                           </span>
                         )}
                         {confirmedCount > 0 && (
-                          <span className="flex items-center gap-0.5 text-green-600 dark:text-green-400">
+                          <span className="flex items-center gap-0.5 text-foreground opacity-50">
                             <Check className="size-2.5" />
                             {confirmedCount}
                           </span>
@@ -356,33 +355,21 @@ function StatCard({
   icon: Icon,
   value,
   label,
-  highlight,
 }: {
   icon: React.ComponentType<{ className?: string }>
   value: React.ReactNode
   label: string
-  highlight?: boolean
 }) {
   return (
     <GlassCard className="p-3">
-      <div className="flex items-center gap-2">
+      <div className="flex items-start gap-2">
         <div
-          className={cn(
-            'flex size-6 items-center justify-center rounded-sm',
-            highlight ? 'bg-green-500/10' : 'bg-muted',
-          )}
+          className={cn('flex size-6 items-center justify-center rounded-sm')}
         >
-          <Icon
-            className={cn(
-              'size-3.5',
-              highlight ? 'text-green-500' : 'text-muted-foreground',
-            )}
-          />
+          <Icon className="-mt-1 size-3.5 text-foreground opacity-50" />
         </div>
         <div>
-          <p className={cn('text-xs font-bold', highlight && 'text-green-500')}>
-            {value}
-          </p>
+          <p className="text-xs font-bold">{value}</p>
           <p className="text-[10px] text-muted-foreground">{label}</p>
         </div>
       </div>

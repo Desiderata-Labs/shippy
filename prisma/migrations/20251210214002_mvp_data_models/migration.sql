@@ -253,6 +253,8 @@ CREATE TABLE "payout_recipient" (
     "pointsAtPayout" INTEGER NOT NULL,
     "sharePercent" DECIMAL(5,2) NOT NULL,
     "amountCents" INTEGER NOT NULL,
+    "paidAt" TIMESTAMPTZ(3),
+    "paidNote" TEXT,
     "status" TEXT NOT NULL DEFAULT 'PENDING',
     "confirmedAt" TIMESTAMPTZ(3),
     "disputedAt" TIMESTAMPTZ(3),

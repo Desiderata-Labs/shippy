@@ -6,6 +6,7 @@ import Link from 'next/link'
 import { routes } from '@/lib/routes'
 import { Button } from '@/components/ui/button'
 import { HeroEffects } from './hero-effects'
+import { motion } from 'framer-motion'
 
 export function HeroSection() {
   return (
@@ -158,8 +159,8 @@ function RewardPoolVisualization() {
                 </div>
               </div>
             </div>
-            <div className="rounded-full border border-green-500/20 bg-green-500/10 px-2.5 py-1 text-xs font-medium text-green-400">
-              Verified
+            <div className="rounded-full border border-white/20 bg-white/10 px-2.5 py-1 text-xs font-medium text-muted-foreground">
+              Example
             </div>
           </div>
         </div>
@@ -172,20 +173,23 @@ function RewardPoolVisualization() {
           </div>
 
           {/* Animated bar */}
-          <div className="mb-6 flex h-9 overflow-hidden rounded-lg">
+          <div className="mb-6 flex h-9 overflow-hidden rounded-lg bg-muted/30">
             {contributors.map((contributor, index) => (
-              <div
+              <motion.div
                 key={contributor.name}
-                className={`${contributor.color} animate-bar-grow flex cursor-pointer items-center justify-center text-xs font-semibold text-white transition-opacity duration-300 hover:opacity-80`}
-                style={{
-                  flexBasis: `${contributor.percentage}%`,
-                  animationDelay: `${index * 0.1}s`,
+                initial={{ width: 0 }}
+                animate={{ width: `${contributor.percentage}%` }}
+                transition={{
+                  duration: 0.6,
+                  delay: index * 0.1,
+                  ease: [0.34, 1.56, 0.64, 1],
                 }}
+                className={`${contributor.color} flex cursor-pointer items-center justify-center text-xs font-semibold text-white transition-opacity duration-300 hover:opacity-80`}
                 onMouseEnter={() => setActiveSlice(index)}
                 onMouseLeave={() => setActiveSlice(null)}
               >
                 {contributor.percentage >= 15 && `${contributor.percentage}%`}
-              </div>
+              </motion.div>
             ))}
           </div>
 

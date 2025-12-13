@@ -1,18 +1,12 @@
 'use client'
 
 import {
-  Calendar,
   CheckCircle,
   Clock,
   CoinsStacked01,
-  Globe01,
-  MessageSquare01,
   Plus,
   Settings01,
   Share07,
-  ShieldTick,
-  Target01,
-  Users01,
 } from '@untitled-ui/icons-react'
 import { useState } from 'react'
 import Image from 'next/image'
@@ -33,49 +27,21 @@ import {
   TooltipProvider,
   TooltipTrigger,
 } from '@/components/ui/tooltip'
-import { GlassCard } from './glass-card'
 
 interface ProjectHeaderProps {
   project: {
     id: string
     slug: string
     name: string
-    tagline: string | null
     logoUrl: string | null
-    websiteUrl: string | null
-    discordUrl: string | null
     founder: {
       id: string
       name: string
       username: string | null
       image: string | null
     }
-    rewardPool: {
-      poolPercentage: number
-      payoutFrequency: string
-      commitmentEndsAt: Date
-    } | null
-    _count: {
-      bounties: number
-      payouts: number
-    }
-    stats: {
-      contributorCount: number
-      totalPaidOutCents: number
-      verifiedPayoutCount: number
-    }
   }
   isFounder: boolean
-}
-
-function formatCurrency(cents: number): string {
-  if (cents === 0) return '$0'
-  return new Intl.NumberFormat('en-US', {
-    style: 'currency',
-    currency: 'USD',
-    minimumFractionDigits: 0,
-    maximumFractionDigits: 0,
-  }).format(cents / 100)
 }
 
 export function ProjectHeader({ project, isFounder }: ProjectHeaderProps) {
@@ -87,8 +53,6 @@ export function ProjectHeader({ project, isFounder }: ProjectHeaderProps) {
     setCopied(true)
     setTimeout(() => setCopied(false), 2000)
   }
-
-  const { stats } = project
 
   return (
     <div className="mb-6 space-y-4">
@@ -146,55 +110,6 @@ export function ProjectHeader({ project, isFounder }: ProjectHeaderProps) {
               <h1 className="font-semibold text-foreground">{project.name}</h1>
             </div>
           </div>
-
-          {/* Tagline */}
-          {project.tagline && (
-            <p className="max-w-xl text-sm text-muted-foreground">
-              {project.tagline}
-            </p>
-          )}
-
-          {/* Links row */}
-          {(project.websiteUrl || project.discordUrl) && (
-            <div className="flex items-center gap-2">
-              {project.websiteUrl && (
-                <TooltipProvider>
-                  <Tooltip>
-                    <TooltipTrigger asChild>
-                      <a
-                        href={project.websiteUrl}
-                        target="_blank"
-                        rel="noopener noreferrer"
-                        className="flex items-center gap-1 rounded-sm border border-border bg-secondary px-2 py-1 text-[11px] text-muted-foreground transition-colors hover:bg-accent hover:text-foreground"
-                      >
-                        <Globe01 className="size-3" />
-                        Website
-                      </a>
-                    </TooltipTrigger>
-                    <TooltipContent>Visit website</TooltipContent>
-                  </Tooltip>
-                </TooltipProvider>
-              )}
-              {project.discordUrl && (
-                <TooltipProvider>
-                  <Tooltip>
-                    <TooltipTrigger asChild>
-                      <a
-                        href={project.discordUrl}
-                        target="_blank"
-                        rel="noopener noreferrer"
-                        className="flex items-center gap-1 rounded-sm border border-border bg-secondary px-2 py-1 text-[11px] text-muted-foreground transition-colors hover:bg-accent hover:text-foreground"
-                      >
-                        <MessageSquare01 className="size-3" />
-                        Discord
-                      </a>
-                    </TooltipTrigger>
-                    <TooltipContent>Join Discord</TooltipContent>
-                  </Tooltip>
-                </TooltipProvider>
-              )}
-            </div>
-          )}
         </div>
 
         {/* Actions */}
@@ -265,108 +180,6 @@ export function ProjectHeader({ project, isFounder }: ProjectHeaderProps) {
             </DropdownMenu>
           )}
         </div>
-      </div>
-
-      {/* Stats bar - glass card with evenly spaced items */}
-      {project.rewardPool && (
-        <GlassCard className="grid grid-cols-2 gap-4 sm:grid-cols-3 lg:flex lg:items-center lg:justify-between">
-          {/* Total Paid Out - Lead with this for trust */}
-          <StatItem
-            icon={CoinsStacked01}
-            iconColor="text-green-500"
-            iconBg="bg-green-500/10"
-            value={formatCurrency(stats.totalPaidOutCents)}
-            label="paid out"
-          />
-
-          {/* Contributors */}
-          <StatItem
-            icon={Users01}
-            iconColor="text-purple-500"
-            iconBg="bg-purple-500/10"
-            value={stats.contributorCount.toString()}
-            label={
-              stats.contributorCount === 1 ? 'contributor' : 'contributors'
-            }
-          />
-
-          {/* Verified Payouts */}
-          <StatItem
-            icon={ShieldTick}
-            iconColor="text-blue-500"
-            iconBg="bg-blue-500/10"
-            value={stats.verifiedPayoutCount.toString()}
-            label={
-              stats.verifiedPayoutCount === 1
-                ? 'verified payout'
-                : 'verified payouts'
-            }
-          />
-
-          {/* Reward Pool */}
-          <StatItem
-            icon={CoinsStacked01}
-            iconColor="text-primary"
-            iconBg="bg-primary/10"
-            value={`${project.rewardPool.poolPercentage}%`}
-            label={
-              project.rewardPool.payoutFrequency === 'MONTHLY'
-                ? 'monthly pool'
-                : 'quarterly pool'
-            }
-          />
-
-          {/* Open Bounties */}
-          <StatItem
-            icon={Target01}
-            iconColor="text-orange-500"
-            iconBg="bg-orange-500/10"
-            value={project._count.bounties.toString()}
-            label={project._count.bounties === 1 ? 'bounty' : 'bounties'}
-          />
-
-          {/* Commitment */}
-          <StatItem
-            icon={Calendar}
-            iconColor="text-muted-foreground"
-            iconBg="bg-foreground/5"
-            value={new Date(
-              project.rewardPool.commitmentEndsAt,
-            ).toLocaleDateString('en-US', {
-              month: 'short',
-              year: 'numeric',
-            })}
-            label="commitment"
-          />
-        </GlassCard>
-      )}
-    </div>
-  )
-}
-
-function StatItem({
-  icon: Icon,
-  iconColor,
-  iconBg,
-  value,
-  label,
-}: {
-  icon: React.ComponentType<{ className?: string }>
-  iconColor: string
-  iconBg: string
-  value: string
-  label: string
-}) {
-  return (
-    <div className="flex items-center gap-2">
-      <div
-        className={`flex size-6 items-center justify-center rounded-sm ${iconBg}`}
-      >
-        <Icon className={`size-3.5 ${iconColor}`} />
-      </div>
-      <div className="flex items-baseline gap-1">
-        <span className="text-sm font-semibold">{value}</span>
-        <span className="text-[10px] text-muted-foreground">{label}</span>
       </div>
     </div>
   )

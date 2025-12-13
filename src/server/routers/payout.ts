@@ -22,6 +22,16 @@ const markSentSchema = z.object({
   note: z.string().optional(),
 })
 
+const markRecipientPaidSchema = z.object({
+  recipientId: nanoId(),
+  note: z.string().optional(),
+})
+
+const markAllPaidSchema = z.object({
+  payoutId: nanoId(),
+  note: z.string().optional(),
+})
+
 const confirmReceiptSchema = z.object({
   payoutId: nanoId(),
   confirmed: z.boolean(),
@@ -30,6 +40,47 @@ const confirmReceiptSchema = z.object({
 })
 
 export const payoutRouter = router({
+  /**
+   * Get a single payout by ID
+   */
+  getById: publicProcedure
+    .input(z.object({ payoutId: nanoId() }))
+    .query(async ({ ctx, input }) => {
+      const payout = await ctx.prisma.payout.findUnique({
+        where: { id: input.payoutId },
+        include: {
+          project: {
+            select: {
+              id: true,
+              name: true,
+              slug: true,
+              founderId: true,
+              payoutVisibility: true,
+              rewardPool: {
+                select: {
+                  poolPercentage: true,
+                  poolCapacity: true,
+                  platformFeePercentage: true,
+                },
+              },
+            },
+          },
+          recipients: {
+            include: {
+              user: { select: { id: true, name: true, image: true } },
+            },
+            orderBy: { pointsAtPayout: 'desc' },
+          },
+        },
+      })
+
+      if (!payout) {
+        throw new TRPCError({ code: 'NOT_FOUND', message: 'Payout not found' })
+      }
+
+      return payout
+    }),
+
   /**
    * Get payouts for a project (public summary, detailed for participants)
    */
@@ -293,7 +344,7 @@ export const payoutRouter = router({
     }),
 
   /**
-   * Mark payout as sent (founder only)
+   * Mark payout as sent (founder only) - legacy, updates payout level
    */
   markSent: protectedProcedure
     .input(markSentSchema)
@@ -316,6 +367,108 @@ export const payoutRouter = router({
         data: {
           status: PayoutStatus.SENT,
           sentAt: new Date(),
+          sentNote: input.note,
+        },
+      })
+    }),
+
+  /**
+   * Mark a single recipient as paid (founder only)
+   */
+  markRecipientPaid: protectedProcedure
+    .input(markRecipientPaidSchema)
+    .mutation(async ({ ctx, input }) => {
+      const recipient = await ctx.prisma.payoutRecipient.findUnique({
+        where: { id: input.recipientId },
+        include: {
+          payout: {
+            include: { project: { select: { founderId: true } } },
+          },
+        },
+      })
+
+      if (!recipient) {
+        throw new TRPCError({
+          code: 'NOT_FOUND',
+          message: 'Recipient not found',
+        })
+      }
+
+      if (recipient.payout.project.founderId !== ctx.user.id) {
+        throw new TRPCError({ code: 'FORBIDDEN', message: 'Access denied' })
+      }
+
+      const now = new Date()
+
+      // Update the recipient
+      const updated = await ctx.prisma.payoutRecipient.update({
+        where: { id: input.recipientId },
+        data: {
+          paidAt: now,
+          paidNote: input.note,
+        },
+      })
+
+      // Check if all recipients are now paid, update payout status if so
+      const unpaidCount = await ctx.prisma.payoutRecipient.count({
+        where: {
+          payoutId: recipient.payoutId,
+          paidAt: null,
+        },
+      })
+
+      if (unpaidCount === 0) {
+        await ctx.prisma.payout.update({
+          where: { id: recipient.payoutId },
+          data: {
+            status: PayoutStatus.SENT,
+            sentAt: now,
+          },
+        })
+      }
+
+      return updated
+    }),
+
+  /**
+   * Mark all recipients as paid at once (founder only)
+   */
+  markAllPaid: protectedProcedure
+    .input(markAllPaidSchema)
+    .mutation(async ({ ctx, input }) => {
+      const payout = await ctx.prisma.payout.findUnique({
+        where: { id: input.payoutId },
+        include: { project: { select: { founderId: true } } },
+      })
+
+      if (!payout) {
+        throw new TRPCError({ code: 'NOT_FOUND', message: 'Payout not found' })
+      }
+
+      if (payout.project.founderId !== ctx.user.id) {
+        throw new TRPCError({ code: 'FORBIDDEN', message: 'Access denied' })
+      }
+
+      const now = new Date()
+
+      // Update all unpaid recipients
+      await ctx.prisma.payoutRecipient.updateMany({
+        where: {
+          payoutId: input.payoutId,
+          paidAt: null,
+        },
+        data: {
+          paidAt: now,
+          paidNote: input.note,
+        },
+      })
+
+      // Update payout status
+      return ctx.prisma.payout.update({
+        where: { id: input.payoutId },
+        data: {
+          status: PayoutStatus.SENT,
+          sentAt: now,
           sentNote: input.note,
         },
       })

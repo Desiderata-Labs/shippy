@@ -349,7 +349,17 @@ export const submissionRouter = router({
         where: { id: input.id },
         include: {
           bounty: {
-            include: { project: { select: { founderId: true } } },
+            include: {
+              project: {
+                select: {
+                  id: true,
+                  founderId: true,
+                },
+                include: {
+                  rewardPool: true,
+                },
+              },
+            },
           },
         },
       })
@@ -375,6 +385,47 @@ export const submissionRouter = router({
       switch (input.action) {
         case 'approve': {
           const pointsAwarded = input.pointsAwarded ?? submission.bounty.points
+          const project = submission.bounty.project
+          const rewardPool = project.rewardPool
+
+          // Check if we need to auto-expand pool capacity
+          if (rewardPool) {
+            // Get current total earned points
+            const earnedResult = await ctx.prisma.submission.aggregate({
+              where: {
+                bounty: { projectId: project.id },
+                status: SubmissionStatus.APPROVED,
+                pointsAwarded: { not: null },
+              },
+              _sum: { pointsAwarded: true },
+            })
+            const currentEarned = earnedResult._sum.pointsAwarded ?? 0
+            const newTotalEarned = currentEarned + pointsAwarded
+
+            // Auto-expand if earned would exceed capacity
+            if (newTotalEarned > rewardPool.poolCapacity) {
+              const dilutionPercent =
+                ((newTotalEarned - rewardPool.poolCapacity) / newTotalEarned) *
+                100
+
+              // Expand pool capacity
+              await ctx.prisma.rewardPool.update({
+                where: { id: rewardPool.id },
+                data: { poolCapacity: newTotalEarned },
+              })
+
+              // Log the expansion event
+              await ctx.prisma.poolExpansionEvent.create({
+                data: {
+                  rewardPoolId: rewardPool.id,
+                  previousCapacity: rewardPool.poolCapacity,
+                  newCapacity: newTotalEarned,
+                  reason: `Auto-expanded when awarding ${pointsAwarded} pts for: "${submission.bounty.title}"`,
+                  dilutionPercent,
+                },
+              })
+            }
+          }
 
           // Update submission (clear any previous rejection data)
           await ctx.prisma.submission.update({

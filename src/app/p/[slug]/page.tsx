@@ -4,13 +4,14 @@ import { prisma } from '@/lib/db/server'
 import {
   BountyStatus,
   ClaimStatus,
-  PayoutRecipientStatus,
   PayoutStatus,
   SubmissionStatus,
 } from '@/lib/db/types'
 import { NotFoundState } from '@/components/ui/not-found-state'
+import { Separator } from '@/components/ui/separator'
 import { ProjectBackground } from './_components/project-background'
 import { ProjectHeader } from './_components/project-header'
+import { ProjectStatsPanel } from './_components/project-stats-panel'
 import { ProjectTabs } from './_components/project-tabs'
 
 interface ProjectPageProps {
@@ -53,13 +54,22 @@ async function getProject(slug: string) {
               user: { select: { id: true, name: true, image: true } },
             },
           },
+          // Include pending (for review count) and approved (for assignee) submissions
           submissions: {
             where: {
               status: {
-                in: [SubmissionStatus.PENDING, SubmissionStatus.NEEDS_INFO],
+                in: [
+                  SubmissionStatus.PENDING,
+                  SubmissionStatus.NEEDS_INFO,
+                  SubmissionStatus.APPROVED,
+                ],
               },
             },
-            select: { id: true },
+            select: {
+              id: true,
+              status: true,
+              user: { select: { id: true, name: true, image: true } },
+            },
           },
         },
       },
@@ -67,6 +77,7 @@ async function getProject(slug: string) {
         select: {
           id: true,
           status: true,
+          poolAmountCents: true,
           recipients: {
             select: {
               userId: true,
@@ -92,11 +103,9 @@ async function getProject(slug: string) {
   const uniqueContributorIds = new Set(allRecipients.map((r) => r.userId))
   const contributorCount = uniqueContributorIds.size
 
-  const confirmedRecipients = allRecipients.filter(
-    (r) => r.status === PayoutRecipientStatus.CONFIRMED,
-  )
-  const totalPaidOutCents = confirmedRecipients.reduce(
-    (sum, r) => sum + r.amountCents,
+  // Total paid out = sum of pool amounts (what founders distribute)
+  const totalPaidOutCents = project.payouts.reduce(
+    (sum, p) => sum + p.poolAmountCents,
     0,
   )
 
@@ -105,14 +114,27 @@ async function getProject(slug: string) {
       p.status === PayoutStatus.COMPLETED || p.status === PayoutStatus.SENT,
   ).length
 
-  // Transform bounties to include pendingSubmissions count
-  const bountiesWithPendingCount = project.bounties.map((bounty) => ({
-    ...bounty,
-    _count: {
-      ...bounty._count,
-      pendingSubmissions: bounty.submissions.length,
-    },
-  }))
+  // Transform bounties to include pendingSubmissions count and approved submission
+  const bountiesWithPendingCount = project.bounties.map((bounty) => {
+    const pendingSubmissions = bounty.submissions.filter(
+      (s) =>
+        s.status === SubmissionStatus.PENDING ||
+        s.status === SubmissionStatus.NEEDS_INFO,
+    )
+    const approvedSubmission = bounty.submissions.find(
+      (s) => s.status === SubmissionStatus.APPROVED,
+    )
+
+    return {
+      ...bounty,
+      // Keep approved submission for assignee display
+      approvedSubmission: approvedSubmission ? [approvedSubmission] : [],
+      _count: {
+        ...bounty._count,
+        pendingSubmissions: pendingSubmissions.length,
+      },
+    }
+  })
 
   // Keep active bounties at the top, then past bounties.
   const statusRank: Record<string, number> = {
@@ -166,7 +188,24 @@ export default async function ProjectPage({ params }: ProjectPageProps) {
     <ProjectBackground>
       <div className="mx-auto max-w-7xl px-4 py-8">
         <ProjectHeader project={project} isFounder={isFounder} />
-        <ProjectTabs project={project} isFounder={isFounder} />
+
+        {/* Main layout with stats sidebar */}
+        <div className="grid gap-6 lg:grid-cols-[1fr_auto_280px]">
+          {/* Main content - left side */}
+          <div className="min-w-0">
+            <ProjectTabs project={project} isFounder={isFounder} />
+          </div>
+
+          {/* Vertical separator */}
+          <Separator orientation="vertical" className="hidden lg:block" />
+
+          {/* Stats sidebar - right side */}
+          <div className="hidden lg:block">
+            <div className="sticky top-8">
+              <ProjectStatsPanel project={project} />
+            </div>
+          </div>
+        </div>
       </div>
     </ProjectBackground>
   )

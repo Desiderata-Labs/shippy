@@ -420,7 +420,11 @@ model PayoutRecipient {
   sharePercent   Decimal  @db.Decimal(5, 2) // Percentage of pool (e.g., 25.50)
   amountCents    Int // Amount in cents
 
-  // Confirmation
+  // Payment tracking (founder marks as paid)
+  paidAt   DateTime? @db.Timestamptz(3) // When founder marked this recipient as paid
+  paidNote String? // Optional payment reference (e.g., "PayPal txn #12345")
+
+  // Confirmation (contributor confirms receipt)
   status        String   @default("PENDING") // "PENDING" | "CONFIRMED" | "DISPUTED" | "UNCONFIRMED"
   confirmedAt   DateTime? @db.Timestamptz(3)
   disputedAt    DateTime? @db.Timestamptz(3)

@@ -59,6 +59,13 @@ interface BountiesTabProps {
         image: string | null
       }
     }>
+    approvedSubmission: Array<{
+      user: {
+        id: string
+        name: string
+        image: string | null
+      }
+    }>
     _count: {
       claims: number
       submissions: number
@@ -284,8 +291,10 @@ function BountyRow({
   const isCompleted = bounty.status === 'COMPLETED'
   const isClosed = bounty.status === 'CLOSED'
 
-  const activeClaims = bounty.claims ?? []
-  const firstClaimant = activeClaims[0]?.user ?? null
+  // Show approved submission's user as assignee if completed, otherwise first claimant
+  const approvedUser = bounty.approvedSubmission?.[0]?.user ?? null
+  const firstClaimant = bounty.claims?.[0]?.user ?? null
+  const assignee = approvedUser ?? firstClaimant
 
   // Format date like Linear: "Aug 8"
   const dateLabel = new Date(bounty.createdAt).toLocaleDateString('en-US', {
@@ -373,11 +382,11 @@ function BountyRow({
       </span>
 
       {/* Assignee avatar (or dashed circle if unclaimed) */}
-      {firstClaimant ? (
+      {assignee ? (
         <Avatar className="size-5 shrink-0">
-          <AvatarImage src={firstClaimant.image ?? undefined} />
+          <AvatarImage src={assignee.image ?? undefined} />
           <AvatarFallback className="text-[9px]">
-            {firstClaimant.name.charAt(0).toUpperCase()}
+            {assignee.name.charAt(0).toUpperCase()}
           </AvatarFallback>
         </Avatar>
       ) : (

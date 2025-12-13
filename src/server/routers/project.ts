@@ -3,6 +3,7 @@ import {
   CommitmentMonths,
   DEFAULT_PLATFORM_FEE_PERCENTAGE,
   PayoutFrequency,
+  PayoutVisibility,
   ProfitBasis,
 } from '@/lib/db/types'
 import { nanoId } from '@/lib/nanoid/schema'
@@ -54,6 +55,10 @@ const createProjectSchema = z.object({
       CommitmentMonths.THREE_YEARS,
     ])
     .transform(Number),
+  payoutVisibility: z
+    .enum([PayoutVisibility.PRIVATE, PayoutVisibility.PUBLIC])
+    .optional()
+    .default(PayoutVisibility.PRIVATE),
 })
 
 const updateProjectSchema = z.object({
@@ -92,6 +97,9 @@ const updateProjectSchema = z.object({
       CommitmentMonths.THREE_YEARS,
     ])
     .transform(Number)
+    .optional(),
+  payoutVisibility: z
+    .enum([PayoutVisibility.PRIVATE, PayoutVisibility.PUBLIC])
     .optional(),
 })
 
@@ -355,6 +363,7 @@ export const projectRouter = router({
           logoUrl: input.logoUrl,
           websiteUrl: input.websiteUrl,
           discordUrl: input.discordUrl,
+          payoutVisibility: input.payoutVisibility,
           founderId: ctx.user.id,
           rewardPool: {
             create: {
@@ -388,6 +397,7 @@ export const projectRouter = router({
         poolPercentage,
         payoutFrequency,
         commitmentMonths,
+        payoutVisibility,
         ...projectData
       } = input
       const userEmail = ctx.user.email
@@ -509,6 +519,7 @@ export const projectRouter = router({
           ...projectData,
           ...(slug && slug !== project.slug ? { slug } : {}),
           ...(projectKey ? { projectKey } : {}),
+          ...(payoutVisibility ? { payoutVisibility } : {}),
           ...(Object.keys(rewardPoolUpdate).length > 0
             ? { rewardPool: { update: rewardPoolUpdate } }
             : {}),

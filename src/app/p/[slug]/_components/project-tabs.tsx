@@ -56,6 +56,13 @@ interface ProjectTabsProps {
           image: string | null
         }
       }>
+      approvedSubmission: Array<{
+        user: {
+          id: string
+          name: string
+          image: string | null
+        }
+      }>
       _count: {
         claims: number
         submissions: number

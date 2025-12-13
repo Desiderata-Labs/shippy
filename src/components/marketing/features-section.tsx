@@ -133,7 +133,7 @@ export function FeaturesSection() {
             </p>
             <div className="mt-5 flex flex-wrap gap-2">
               <Pill variant="success">✓ Verified payouts</Pill>
-              <Pill variant="primary">340+ contributors</Pill>
+              <Pill variant="primary">Growing community</Pill>
               <Pill variant="default">Public history</Pill>
               <Pill variant="default">No hidden terms</Pill>
             </div>

@@ -3,8 +3,10 @@
 import { signOut, useSession } from '@/lib/auth/react'
 import { LogOut01, Plus, Settings01 } from '@untitled-ui/icons-react'
 import { Loader2 } from 'lucide-react'
+import { useEffect, useState } from 'react'
 import Link from 'next/link'
 import { routes } from '@/lib/routes'
+import { cn } from '@/lib/utils'
 import { Avatar, AvatarFallback, AvatarImage } from '@/components/ui/avatar'
 import { Button } from '@/components/ui/button'
 import {
@@ -16,12 +18,31 @@ import {
 } from '@/components/ui/dropdown-menu'
 import { Logo } from '@/components/ui/logo'
 
+interface HeaderProps {
+  /** Add horizontal padding to the header container (for landing page). */
+  padded?: boolean
+}
+
 /**
- * Header for landing/marketing pages.
- * Uses max-w-7xl to match landing page content width.
+ * App header component.
+ * Shows border/background only when page is scrolled.
  */
-export function Header() {
+export function Header({ padded = false }: HeaderProps) {
   const { data: session, isPending } = useSession()
+  const [isScrolled, setIsScrolled] = useState(false)
+
+  // Track scroll position to show/hide border
+  useEffect(() => {
+    const handleScroll = () => {
+      setIsScrolled(window.scrollY > 0)
+    }
+
+    // Check initial scroll position
+    handleScroll()
+
+    window.addEventListener('scroll', handleScroll, { passive: true })
+    return () => window.removeEventListener('scroll', handleScroll)
+  }, [])
 
   // Get user's URLs based on username
   const username = (session?.user as { username?: string })?.username
@@ -37,10 +58,17 @@ export function Header() {
 
   return (
     <header className="sticky top-0 z-50 w-full">
-      {/* Outer wrapper for positioning */}
-      <div className="mx-auto max-w-7xl px-6 pt-4">
-        {/* Clean floating header */}
-        <div className="rounded-xl border border-border bg-background/80 shadow-lg shadow-black/5 backdrop-blur-md">
+      {/* Outer wrapper - uses container to match page width */}
+      <div className={cn('mx-auto max-w-7xl pt-4', padded && 'px-6')}>
+        {/* Floating header - styling only shows when scrolled */}
+        <div
+          className={cn(
+            'rounded-xl border transition-all duration-200',
+            isScrolled
+              ? 'border-border bg-background/80 shadow-lg shadow-black/5 backdrop-blur-md'
+              : 'border-transparent bg-transparent shadow-none',
+          )}
+        >
           {/* Inner content */}
           <div className="flex h-12 items-center px-4">
             {/* Logo */}

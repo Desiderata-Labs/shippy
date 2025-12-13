@@ -40,6 +40,10 @@ export interface PayoutParams extends ProjectParams {
   payoutId?: string
 }
 
+export interface PayoutDetailParams extends ProjectParams {
+  payoutId: string
+}
+
 /**
  * Create a URL-friendly slug with embedded nanoid
  * e.g., "grow-twitter-audience-TdFKukO9LuJe"
@@ -63,6 +67,7 @@ export const projectPaths = {
   submissions: '/p/[slug]/submissions',
   newPayout: '/p/[slug]/payouts/new',
   payouts: '/p/[slug]/payouts',
+  payoutDetail: '/p/[slug]/payouts/[payoutId]',
 } as const
 
 // For navigation - functions that generate actual URLs
@@ -88,4 +93,6 @@ export const projectRoutes = {
   submissions: (params: ProjectParams) => `/p/${params.slug}/submissions`,
   newPayout: (params: ProjectParams) => `/p/${params.slug}/payouts/new`,
   payouts: (params: ProjectParams) => `/p/${params.slug}/payouts`,
+  payoutDetail: (params: PayoutDetailParams) =>
+    `/p/${params.slug}/payouts/${params.payoutId}`,
 } as const

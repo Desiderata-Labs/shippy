@@ -3,46 +3,26 @@
 import { useSession } from '@/lib/auth/react'
 import { trpc } from '@/lib/trpc/react'
 import {
-  Calendar,
   Check,
+  ChevronRight,
   Clock,
   CoinsStacked01,
   Plus,
-  Send01,
   X,
 } from '@untitled-ui/icons-react'
-import { Loader2 } from 'lucide-react'
-import { useState } from 'react'
 import Link from 'next/link'
 import { useParams } from 'next/navigation'
 import { redirect } from 'next/navigation'
+import { getChartColor } from '@/lib/chart-colors'
 import { PayoutRecipientStatus, PayoutStatus } from '@/lib/db/types'
 import { routes } from '@/lib/routes'
 import { cn } from '@/lib/utils'
-import {
-  AppButton,
-  AppCard,
-  AppCardContent,
-  AppCardDescription,
-  AppCardHeader,
-  AppCardTitle,
-  AppTextarea,
-} from '@/components/app'
+import { AppButton } from '@/components/app'
 import { AppBackground } from '@/components/layout/app-background'
-import { Avatar, AvatarFallback, AvatarImage } from '@/components/ui/avatar'
 import { Badge } from '@/components/ui/badge'
-import {
-  Breadcrumb,
-  BreadcrumbItem,
-  BreadcrumbLink,
-  BreadcrumbList,
-  BreadcrumbPage,
-  BreadcrumbSeparator,
-} from '@/components/ui/breadcrumb'
 import { ErrorState } from '@/components/ui/error-state'
 import { NotFoundState } from '@/components/ui/not-found-state'
 import { Skeleton } from '@/components/ui/skeleton'
-import { toast } from 'sonner'
 
 function formatCurrency(cents: number): string {
   return new Intl.NumberFormat('en-US', {
@@ -53,53 +33,30 @@ function formatCurrency(cents: number): string {
   }).format(cents / 100)
 }
 
+function formatPercentage(value: number): string {
+  return value.toFixed(1) + '%'
+}
+
 const statusConfig: Record<string, { label: string; color: string }> = {
   [PayoutStatus.ANNOUNCED]: {
-    label: 'Pending payment',
-    color: 'bg-yellow-500/10 text-yellow-500 border-yellow-500/20',
+    label: 'Pending',
+    color:
+      'bg-yellow-500/10 text-yellow-600 dark:text-yellow-400 border-yellow-500/20',
   },
   [PayoutStatus.SENT]: {
     label: 'Paid',
-    color: 'bg-blue-500/10 text-blue-500 border-blue-500/20',
+    color: 'bg-blue-500/10 text-blue-600 dark:text-blue-400 border-blue-500/20',
   },
   [PayoutStatus.COMPLETED]: {
     label: 'Completed',
-    color: 'bg-green-500/10 text-green-500 border-green-500/20',
-  },
-}
-
-const recipientStatusConfig: Record<
-  string,
-  { label: string; color: string; icon: typeof Check }
-> = {
-  [PayoutRecipientStatus.PENDING]: {
-    label: 'Pending payment',
-    color: 'text-yellow-500',
-    icon: Clock,
-  },
-  [PayoutRecipientStatus.CONFIRMED]: {
-    label: 'Confirmed',
-    color: 'text-green-500',
-    icon: Check,
-  },
-  [PayoutRecipientStatus.DISPUTED]: {
-    label: 'Disputed',
-    color: 'text-red-500',
-    icon: X,
-  },
-  [PayoutRecipientStatus.UNCONFIRMED]: {
-    label: 'Unconfirmed',
-    color: 'text-muted-foreground',
-    icon: Clock,
+    color:
+      'bg-green-500/10 text-green-600 dark:text-green-400 border-green-500/20',
   },
 }
 
 export default function PayoutsPage() {
   const params = useParams<{ slug: string }>()
   const { data: session, isPending: sessionLoading } = useSession()
-  const [markingSentId, setMarkingSentId] = useState<string | null>(null)
-  const [sentNote, setSentNote] = useState('')
-  const [showSentForm, setShowSentForm] = useState<string | null>(null)
 
   // Fetch project data
   const {
@@ -120,28 +77,19 @@ export default function PayoutsPage() {
       { enabled: !!project?.id },
     )
 
-  const utils = trpc.useUtils()
-
-  const markSent = trpc.payout.markSent.useMutation({
-    onSuccess: () => {
-      toast.success('Payout marked as sent')
-      setShowSentForm(null)
-      setSentNote('')
-      utils.payout.getByProject.invalidate({ projectId: project?.id })
-    },
-    onError: (error) => {
-      toast.error(error.message)
-    },
-  })
-
   // Loading states
   if (sessionLoading || projectLoading) {
     return (
       <AppBackground>
-        <div className="mx-auto max-w-7xl px-4 py-8">
-          <Skeleton className="mb-4 h-6 w-32" />
-          <Skeleton className="mb-8 h-10 w-64" />
-          <Skeleton className="h-96 w-full" />
+        <div className="mx-auto max-w-7xl px-4 py-6">
+          <div className="mb-6">
+            <Skeleton className="h-5 w-48" />
+          </div>
+          <div className="space-y-3">
+            {[1, 2, 3].map((i) => (
+              <Skeleton key={i} className="h-24 w-full" />
+            ))}
+          </div>
         </div>
       </AppBackground>
     )
@@ -152,7 +100,7 @@ export default function PayoutsPage() {
     redirect(routes.auth.signIn())
   }
 
-  // Handle errors - differentiate between 404/forbidden and other errors
+  // Handle errors
   if (projectError) {
     const isNotFoundOrForbidden =
       projectErrorData?.data?.code === 'NOT_FOUND' ||
@@ -196,85 +144,74 @@ export default function PayoutsPage() {
     )
   }
 
-  const handleMarkSent = async (payoutId: string) => {
-    setMarkingSentId(payoutId)
-    try {
-      await markSent.mutateAsync({
-        payoutId,
-        note: sentNote || undefined,
-      })
-    } finally {
-      setMarkingSentId(null)
-    }
-  }
+  const poolCapacity = project.rewardPool?.poolCapacity ?? 1000
 
   return (
     <AppBackground>
-      <div className="mx-auto max-w-7xl px-4 py-8">
-        {/* Breadcrumb */}
-        <Breadcrumb className="mb-6">
-          <BreadcrumbList>
-            <BreadcrumbItem>
-              <BreadcrumbLink asChild>
-                <Link href={routes.project.detail({ slug: params.slug })}>
-                  {project.name}
-                </Link>
-              </BreadcrumbLink>
-            </BreadcrumbItem>
-            <BreadcrumbSeparator />
-            <BreadcrumbItem>
-              <BreadcrumbPage>Payouts</BreadcrumbPage>
-            </BreadcrumbItem>
-          </BreadcrumbList>
-        </Breadcrumb>
+      <div className="mx-auto max-w-7xl px-4 py-6">
+        {/* Breadcrumb navigation */}
+        <div className="mb-6 flex items-center gap-2 text-sm">
+          <Link
+            href={routes.project.detail({ slug: params.slug })}
+            className="text-muted-foreground transition-colors hover:text-foreground"
+          >
+            {project.name}
+          </Link>
+          <span className="text-muted-foreground/50">/</span>
+          <span className="text-foreground">Payouts</span>
+        </div>
 
-        <div className="mb-8 flex items-center justify-between">
+        {/* Header */}
+        <div className="mb-6 flex items-center justify-between">
           <div>
-            <h1 className="text-3xl font-bold tracking-tight">Payouts</h1>
-            <p className="mt-2 text-muted-foreground">
+            <h1 className="text-2xl font-bold">Payouts</h1>
+            <p className="mt-1 text-sm text-muted-foreground">
               Manage reward pool distributions
             </p>
           </div>
-          <AppButton asChild>
+          <AppButton asChild size="sm">
             <Link href={routes.project.newPayout({ slug: params.slug })}>
-              <Plus className="mr-2 size-4" />
+              <Plus className="mr-1.5 size-4" />
               New Payout
             </Link>
           </AppButton>
         </div>
 
         {payoutsLoading ? (
-          <div className="space-y-4">
+          <div className="space-y-3">
             {[1, 2, 3].map((i) => (
-              <Skeleton key={i} className="h-48 w-full" />
+              <Skeleton key={i} className="h-24 w-full" />
             ))}
           </div>
         ) : !payouts || payouts.length === 0 ? (
-          <AppCard>
-            <AppCardContent className="py-12 text-center">
-              <div className="mx-auto flex max-w-xs flex-col items-center">
-                <div className="mb-3 flex size-12 items-center justify-center rounded-xl bg-primary/10">
-                  <CoinsStacked01 className="size-6 text-primary" />
-                </div>
-                <h3 className="text-base font-semibold">No payouts yet</h3>
-                <p className="mt-1.5 text-sm text-muted-foreground">
-                  Create your first payout to distribute the reward pool.
-                </p>
-                <AppButton asChild className="mt-4">
-                  <Link href={routes.project.newPayout({ slug: params.slug })}>
-                    <Plus className="mr-2 size-4" />
-                    Create Payout
-                  </Link>
-                </AppButton>
+          <div className="rounded-lg border border-dashed border-border bg-card px-4 py-12 text-center">
+            <div className="mx-auto flex max-w-xs flex-col items-center">
+              <div className="mb-3 flex size-12 items-center justify-center rounded-xl bg-primary/10">
+                <CoinsStacked01 className="size-6 text-primary" />
               </div>
-            </AppCardContent>
-          </AppCard>
+              <h3 className="text-base font-semibold">No payouts yet</h3>
+              <p className="mt-1.5 text-sm text-muted-foreground">
+                Create your first payout to distribute the reward pool.
+              </p>
+              <AppButton asChild className="mt-4" size="sm">
+                <Link href={routes.project.newPayout({ slug: params.slug })}>
+                  <Plus className="mr-1.5 size-4" />
+                  Create Payout
+                </Link>
+              </AppButton>
+            </div>
+          </div>
         ) : (
-          <div className="space-y-6">
+          <div className="space-y-3">
             {payouts.map((payout) => {
               const status =
                 statusConfig[payout.status] ||
                 statusConfig[PayoutStatus.ANNOUNCED]
+              const totalPoints = payout.recipients.reduce(
+                (sum, r) => sum + r.pointsAtPayout,
+                0,
+              )
+              const poolUtilization = (totalPoints / poolCapacity) * 100
               const confirmedCount = payout.recipients.filter(
                 (r) => r.status === PayoutRecipientStatus.CONFIRMED,
               ).length
@@ -283,168 +220,98 @@ export default function PayoutsPage() {
               ).length
 
               return (
-                <AppCard key={payout.id}>
-                  <AppCardHeader>
-                    <div className="flex items-start justify-between gap-3">
-                      <div>
+                <Link
+                  key={payout.id}
+                  href={routes.project.payoutDetail({
+                    slug: params.slug,
+                    payoutId: payout.id,
+                  })}
+                  className="group block rounded-lg border border-border bg-card transition-colors hover:bg-muted/50"
+                >
+                  <div className="p-4">
+                    <div className="flex items-center justify-between gap-4">
+                      {/* Left: Period info */}
+                      <div className="min-w-0 flex-1">
                         <div className="flex items-center gap-2">
-                          <AppCardTitle className="flex items-center gap-2">
-                            <Calendar className="size-4" />
+                          <h3 className="font-semibold">
                             {payout.periodLabel}
-                          </AppCardTitle>
+                          </h3>
                           <Badge
                             variant="outline"
-                            className={cn('text-xs', status.color)}
+                            className={cn('text-[10px]', status.color)}
                           >
                             {status.label}
                           </Badge>
                         </div>
-                        <AppCardDescription className="mt-1">
-                          {new Date(payout.periodStart).toLocaleDateString()} -{' '}
+                        <p className="mt-0.5 text-xs text-muted-foreground">
+                          {new Date(payout.periodStart).toLocaleDateString()} –{' '}
                           {new Date(payout.periodEnd).toLocaleDateString()}
-                        </AppCardDescription>
-                      </div>
-                      <div className="text-right">
-                        <p className="text-lg font-semibold">
-                          {formatCurrency(payout.poolAmountCents)}
-                        </p>
-                        <p className="text-xs text-muted-foreground">
-                          from {formatCurrency(payout.reportedProfitCents)}{' '}
-                          profit
                         </p>
                       </div>
-                    </div>
-                  </AppCardHeader>
-                  <AppCardContent>
-                    {/* Recipients */}
-                    <div className="mb-4 space-y-2">
-                      {payout.recipients.map((recipient) => {
-                        const recipientStatus =
-                          recipientStatusConfig[recipient.status] ||
-                          recipientStatusConfig[PayoutRecipientStatus.PENDING]
-                        const StatusIcon = recipientStatus.icon
 
-                        return (
-                          <div
-                            key={recipient.id}
-                            className="flex items-center justify-between rounded-lg border border-border bg-muted/30 p-3"
-                          >
-                            <div className="flex items-center gap-3">
-                              <Avatar className="size-8">
-                                <AvatarImage
-                                  src={recipient.user.image ?? undefined}
+                      {/* Center: Distribution bar (hidden on mobile) */}
+                      <div className="hidden w-48 sm:block">
+                        <div className="flex h-4 overflow-hidden rounded-sm bg-muted/50">
+                          {payout.recipients
+                            .slice(0, 5)
+                            .map((recipient, index) => {
+                              const capacityPercent =
+                                (recipient.pointsAtPayout / poolCapacity) * 100
+                              return (
+                                <div
+                                  key={recipient.id}
+                                  style={{
+                                    width: `${capacityPercent}%`,
+                                    backgroundColor: getChartColor(index),
+                                  }}
                                 />
-                                <AvatarFallback>
-                                  {recipient.user.name.charAt(0)}
-                                </AvatarFallback>
-                              </Avatar>
-                              <div>
-                                <p className="font-medium">
-                                  {recipient.user.name}
-                                </p>
-                                <p className="text-xs text-muted-foreground">
-                                  {recipient.pointsAtPayout} pts (
-                                  {parseFloat(
-                                    recipient.sharePercent.toString(),
-                                  ).toFixed(1)}
-                                  %)
-                                </p>
-                              </div>
-                            </div>
-                            <div className="flex items-center gap-3">
-                              <span className="font-semibold">
-                                {formatCurrency(recipient.amountCents)}
-                              </span>
-                              <StatusIcon
-                                className={cn('size-4', recipientStatus.color)}
-                              />
-                            </div>
-                          </div>
-                        )
-                      })}
-                    </div>
-
-                    {/* Confirmation stats */}
-                    <div className="mb-4 flex items-center gap-4 text-xs text-muted-foreground">
-                      <span className="flex items-center gap-1">
-                        <Check className="size-3 text-green-500" />
-                        {confirmedCount} confirmed
-                      </span>
-                      {disputedCount > 0 && (
-                        <span className="flex items-center gap-1 text-red-500">
-                          <X className="size-3" />
-                          {disputedCount} disputed
-                        </span>
-                      )}
-                    </div>
-
-                    {/* Actions */}
-                    {payout.status === PayoutStatus.ANNOUNCED && (
-                      <>
-                        {showSentForm === payout.id ? (
-                          <div className="space-y-3 rounded-lg border border-border bg-muted/30 p-4">
-                            <p className="text-sm font-medium">Mark as Paid</p>
-                            <AppTextarea
-                              value={sentNote}
-                              onChange={(e) => setSentNote(e.target.value)}
-                              placeholder="Optional: Add payment reference (e.g., PayPal txn #12345)"
-                              rows={2}
-                              disabled={markingSentId === payout.id}
-                            />
-                            <div className="flex justify-end gap-2">
-                              <AppButton
-                                variant="outline"
-                                size="sm"
-                                onClick={() => {
-                                  setShowSentForm(null)
-                                  setSentNote('')
-                                }}
-                                disabled={markingSentId === payout.id}
-                              >
-                                Cancel
-                              </AppButton>
-                              <AppButton
-                                size="sm"
-                                onClick={() => handleMarkSent(payout.id)}
-                                disabled={markingSentId === payout.id}
-                              >
-                                {markingSentId === payout.id ? (
-                                  <Loader2 className="mr-2 size-4 animate-spin" />
-                                ) : (
-                                  <Send01 className="mr-2 size-4" />
-                                )}
-                                Confirm Paid
-                              </AppButton>
-                            </div>
-                          </div>
-                        ) : (
-                          <AppButton
-                            onClick={() => setShowSentForm(payout.id)}
-                            className="w-full"
-                          >
-                            <Send01 className="mr-2 size-4" />
-                            Mark as Paid
-                          </AppButton>
-                        )}
-                      </>
-                    )}
-
-                    {payout.status === PayoutStatus.SENT && payout.sentNote && (
-                      <div className="rounded-lg border border-blue-500/20 bg-blue-500/10 p-3">
-                        <p className="text-xs text-blue-700 dark:text-blue-400">
-                          <span className="font-medium">Payment note:</span>{' '}
-                          {payout.sentNote}
-                        </p>
-                        {payout.sentAt && (
-                          <p className="mt-1 text-xs text-blue-700/70 dark:text-blue-400/70">
-                            Sent on{' '}
-                            {new Date(payout.sentAt).toLocaleDateString()}
-                          </p>
-                        )}
+                              )
+                            })}
+                        </div>
+                        <div className="mt-1 flex items-center justify-between text-[10px] text-muted-foreground">
+                          <span>{payout.recipients.length} recipients</span>
+                          <span>
+                            {formatPercentage(Math.min(poolUtilization, 100))}{' '}
+                            utilized
+                          </span>
+                        </div>
                       </div>
-                    )}
-                  </AppCardContent>
-                </AppCard>
+
+                      {/* Right: Amount and confirmations */}
+                      <div className="flex items-center gap-4">
+                        <div className="text-right">
+                          <div className="font-semibold text-primary">
+                            {formatCurrency(payout.poolAmountCents)}
+                          </div>
+                          <div className="flex items-center justify-end gap-2 text-[10px] text-muted-foreground">
+                            <span className="flex items-center gap-0.5 text-green-600 dark:text-green-400">
+                              <Check className="size-3" />
+                              {confirmedCount}
+                            </span>
+                            {disputedCount > 0 && (
+                              <span className="flex items-center gap-0.5 text-red-600 dark:text-red-400">
+                                <X className="size-3" />
+                                {disputedCount}
+                              </span>
+                            )}
+                            {payout.recipients.length -
+                              confirmedCount -
+                              disputedCount >
+                              0 && (
+                              <span className="flex items-center gap-0.5">
+                                <Clock className="size-3" />
+                                {payout.recipients.length -
+                                  confirmedCount -
+                                  disputedCount}
+                              </span>
+                            )}
+                          </div>
+                        </div>
+                        <ChevronRight className="size-4 text-muted-foreground transition-transform group-hover:translate-x-0.5" />
+                      </div>
+                    </div>
+                  </div>
+                </Link>
               )
             })}
           </div>

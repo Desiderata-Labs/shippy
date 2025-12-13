@@ -10,7 +10,7 @@ import { TrustSection } from '@/components/marketing/trust-section'
 export default function HomePage() {
   return (
     <main className="flex flex-col overflow-x-clip">
-      <Header />
+      <Header padded />
       <HeroSection />
       <TrustSection />
       <HowItWorksSection />

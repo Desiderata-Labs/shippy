@@ -4,7 +4,7 @@ import {
   ParticleBackground,
   ParticleIntensity,
 } from '@/components/marketing/particle-background'
-import { AppHeader } from './app-header'
+import { Header } from './header'
 
 interface AppBackgroundProps {
   children: React.ReactNode
@@ -34,7 +34,7 @@ export function AppBackground({
       </div>
 
       {/* Header */}
-      {showHeader && <AppHeader />}
+      {showHeader && <Header />}
 
       {/* Content */}
       <div className="relative">{children}</div>

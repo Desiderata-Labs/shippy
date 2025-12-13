@@ -210,22 +210,25 @@ export const payoutRouter = router({
           poolCapacity,
       )
 
-      const breakdown = contributors.map((c) => ({
-        userId: c.userId,
-        userName: c.userName,
-        userImage: c.userImage,
-        points: c.points,
-        sharePercent:
-          effectiveDenominator > 0
-            ? (c.points / effectiveDenominator) * 100
-            : 0,
-        amountCents:
+      const breakdown = contributors.map((c) => {
+        const amountCents =
           effectiveDenominator > 0
             ? Math.floor(
                 (distributedAmountCents * c.points) / totalEarnedPoints,
               )
-            : 0,
-      }))
+            : 0
+        // sharePercent is % of total pool (including platform fee)
+        const sharePercent =
+          poolAmountCents > 0 ? (amountCents / poolAmountCents) * 100 : 0
+        return {
+          userId: c.userId,
+          userName: c.userName,
+          userImage: c.userImage,
+          points: c.points,
+          sharePercent,
+          amountCents,
+        }
+      })
 
       return {
         reportedProfitCents: input.reportedProfitCents,
@@ -295,9 +298,6 @@ export const payoutRouter = router({
         0,
       )
 
-      // Use capacity as denominator, but cap at 100% if earned > capacity
-      const effectiveDenominator = Math.max(poolCapacity, totalEarnedPoints)
-
       // Only distribute for earned points (not full capacity)
       const distributedAmountCents = Math.floor(
         (maxDistributableCents * Math.min(totalEarnedPoints, poolCapacity)) /
@@ -317,10 +317,12 @@ export const payoutRouter = router({
           totalPointsAtPayout: totalEarnedPoints,
           recipients: {
             create: contributors.map((c) => {
-              const sharePercent = (c.points / effectiveDenominator) * 100
               const amountCents = Math.floor(
                 (distributedAmountCents * c.points) / totalEarnedPoints,
               )
+              // sharePercent is % of total pool (including platform fee)
+              const sharePercent =
+                poolAmountCents > 0 ? (amountCents / poolAmountCents) * 100 : 0
               return {
                 userId: c.userId,
                 pointsAtPayout: c.points,

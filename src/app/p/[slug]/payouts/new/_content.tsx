@@ -515,7 +515,12 @@ export function NewPayoutContent() {
                                 </div>
                                 <div className="text-[10px] text-muted-foreground">
                                   {recipient.points} pts (
-                                  {formatPercentage(recipient.sharePercent)})
+                                  {formatPercentage(
+                                    (recipient.amountCents /
+                                      preview.poolAmountCents) *
+                                      100,
+                                  )}
+                                  )
                                 </div>
                               </div>
                             </div>

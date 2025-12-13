@@ -755,9 +755,9 @@ export function PayoutDetailContent() {
                                 <div className="text-[10px] text-muted-foreground">
                                   {recipient.pointsAtPayout} pts (
                                   {formatPercentage(
-                                    parseFloat(
-                                      recipient.sharePercent.toString(),
-                                    ),
+                                    (recipient.amountCents /
+                                      payout.poolAmountCents) *
+                                      100,
                                   )}
                                   )
                                 </div>

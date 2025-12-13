@@ -89,7 +89,7 @@ function OnboardingForm({ suggestedUsername }: { suggestedUsername: string }) {
     }
 
     if (availabilityData?.available) {
-      return <Check className="size-4 text-green-500" />
+      return <Check className="size-4 text-primary" />
     }
 
     return <X className="size-4 text-destructive" />
@@ -144,9 +144,7 @@ function OnboardingForm({ suggestedUsername }: { suggestedUsername: string }) {
               </p>
             )}
           {availabilityData?.available && username.length >= 3 && (
-            <p className="text-xs text-green-600 dark:text-green-400">
-              Username is available!
-            </p>
+            <p className="text-xs text-primary">Username is available!</p>
           )}
         </div>
 
@@ -178,7 +176,7 @@ export function OnboardingContent() {
   // Loading state
   if (sessionLoading) {
     return (
-      <AppBackground showHeader={false}>
+      <AppBackground fullPage>
         <div className="container flex min-h-screen flex-col items-center justify-center">
           <Loader2 className="size-8 animate-spin text-muted-foreground" />
         </div>
@@ -197,7 +195,7 @@ export function OnboardingContent() {
     : ''
 
   return (
-    <AppBackground showHeader={false}>
+    <AppBackground fullPage>
       <div className="container flex min-h-screen flex-col items-center justify-center px-4 py-12">
         <div className="mx-auto flex w-full flex-col justify-center space-y-6 sm:w-[400px]">
           {/* Logo link */}

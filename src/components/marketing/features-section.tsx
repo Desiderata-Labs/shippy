@@ -249,7 +249,7 @@ function BountyItem({
       </div>
       <div className="flex items-center gap-2">
         <span
-          className={`text-xs font-medium ${status === 'open' ? 'text-green-400' : 'text-muted-foreground'}`}
+          className={`text-xs font-medium ${status === 'open' ? 'text-primary' : 'text-muted-foreground'}`}
         >
           {status === 'open' ? 'Open' : 'Claimed'}
         </span>
@@ -273,7 +273,7 @@ function PayoutItem({
       <span className="text-sm text-muted-foreground">{month}</span>
       <div className="flex items-center gap-2">
         <span className="text-sm font-semibold">${amount}</span>
-        {verified && <ShieldTick className="size-3.5 text-green-400" />}
+        {verified && <ShieldTick className="size-3.5 text-primary" />}
       </div>
     </div>
   )
@@ -291,7 +291,7 @@ function StatBlock({
   return (
     <div className="rounded-lg border border-white/5 bg-white/3 px-3 py-2.5 text-center dark:border-white/5 dark:bg-white/3">
       <div
-        className={`text-lg font-semibold ${highlight ? 'text-green-400' : ''}`}
+        className={`text-lg font-semibold ${highlight ? 'text-primary' : ''}`}
       >
         {value}
       </div>
@@ -335,7 +335,7 @@ function Pill({
   variant: 'success' | 'primary' | 'default'
 }) {
   const variantClasses = {
-    success: 'border-green-500/20 bg-green-500/10 text-green-400',
+    success: 'border-primary/20 bg-primary/10 text-primary',
     primary: 'border-primary/20 bg-primary/10 text-primary',
     default:
       'border-white/8 bg-white/5 text-muted-foreground dark:border-white/8 dark:bg-white/5',

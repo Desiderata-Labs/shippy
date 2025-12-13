@@ -260,7 +260,7 @@ export function BountyEditor({ mode, slug, bountyId }: BountyEditorProps) {
   if (isDataLoading) {
     return (
       <AppBackground>
-        <div className="mx-auto max-w-7xl px-4 py-6">
+        <div className="mx-auto max-w-7xl p-6">
           <div className="mb-6">
             <Skeleton className="h-5 w-48" />
           </div>
@@ -288,7 +288,7 @@ export function BountyEditor({ mode, slug, bountyId }: BountyEditorProps) {
       projectErrorData?.data?.code === 'BAD_REQUEST'
     return (
       <AppBackground>
-        <div className="mx-auto max-w-7xl px-4 py-8">
+        <div className="mx-auto max-w-7xl p-6">
           {isNotFoundOrForbidden ? (
             <NotFoundState
               resourceType="project"
@@ -313,7 +313,7 @@ export function BountyEditor({ mode, slug, bountyId }: BountyEditorProps) {
   if (!project || project.founderId !== session.user.id) {
     return (
       <AppBackground>
-        <div className="mx-auto max-w-7xl px-4 py-8">
+        <div className="mx-auto max-w-7xl p-6">
           <NotFoundState
             resourceType="project"
             backHref={routes.dashboard.root()}
@@ -335,7 +335,7 @@ export function BountyEditor({ mode, slug, bountyId }: BountyEditorProps) {
     })
     return (
       <AppBackground>
-        <div className="mx-auto max-w-7xl px-4 py-8">
+        <div className="mx-auto max-w-7xl p-6">
           {isNotFound ? (
             <NotFoundState
               resourceType="bounty"
@@ -360,7 +360,7 @@ export function BountyEditor({ mode, slug, bountyId }: BountyEditorProps) {
   if (mode === 'edit' && (!bounty || bounty.projectId !== project.id)) {
     return (
       <AppBackground>
-        <div className="mx-auto max-w-7xl px-4 py-8">
+        <div className="mx-auto max-w-7xl p-6">
           <NotFoundState
             resourceType="bounty"
             backHref={routes.project.detail({ slug, tab: ProjectTab.BOUNTIES })}
@@ -468,7 +468,7 @@ export function BountyEditor({ mode, slug, bountyId }: BountyEditorProps) {
 
   return (
     <AppBackground>
-      <div className="mx-auto max-w-7xl px-4 py-6">
+      <div className="mx-auto max-w-7xl p-6">
         {/* Breadcrumb navigation */}
         <div className="mb-6 flex items-center gap-2 text-sm">
           <Link

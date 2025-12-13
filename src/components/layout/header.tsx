@@ -21,18 +21,27 @@ import { AppButton } from '../app/app-button'
 interface HeaderProps {
   /** Add horizontal padding to the header container (for landing page). */
   padded?: boolean
+  /**
+   * Header variant:
+   * - 'marketing': Sticky header with scroll-based styling (for landing page)
+   * - 'app': Static header in the frame area (for app pages)
+   */
+  variant?: 'marketing' | 'app'
 }
 
 /**
  * App header component.
- * Shows border/background only when page is scrolled.
+ * In marketing mode: sticky with scroll-based border/background.
+ * In app mode: static header in the frame area.
  */
-export function Header({ padded = false }: HeaderProps) {
+export function Header({ padded = false, variant = 'marketing' }: HeaderProps) {
   const { data: session, isPending } = useSession()
   const [isScrolled, setIsScrolled] = useState(false)
 
-  // Track scroll position to show/hide border
+  // Track scroll position to show/hide border (only in marketing mode)
   useEffect(() => {
+    if (variant !== 'marketing') return
+
     const handleScroll = () => {
       setIsScrolled(window.scrollY > 0)
     }
@@ -42,7 +51,7 @@ export function Header({ padded = false }: HeaderProps) {
 
     window.addEventListener('scroll', handleScroll, { passive: true })
     return () => window.removeEventListener('scroll', handleScroll)
-  }, [])
+  }, [variant])
 
   // Get user's URLs based on username
   const username = (session?.user as { username?: string })?.username
@@ -56,17 +65,37 @@ export function Header({ padded = false }: HeaderProps) {
     ? routes.user.settings({ username })
     : routes.dashboard.root()
 
+  const isApp = variant === 'app'
+
   return (
-    <header className="sticky top-0 z-50 w-full">
+    <header
+      className={cn(
+        'z-50 w-full',
+        // Marketing mode: sticky with scroll behavior
+        // App mode: static, sits in the frame
+        !isApp && 'sticky top-0',
+      )}
+    >
       {/* Outer wrapper - uses container to match page width */}
-      <div className={cn('mx-auto max-w-7xl pt-4', padded && 'px-6')}>
-        {/* Floating header - styling only shows when scrolled */}
+      <div
+        className={cn(
+          'mx-auto max-w-7xl',
+          !isApp && 'pt-4',
+          padded && 'px-6',
+          isApp && 'p-2 sm:p-3',
+        )}
+      >
+        {/* Floating header - styling depends on variant */}
         <div
           className={cn(
             'rounded-xl border transition-all duration-200',
-            isScrolled
-              ? 'border-border bg-background/80 shadow-lg shadow-black/5 backdrop-blur-md'
-              : 'border-transparent bg-transparent shadow-none',
+            isApp
+              ? // App mode: always transparent, no border
+                'border-transparent bg-transparent'
+              : // Marketing mode: styling only shows when scrolled
+                isScrolled
+                ? 'border-border bg-background/80 shadow-lg shadow-black/5 backdrop-blur-md'
+                : 'border-transparent bg-transparent shadow-none',
           )}
         >
           {/* Inner content */}

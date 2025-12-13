@@ -7,16 +7,16 @@ import { BountyStatus, SubmissionStatus } from '@/lib/db/types'
 // =============================================================================
 // BOUNTY STATUS COLORS
 // =============================================================================
-// Open: Green - ready to claim, inviting
+// Open: Primary - ready to claim, inviting
 // Claimed/In Progress: Yellow - someone is working on it
-// Completed: Blue - done successfully
+// Completed: Primary - done successfully
 // Closed: Muted - no longer active
 
 export const bountyStatusColors = {
   [BountyStatus.OPEN]: {
-    dot: 'bg-green-500',
-    text: 'text-green-500',
-    icon: 'text-green-500',
+    dot: 'bg-primary',
+    text: 'text-primary',
+    icon: 'text-primary',
   },
   [BountyStatus.CLAIMED]: {
     dot: 'bg-yellow-500',
@@ -24,9 +24,9 @@ export const bountyStatusColors = {
     icon: 'text-yellow-500',
   },
   [BountyStatus.COMPLETED]: {
-    dot: 'bg-blue-500',
-    text: 'text-blue-500',
-    icon: 'text-blue-500',
+    dot: 'bg-primary',
+    text: 'text-primary',
+    icon: 'text-primary',
   },
   [BountyStatus.CLOSED]: {
     dot: 'bg-muted-foreground/50',
@@ -47,8 +47,8 @@ export const bountyStatusLabels: Record<BountyStatus, string> = {
 // =============================================================================
 // Draft: Muted - not yet submitted
 // Pending: Purple - awaiting review (attention needed)
-// Needs Info: Orange - waiting for contributor response
-// Approved: Green - success
+// Needs Info: Amber - waiting for contributor response
+// Approved: Primary - success
 // Rejected: Red - not accepted
 // Withdrawn: Muted - cancelled by contributor
 
@@ -64,14 +64,14 @@ export const submissionStatusColors = {
     icon: 'text-purple-500',
   },
   [SubmissionStatus.NEEDS_INFO]: {
-    dot: 'bg-orange-500',
-    text: 'text-orange-500',
-    icon: 'text-orange-500',
+    dot: 'bg-amber-500',
+    text: 'text-amber-500',
+    icon: 'text-amber-500',
   },
   [SubmissionStatus.APPROVED]: {
-    dot: 'bg-green-500',
-    text: 'text-green-500',
-    icon: 'text-green-500',
+    dot: 'bg-primary',
+    text: 'text-primary',
+    icon: 'text-primary',
   },
   [SubmissionStatus.REJECTED]: {
     dot: 'bg-red-500',

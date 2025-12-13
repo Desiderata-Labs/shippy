@@ -106,7 +106,7 @@ function updateParticle(
 function drawParticle(ctx: CanvasRenderingContext2D, p: ParticleState) {
   ctx.beginPath()
   ctx.arc(p.x, p.y, p.size, 0, Math.PI * 2)
-  ctx.fillStyle = `rgba(147, 112, 219, ${p.opacity})`
+  ctx.fillStyle = `rgba(74, 144, 226, ${p.opacity})`
   ctx.fill()
 }
 
@@ -179,7 +179,7 @@ export function ParticleBackground({
             ctx.beginPath()
             ctx.moveTo(particles[i].x, particles[i].y)
             ctx.lineTo(particles[j].x, particles[j].y)
-            ctx.strokeStyle = `rgba(147, 112, 219, ${opacity})`
+            ctx.strokeStyle = `rgba(74, 144, 226, ${opacity})`
             ctx.lineWidth = 1
             ctx.stroke()
           }

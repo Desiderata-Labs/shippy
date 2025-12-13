@@ -192,7 +192,7 @@ export function ProjectEditor({ mode, username, slug }: ProjectEditorProps) {
   if (isDataLoading) {
     return (
       <AppBackground>
-        <div className="mx-auto max-w-7xl px-4 py-6">
+        <div className="mx-auto max-w-7xl p-6">
           <div className="mb-6">
             <Skeleton className="h-5 w-48" />
           </div>
@@ -231,7 +231,7 @@ export function ProjectEditor({ mode, username, slug }: ProjectEditorProps) {
       projectErrorData?.data?.code === 'BAD_REQUEST'
     return (
       <AppBackground>
-        <div className="mx-auto max-w-7xl px-4 py-8">
+        <div className="mx-auto max-w-7xl p-6">
           {isNotFoundOrForbidden ? (
             <NotFoundState
               resourceType="project"
@@ -256,7 +256,7 @@ export function ProjectEditor({ mode, username, slug }: ProjectEditorProps) {
   if (mode === 'edit' && (!project || project.founderId !== session.user.id)) {
     return (
       <AppBackground>
-        <div className="mx-auto max-w-7xl px-4 py-8">
+        <div className="mx-auto max-w-7xl p-6">
           <NotFoundState
             resourceType="project"
             backHref={routes.dashboard.root()}
@@ -313,14 +313,14 @@ export function ProjectEditor({ mode, username, slug }: ProjectEditorProps) {
 
     // In edit mode, if slug hasn't changed, show check
     if (mode === 'edit' && projectSlug === project?.slug) {
-      return <Check className="size-4 text-green-500" />
+      return <Check className="size-4 text-primary" />
     }
 
     if (isCheckingSlug) {
       return <Loader2 className="size-4 animate-spin text-muted-foreground" />
     }
     if (slugAvailability?.available) {
-      return <Check className="size-4 text-green-500" />
+      return <Check className="size-4 text-primary" />
     }
     return <X className="size-4 text-destructive" />
   }
@@ -332,14 +332,14 @@ export function ProjectEditor({ mode, username, slug }: ProjectEditorProps) {
       mode === 'edit' &&
       normalizeProjectKey(projectKey) === project?.projectKey
     ) {
-      return <Check className="size-4 text-green-500" />
+      return <Check className="size-4 text-primary" />
     }
 
     if (isCheckingKey) {
       return <Loader2 className="size-4 animate-spin text-muted-foreground" />
     }
     if (keyAvailability?.available) {
-      return <Check className="size-4 text-green-500" />
+      return <Check className="size-4 text-primary" />
     }
     return <X className="size-4 text-destructive" />
   }
@@ -408,7 +408,7 @@ export function ProjectEditor({ mode, username, slug }: ProjectEditorProps) {
 
   return (
     <AppBackground>
-      <div className="mx-auto max-w-7xl px-4 py-6">
+      <div className="mx-auto max-w-7xl p-6">
         {/* Breadcrumb navigation */}
         <div className="mb-6 flex items-center gap-2 text-sm">
           {mode === 'create' && username ? (

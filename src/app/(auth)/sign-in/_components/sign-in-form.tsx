@@ -60,7 +60,7 @@ export function SignInForm() {
   }
 
   return (
-    <AppBackground showHeader={false}>
+    <AppBackground fullPage>
       <div className="container flex min-h-screen flex-col items-center justify-center px-4 py-12">
         <div className="mx-auto flex w-full flex-col justify-center space-y-6 sm:w-[400px]">
           {/* Logo link */}

@@ -104,7 +104,7 @@ export function ErrorState({
             >
               {errorId}
             </button>
-            {copied && <span className="ml-2 text-green-500">Copied!</span>}
+            {copied && <span className="ml-2 text-primary">Copied!</span>}
           </p>
         </div>
       )}

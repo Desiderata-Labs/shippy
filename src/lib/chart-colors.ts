@@ -5,11 +5,10 @@
 
 // 12 distinct, well-spaced hues - similar to generateRandomLabelColor but deterministic
 export const CHART_COLORS = [
-  '#e85a1c', // primary orange
-  '#2563eb', // blue
+  '#4a90e2', // primary blue
   '#16a34a', // green
   '#9333ea', // purple
-  '#ea580c', // orange-red
+  '#ea580c', // orange
   '#0891b2', // cyan
   '#c026d3', // fuchsia
   '#ca8a04', // yellow
@@ -17,6 +16,7 @@ export const CHART_COLORS = [
   '#4f46e5', // indigo
   '#059669', // emerald
   '#db2777', // pink
+  '#64748b', // slate
 ] as const
 
 /**

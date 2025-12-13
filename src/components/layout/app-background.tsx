@@ -8,18 +8,37 @@ import { Header } from './header'
 
 interface AppBackgroundProps {
   children: React.ReactNode
-  /** Whether to show the header. Defaults to true. */
+  /**
+   * Whether to show the header. Defaults to false.
+   * NOTE: For pages in the (app) route group, the layout handles the header.
+   * Only set to true for standalone pages outside the app layout.
+   */
   showHeader?: boolean
+  /**
+   * Whether to show full-page background with particles.
+   * Use for standalone pages (auth, error) that aren't in the app layout.
+   */
+  fullPage?: boolean
 }
 
 /**
- * Shared background for all app pages (non-landing).
- * Includes AppHeader, subtle particle animation, and gradient background.
+ * Background wrapper for pages.
+ *
+ * For pages in the (app) route group: just renders children (layout handles frame/header).
+ * For standalone pages (auth, error, not-found): provides full background with particles.
  */
 export function AppBackground({
   children,
-  showHeader = true,
+  showHeader = false,
+  fullPage = false,
 }: AppBackgroundProps) {
+  // For pages inside the (app) layout, just render children
+  // The layout handles the dark frame, header, and content container
+  if (!fullPage && !showHeader) {
+    return <>{children}</>
+  }
+
+  // For standalone pages (auth, error, etc.), provide full background
   return (
     <div className="relative min-h-screen">
       {/* Particles */}

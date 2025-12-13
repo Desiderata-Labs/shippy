@@ -240,7 +240,7 @@ function RewardPoolVisualization() {
                 <div className="flex items-center gap-2">
                   <div
                     className={`size-1.5 rounded-full ${
-                      tx.type === 'payout' ? 'bg-green-400' : 'bg-primary'
+                      tx.type === 'payout' ? 'bg-primary' : 'bg-primary/60'
                     }`}
                   />
                   <span className="text-muted-foreground">

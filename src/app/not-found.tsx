@@ -8,7 +8,7 @@ export const metadata: Metadata = {
 
 export default function NotFound() {
   return (
-    <AppBackground>
+    <AppBackground fullPage>
       <div className="flex min-h-[calc(100vh-80px)] items-center justify-center px-4">
         <NotFoundState />
       </div>

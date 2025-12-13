@@ -58,8 +58,8 @@ export function HowItWorksSection() {
             <div className="flex flex-col gap-2">
               <ListItem
                 icon={<CheckCircle className="size-3.5" />}
-                iconBg="bg-green-500/10"
-                iconColor="text-green-400"
+                iconBg="bg-primary/10"
+                iconColor="text-primary"
               >
                 <span className="text-sm">SEO blog post</span>
                 <span className="ml-2 text-xs text-muted-foreground">
@@ -124,25 +124,23 @@ export function HowItWorksSection() {
               future work.
             </p>
             <div className="flex flex-col gap-2">
-              <div className="flex items-center justify-between rounded-lg border border-green-500/20 bg-green-500/10 px-3 py-2.5">
+              <div className="flex items-center justify-between rounded-lg border border-primary/20 bg-primary/10 px-3 py-2.5">
                 <div className="flex items-center gap-2">
-                  <CheckCircle className="size-4 text-green-400" />
-                  <span className="text-sm text-green-400">
+                  <CheckCircle className="size-4 text-primary" />
+                  <span className="text-sm text-primary">
                     Sarah M. confirmed
                   </span>
                 </div>
-                <span className="text-sm font-medium text-green-400">
-                  $1,080
-                </span>
+                <span className="text-sm font-medium text-primary">$1,080</span>
               </div>
-              <div className="flex items-center justify-between rounded-lg border border-green-500/20 bg-green-500/10 px-3 py-2.5 opacity-60">
+              <div className="flex items-center justify-between rounded-lg border border-primary/20 bg-primary/10 px-3 py-2.5 opacity-60">
                 <div className="flex items-center gap-2">
-                  <CheckCircle className="size-4 text-green-400" />
-                  <span className="text-sm text-green-400">
+                  <CheckCircle className="size-4 text-primary" />
+                  <span className="text-sm text-primary">
                     Alex K. confirmed
                   </span>
                 </div>
-                <span className="text-sm font-medium text-green-400">$720</span>
+                <span className="text-sm font-medium text-primary">$720</span>
               </div>
             </div>
           </GlassCard>

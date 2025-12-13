@@ -140,7 +140,7 @@ export function SubmissionEditor({
         bountyErrorData?.data?.code === 'BAD_REQUEST'
       return (
         <AppBackground>
-          <div className="mx-auto max-w-4xl px-4 py-8">
+          <div className="mx-auto max-w-4xl p-6">
             {isNotFound ? (
               <NotFoundState
                 resourceType="bounty"
@@ -163,7 +163,7 @@ export function SubmissionEditor({
     if (!bounty) {
       return (
         <AppBackground>
-          <div className="mx-auto max-w-4xl px-4 py-8">
+          <div className="mx-auto max-w-4xl p-6">
             <NotFoundState
               resourceType="bounty"
               backHref={projectHref}
@@ -196,7 +196,7 @@ export function SubmissionEditor({
         submissionErrorData?.data?.code === 'BAD_REQUEST'
       return (
         <AppBackground>
-          <div className="mx-auto max-w-4xl px-4 py-8">
+          <div className="mx-auto max-w-4xl p-6">
             {isNotFound ? (
               <NotFoundState
                 resourceType="submission"
@@ -219,7 +219,7 @@ export function SubmissionEditor({
     if (!submission || submission.userId !== session.user.id) {
       return (
         <AppBackground>
-          <div className="mx-auto max-w-4xl px-4 py-8">
+          <div className="mx-auto max-w-4xl p-6">
             <NotFoundState
               resourceType="submission"
               backHref={projectHref}

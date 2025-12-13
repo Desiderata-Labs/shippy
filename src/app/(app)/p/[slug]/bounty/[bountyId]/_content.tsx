@@ -1,0 +1,1165 @@
+'use client'
+
+import { useSession } from '@/lib/auth/react'
+import { trpc } from '@/lib/trpc/react'
+import {
+  AlertCircle,
+  Check,
+  CheckCircle,
+  Circle,
+  Clock,
+  DotsVertical,
+  Edit02,
+  FileCheck03,
+  Link03,
+  Pencil01,
+  Plus,
+  RefreshCcw01,
+  Target01,
+  Trash01,
+  User01,
+  Users01,
+  XCircle,
+} from '@untitled-ui/icons-react'
+import { Loader2 } from 'lucide-react'
+import { useState } from 'react'
+import Link from 'next/link'
+import { useParams } from 'next/navigation'
+import { getLabelColor } from '@/lib/bounty/tag-colors'
+import {
+  BountyClaimMode,
+  BountyEventType,
+  BountyStatus,
+  ClaimStatus,
+  SubmissionStatus,
+  generateRandomLabelColor,
+} from '@/lib/db/types'
+import { extractNanoIdFromSlug } from '@/lib/nanoid/shared'
+import { ProjectTab, routes } from '@/lib/routes'
+import {
+  bountyStatusColors,
+  bountyStatusLabels,
+  submissionStatusColors,
+  submissionStatusLabels,
+} from '@/lib/status-colors'
+import { cn } from '@/lib/utils'
+import { AppButton } from '@/components/app'
+import { CommentInput } from '@/components/comments'
+import { AppBackground } from '@/components/layout/app-background'
+import { Avatar, AvatarFallback, AvatarImage } from '@/components/ui/avatar'
+import { Badge } from '@/components/ui/badge'
+import { ConfirmModal } from '@/components/ui/confirm-modal'
+import {
+  DropdownMenu,
+  DropdownMenuContent,
+  DropdownMenuItem,
+  DropdownMenuTrigger,
+} from '@/components/ui/dropdown-menu'
+import { ErrorState } from '@/components/ui/error-state'
+import { Markdown } from '@/components/ui/markdown'
+import { NotFoundState } from '@/components/ui/not-found-state'
+import {
+  Popover,
+  PopoverContent,
+  PopoverTrigger,
+} from '@/components/ui/popover'
+import { Separator } from '@/components/ui/separator'
+import { Skeleton } from '@/components/ui/skeleton'
+import {
+  Tooltip,
+  TooltipContent,
+  TooltipTrigger,
+} from '@/components/ui/tooltip'
+import { toast } from 'sonner'
+
+export function BountyDetailContent() {
+  const params = useParams<{ slug: string; bountyId: string }>()
+  // Extract the nanoid from the URL slug (e.g., "grow-audience-TdFKukO9LuJe" -> "TdFKukO9LuJe")
+  const bountyId = extractNanoIdFromSlug(params.bountyId)
+  const { data: session } = useSession()
+  const [isClaiming, setIsClaiming] = useState(false)
+  const [copied, setCopied] = useState(false)
+  const [showReleaseModal, setShowReleaseModal] = useState(false)
+  const [releaseReason, setReleaseReason] = useState('')
+  const [newComment, setNewComment] = useState('')
+  const [isPostingComment, setIsPostingComment] = useState(false)
+  const [eventToDelete, setEventToDelete] = useState<string | null>(null)
+
+  // Label management state
+  const [showLabelPicker, setShowLabelPicker] = useState(false)
+  const [showCreateLabel, setShowCreateLabel] = useState(false)
+  const [newLabelName, setNewLabelName] = useState('')
+  const [newLabelColor, setNewLabelColor] = useState(() =>
+    generateRandomLabelColor(),
+  )
+
+  const {
+    data: bounty,
+    isLoading,
+    isError,
+    error,
+    refetch,
+  } = trpc.bounty.getById.useQuery(
+    { id: bountyId },
+    { enabled: !!bountyId, retry: false },
+  )
+
+  const utils = trpc.useUtils()
+
+  const claimBounty = trpc.bounty.claim.useMutation({
+    onSuccess: () => {
+      toast.success('Bounty claimed! You can now start working on it.')
+      utils.bounty.getById.invalidate({ id: bountyId })
+    },
+    onError: (error) => {
+      toast.error(error.message)
+    },
+  })
+
+  const releaseClaim = trpc.bounty.releaseClaim.useMutation({
+    onSuccess: () => {
+      toast.success('Claim released')
+      utils.bounty.getById.invalidate({ id: bountyId })
+    },
+    onError: (error) => {
+      toast.error(error.message)
+    },
+  })
+
+  const addComment = trpc.bounty.addComment.useMutation({
+    onSuccess: () => {
+      setNewComment('')
+      utils.bounty.getById.invalidate({ id: bountyId })
+    },
+    onError: (error) => {
+      toast.error(error.message)
+    },
+  })
+
+  const deleteComment = trpc.bounty.deleteComment.useMutation({
+    onSuccess: () => {
+      utils.bounty.getById.invalidate({ id: bountyId })
+      toast.success('Comment deleted')
+    },
+    onError: (error) => {
+      toast.error(error.message)
+    },
+  })
+
+  // Fetch project labels for the label picker
+  const { data: projectLabels } = trpc.label.getByProject.useQuery(
+    { projectId: bounty?.project.id ?? '' },
+    { enabled: !!bounty?.project.id },
+  )
+
+  const createLabel = trpc.label.create.useMutation({
+    onSuccess: (label) => {
+      toast.success(`Label "${label.name}" created`)
+      utils.label.getByProject.invalidate({ projectId: bounty?.project.id })
+      setNewLabelName('')
+      setNewLabelColor(generateRandomLabelColor())
+      setShowCreateLabel(false)
+      // Auto-add to bounty
+      if (bounty) {
+        const currentLabelIds = bounty.labels.map((l) => l.label.id)
+        updateBountyLabels.mutate({
+          id: bounty.id,
+          labelIds: [...currentLabelIds, label.id],
+        })
+      }
+    },
+    onError: (error) => {
+      toast.error(error.message)
+    },
+  })
+
+  const updateBountyLabels = trpc.bounty.update.useMutation({
+    onSuccess: () => {
+      utils.bounty.getById.invalidate({ id: bountyId })
+    },
+    onError: (error) => {
+      toast.error(error.message)
+    },
+  })
+
+  if (isLoading) {
+    return (
+      <AppBackground>
+        <div className="mx-auto max-w-7xl p-6">
+          <div className="mb-6 flex items-center gap-3">
+            <Skeleton className="size-5 rounded-full" />
+            <Skeleton className="h-5 w-20" />
+          </div>
+          <Skeleton className="mb-4 h-8 w-3/4" />
+          <div className="grid gap-6 lg:grid-cols-[1fr_300px]">
+            <Skeleton className="h-64" />
+            <Skeleton className="h-80" />
+          </div>
+        </div>
+      </AppBackground>
+    )
+  }
+
+  // Handle errors - differentiate between 404 and other errors
+  // BAD_REQUEST with invalid NanoID is also effectively a 404
+  if (isError) {
+    const isNotFound =
+      error?.data?.code === 'NOT_FOUND' || error?.data?.code === 'BAD_REQUEST'
+    const projectHref = routes.project.detail({ slug: params.slug })
+    return (
+      <AppBackground>
+        <div className="mx-auto max-w-7xl p-6">
+          {isNotFound ? (
+            <NotFoundState
+              resourceType="bounty"
+              backHref={projectHref}
+              backLabel="Back to Project"
+            />
+          ) : (
+            <ErrorState
+              message={error?.message}
+              errorId={error?.data?.errorId}
+              backHref={projectHref}
+              backLabel="Back to Project"
+              onRetry={() => refetch()}
+            />
+          )}
+        </div>
+      </AppBackground>
+    )
+  }
+
+  if (!bounty) {
+    return (
+      <AppBackground>
+        <div className="mx-auto max-w-7xl p-6">
+          <NotFoundState
+            resourceType="bounty"
+            backHref={routes.project.detail({ slug: params.slug })}
+            backLabel="Back to Project"
+          />
+        </div>
+      </AppBackground>
+    )
+  }
+
+  const userClaim = bounty.claims.find((c) => c.userId === session?.user?.id)
+  const hasActiveClaim = userClaim?.status === ClaimStatus.ACTIVE
+  const hasSubmittedClaim = userClaim?.status === ClaimStatus.SUBMITTED
+  const isFounder = session?.user?.id === bounty.project.founderId
+  const canClaim =
+    session &&
+    bounty.status === BountyStatus.OPEN &&
+    !userClaim &&
+    (bounty.claimMode === BountyClaimMode.MULTIPLE ||
+      bounty.claims.length === 0)
+
+  const handleClaim = async () => {
+    setIsClaiming(true)
+    try {
+      await claimBounty.mutateAsync({ bountyId: bounty.id })
+    } finally {
+      setIsClaiming(false)
+    }
+  }
+
+  const handleReleaseClaim = async () => {
+    if (!userClaim) return
+    setIsClaiming(true)
+    try {
+      await releaseClaim.mutateAsync({
+        claimId: userClaim.id,
+        reason: releaseReason.trim() || undefined,
+      })
+      setShowReleaseModal(false)
+      setReleaseReason('')
+    } finally {
+      setIsClaiming(false)
+    }
+  }
+
+  const handlePostComment = async () => {
+    if (!newComment.trim()) return
+    setIsPostingComment(true)
+    try {
+      await addComment.mutateAsync({
+        bountyId: bounty.id,
+        content: newComment,
+      })
+    } finally {
+      setIsPostingComment(false)
+    }
+  }
+
+  const commitmentDate = bounty.project.rewardPool?.commitmentEndsAt
+  const commitmentRemaining = commitmentDate
+    ? Math.ceil(
+        (new Date(commitmentDate).getTime() - Date.now()) /
+          (1000 * 60 * 60 * 24),
+      )
+    : null
+
+  const bountyDisplayId = `${bounty.project.projectKey}-${bounty.number}`
+
+  const bountyUrl =
+    typeof window !== 'undefined'
+      ? `${window.location.origin}${routes.project.bountyDetail({
+          slug: params.slug,
+          bountyId: bounty.id,
+          title: bounty.title,
+        })}`
+      : ''
+
+  const handleCopyLink = async () => {
+    await navigator.clipboard.writeText(bountyUrl)
+    setCopied(true)
+    toast.success('Link copied!')
+    setTimeout(() => setCopied(false), 2000)
+  }
+
+  // Status icon helper
+  const StatusIcon = ({ size = 'md' }: { size?: 'sm' | 'md' }) => {
+    const sizeClass = size === 'sm' ? 'size-4' : 'size-5'
+    const colorClass =
+      bountyStatusColors[bounty.status as BountyStatus]?.icon ??
+      bountyStatusColors.OPEN.icon
+
+    if (bounty.status === BountyStatus.COMPLETED) {
+      return <CheckCircle className={cn(sizeClass, colorClass)} />
+    }
+    if (bounty.status === BountyStatus.CLOSED) {
+      return <XCircle className={cn(sizeClass, colorClass)} />
+    }
+    if (bounty.status === BountyStatus.CLAIMED) {
+      return <Clock className={cn(sizeClass, colorClass)} />
+    }
+    return <Circle className={cn(sizeClass, colorClass)} />
+  }
+
+  const statusLabel =
+    bountyStatusLabels[bounty.status as BountyStatus] ?? 'Open'
+
+  // Show approved submission's user as assignee if completed, otherwise first claimant
+  const approvedSubmission = bounty.submissions.find(
+    (s) => s.status === SubmissionStatus.APPROVED,
+  )
+  const assignee = approvedSubmission?.user ?? bounty.claims[0]?.user ?? null
+
+  return (
+    <AppBackground>
+      <div className="mx-auto max-w-7xl p-6">
+        {/* Breadcrumb navigation */}
+        <div className="mb-6 flex items-center gap-2 text-sm">
+          <Link
+            href={routes.project.detail({
+              slug: params.slug,
+              tab: ProjectTab.BOUNTIES,
+            })}
+            className="text-muted-foreground transition-colors hover:text-foreground"
+          >
+            {bounty.project.name}
+          </Link>
+          <span className="text-muted-foreground/50">/</span>
+          <Link
+            href={routes.project.detail({
+              slug: params.slug,
+              tab: ProjectTab.BOUNTIES,
+            })}
+            className="text-muted-foreground transition-colors hover:text-foreground"
+          >
+            Bounties
+          </Link>
+          <span className="text-muted-foreground/50">/</span>
+          <span className="font-mono text-foreground">{bountyDisplayId}</span>
+        </div>
+
+        {/* Header */}
+        <div className="mb-6 flex items-start justify-between gap-4">
+          <h1 className="text-xl font-semibold tracking-tight sm:text-2xl">
+            {bounty.title}
+          </h1>
+          {isFounder && (
+            <AppButton variant="outline" size="sm" asChild className="shrink-0">
+              <Link
+                href={routes.project.bountyEdit({
+                  slug: params.slug,
+                  bountyId: bounty.id,
+                  title: bounty.title,
+                })}
+              >
+                <Pencil01 className="mr-1.5 size-3.5" />
+                Edit
+              </Link>
+            </AppButton>
+          )}
+        </div>
+
+        {/* Main layout */}
+        <div className="grid gap-6 lg:grid-cols-[1fr_auto_280px]">
+          {/* Main content */}
+          <div className="space-y-6">
+            {/* Description */}
+            <Markdown markdown={bounty.description} proseSize="sm" />
+
+            {/* Acceptance Criteria */}
+            {bounty.evidenceDescription && (
+              <div className="rounded-lg border border-border bg-muted/30 p-4">
+                <div className="flex gap-3">
+                  <FileCheck03 className="mt-0.5 size-4 shrink-0 text-muted-foreground" />
+                  <div className="min-w-0 flex-1">
+                    <p className="text-sm font-medium">Acceptance Criteria</p>
+                    <Markdown
+                      markdown={bounty.evidenceDescription}
+                      proseSize="sm"
+                      className="mt-1 text-muted-foreground"
+                    />
+                  </div>
+                </div>
+              </div>
+            )}
+
+            {/* Activity timeline (events + submissions interleaved) */}
+            <div className="space-y-4">
+              {(() => {
+                // Create unified timeline of events and submissions
+                type TimelineItem =
+                  | { type: 'event'; data: (typeof bounty.events)[0] }
+                  | { type: 'submission'; data: (typeof bounty.submissions)[0] }
+
+                const timeline: TimelineItem[] = [
+                  ...bounty.events.map((e) => ({
+                    type: 'event' as const,
+                    data: e,
+                  })),
+                  ...bounty.submissions.map((s) => ({
+                    type: 'submission' as const,
+                    data: s,
+                  })),
+                ].sort(
+                  (a, b) =>
+                    new Date(a.data.createdAt).getTime() -
+                    new Date(b.data.createdAt).getTime(),
+                )
+
+                const submissionStatusConfig: Record<
+                  string,
+                  { label: string; color: string }
+                > = {
+                  [SubmissionStatus.DRAFT]: {
+                    label: submissionStatusLabels.DRAFT.toLowerCase(),
+                    color: submissionStatusColors.DRAFT.text,
+                  },
+                  [SubmissionStatus.PENDING]: {
+                    label: submissionStatusLabels.PENDING.toLowerCase(),
+                    color: submissionStatusColors.PENDING.text,
+                  },
+                  [SubmissionStatus.NEEDS_INFO]: {
+                    label: submissionStatusLabels.NEEDS_INFO.toLowerCase(),
+                    color: submissionStatusColors.NEEDS_INFO.text,
+                  },
+                  [SubmissionStatus.APPROVED]: {
+                    label: submissionStatusLabels.APPROVED.toLowerCase(),
+                    color: submissionStatusColors.APPROVED.text,
+                  },
+                  [SubmissionStatus.REJECTED]: {
+                    label: submissionStatusLabels.REJECTED.toLowerCase(),
+                    color: submissionStatusColors.REJECTED.text,
+                  },
+                  [SubmissionStatus.WITHDRAWN]: {
+                    label: submissionStatusLabels.WITHDRAWN.toLowerCase(),
+                    color: submissionStatusColors.WITHDRAWN.text,
+                  },
+                }
+
+                // Helper to format edit changes (changes is already an object from JSONB)
+                const formatEditChanges = (
+                  changes: Record<
+                    string,
+                    { from: unknown; to: unknown }
+                  > | null,
+                ) => {
+                  if (!changes) return null
+                  const fieldNames: Record<string, string> = {
+                    title: 'title',
+                    description: 'description',
+                    points: 'points',
+                    tags: 'labels',
+                    evidenceDescription: 'acceptance criteria',
+                  }
+                  return Object.keys(changes)
+                    .map((field) => fieldNames[field] || field)
+                    .join(', ')
+                }
+
+                return timeline.map((item) => {
+                  if (item.type === 'submission') {
+                    const submission = item.data
+                    const status =
+                      submissionStatusConfig[submission.status] ??
+                      submissionStatusConfig[SubmissionStatus.PENDING]
+
+                    return (
+                      <div key={`sub-${submission.id}`} className="text-xs">
+                        <div className="flex items-start gap-2">
+                          <Check className="mt-0.5 size-3.5 text-primary" />
+                          <div className="flex flex-wrap items-center gap-x-1.5 gap-y-0.5">
+                            <span className="font-medium">
+                              {submission.user.name}
+                            </span>
+                            <Link
+                              href={routes.project.submissionDetail({
+                                slug: params.slug,
+                                submissionId: submission.id,
+                                title: bounty.title,
+                              })}
+                              className="text-muted-foreground hover:text-foreground hover:underline"
+                            >
+                              submitted work
+                            </Link>
+                            <span className={cn('text-xs', status.color)}>
+                              ({status.label})
+                            </span>
+                            <span className="text-muted-foreground">·</span>
+                            <span className="text-xs text-muted-foreground">
+                              {new Date(
+                                submission.createdAt,
+                              ).toLocaleDateString('en-US', {
+                                month: 'short',
+                                day: 'numeric',
+                              })}
+                            </span>
+                          </div>
+                        </div>
+                      </div>
+                    )
+                  }
+
+                  const event = item.data
+
+                  // Edit event
+                  if (event.type === BountyEventType.EDIT) {
+                    const changedFields = formatEditChanges(
+                      event.changes as Record<
+                        string,
+                        { from: unknown; to: unknown }
+                      > | null,
+                    )
+                    return (
+                      <div key={`evt-${event.id}`} className="text-xs">
+                        <div className="flex items-start gap-2">
+                          <Pencil01 className="mt-0.5 size-3.5 text-muted-foreground" />
+                          <div className="flex flex-wrap items-center gap-x-1.5 gap-y-0.5">
+                            <span className="font-medium">
+                              {event.user.name}
+                            </span>
+                            <span className="text-muted-foreground">
+                              edited{changedFields ? ` ${changedFields}` : ''}
+                            </span>
+                            <span className="text-muted-foreground">·</span>
+                            <span className="text-xs text-muted-foreground">
+                              {new Date(event.createdAt).toLocaleDateString(
+                                'en-US',
+                                {
+                                  month: 'short',
+                                  day: 'numeric',
+                                },
+                              )}
+                            </span>
+                          </div>
+                        </div>
+                      </div>
+                    )
+                  }
+
+                  // Status change event
+                  if (event.type === BountyEventType.STATUS_CHANGE) {
+                    const statusLabels: Record<string, string> = {
+                      [BountyStatus.OPEN]: 'Open',
+                      [BountyStatus.CLAIMED]: 'In Progress',
+                      [BountyStatus.COMPLETED]: 'Completed',
+                      [BountyStatus.CLOSED]: 'Closed',
+                    }
+                    return (
+                      <div key={`evt-${event.id}`} className="text-xs">
+                        <div className="flex items-start gap-2">
+                          <Edit02 className="mt-0.5 size-3.5 text-muted-foreground" />
+                          <div className="flex flex-wrap items-center gap-x-1.5 gap-y-0.5">
+                            <span className="font-medium">
+                              {event.user.name}
+                            </span>
+                            <span className="text-muted-foreground">
+                              changed status from{' '}
+                              {statusLabels[event.fromStatus ?? ''] ||
+                                event.fromStatus}{' '}
+                              to{' '}
+                              {statusLabels[event.toStatus ?? ''] ||
+                                event.toStatus}
+                            </span>
+                            <span className="text-muted-foreground">·</span>
+                            <span className="text-xs text-muted-foreground">
+                              {new Date(event.createdAt).toLocaleDateString(
+                                'en-US',
+                                {
+                                  month: 'short',
+                                  day: 'numeric',
+                                },
+                              )}
+                            </span>
+                          </div>
+                        </div>
+                      </div>
+                    )
+                  }
+
+                  // Comment event
+                  return (
+                    <div key={`evt-${event.id}`} className="group flex gap-3">
+                      <Avatar className="size-7 shrink-0">
+                        <AvatarImage src={event.user.image ?? undefined} />
+                        <AvatarFallback className="text-xs">
+                          {event.user.name.charAt(0)}
+                        </AvatarFallback>
+                      </Avatar>
+                      <div className="min-w-0 flex-1">
+                        <div className="flex items-center gap-2">
+                          <span className="text-sm font-medium">
+                            {event.user.name}
+                          </span>
+                          <span className="text-xs text-muted-foreground">
+                            {new Date(event.createdAt).toLocaleDateString(
+                              'en-US',
+                              {
+                                month: 'short',
+                                day: 'numeric',
+                                hour: 'numeric',
+                                minute: '2-digit',
+                              },
+                            )}
+                          </span>
+                        </div>
+                        <Markdown
+                          markdown={event.content ?? ''}
+                          proseSize="sm"
+                          className="mt-1"
+                        />
+                      </div>
+                      {(event.userId === session?.user?.id || isFounder) && (
+                        <DropdownMenu>
+                          <DropdownMenuTrigger asChild>
+                            <AppButton
+                              variant="ghost"
+                              size="icon-sm"
+                              className="size-6 cursor-pointer text-muted-foreground opacity-0 transition-opacity group-hover:opacity-100"
+                            >
+                              <DotsVertical className="size-3.5" />
+                            </AppButton>
+                          </DropdownMenuTrigger>
+                          <DropdownMenuContent align="end">
+                            <DropdownMenuItem
+                              onClick={() => setEventToDelete(event.id)}
+                              className="cursor-pointer text-destructive focus:text-destructive"
+                            >
+                              <Trash01 className="mr-2 size-4" />
+                              Delete
+                            </DropdownMenuItem>
+                          </DropdownMenuContent>
+                        </DropdownMenu>
+                      )}
+                    </div>
+                  )
+                })
+              })()}
+
+              {/* Comment input */}
+              {session ? (
+                <CommentInput
+                  value={newComment}
+                  onChange={setNewComment}
+                  onSubmit={handlePostComment}
+                  isLoading={isPostingComment}
+                />
+              ) : (
+                <div className="rounded-lg border border-border px-4 py-3 text-center">
+                  <p className="text-sm text-muted-foreground">
+                    <Link
+                      href={routes.auth.signIn()}
+                      className="text-primary hover:underline"
+                    >
+                      Sign in
+                    </Link>{' '}
+                    to leave a comment
+                  </p>
+                </div>
+              )}
+            </div>
+          </div>
+
+          {/* Vertical separator */}
+          <Separator orientation="vertical" className="hidden lg:block" />
+
+          {/* Sidebar - Linear style properties panel */}
+          <div className="space-y-4">
+            {/* Properties header */}
+            <div className="flex items-center justify-between">
+              <span className="text-sm text-muted-foreground">Properties</span>
+              <Tooltip>
+                <TooltipTrigger asChild>
+                  <button
+                    type="button"
+                    onClick={handleCopyLink}
+                    className="cursor-pointer rounded-sm p-1.5 text-muted-foreground transition-colors hover:bg-accent hover:text-foreground"
+                  >
+                    <Link03
+                      className={cn('size-4', copied && 'text-primary')}
+                    />
+                  </button>
+                </TooltipTrigger>
+                <TooltipContent>
+                  {copied ? 'Copied!' : 'Copy link'}
+                </TooltipContent>
+              </Tooltip>
+            </div>
+
+            {/* Actions */}
+            {/* Actions */}
+            {!session ? (
+              <AppButton asChild className="w-full" size="sm">
+                <Link href={routes.auth.signIn()}>Sign In to Claim</Link>
+              </AppButton>
+            ) : hasActiveClaim ? (
+              <div className="space-y-2">
+                <AppButton asChild className="w-full" size="sm">
+                  <Link
+                    href={routes.project.bountySubmit({
+                      slug: params.slug,
+                      bountyId: bounty.id,
+                      title: bounty.title,
+                    })}
+                  >
+                    <Check className="mr-1.5 size-3.5" />
+                    Submit Work
+                  </Link>
+                </AppButton>
+                <AppButton
+                  variant="ghost"
+                  size="sm"
+                  onClick={() => setShowReleaseModal(true)}
+                  className="w-full cursor-pointer text-muted-foreground hover:text-foreground"
+                >
+                  Release Claim
+                </AppButton>
+              </div>
+            ) : hasSubmittedClaim ? (
+              <AppButton
+                variant="ghost"
+                size="sm"
+                onClick={() => setShowReleaseModal(true)}
+                className="w-full cursor-pointer text-muted-foreground hover:text-foreground"
+              >
+                Release Claim
+              </AppButton>
+            ) : canClaim ? (
+              <AppButton
+                onClick={handleClaim}
+                disabled={isClaiming}
+                className="w-full"
+                size="sm"
+              >
+                {isClaiming && <Loader2 className="mr-2 size-4 animate-spin" />}
+                <Target01 className="mr-1.5 size-3.5" />
+                Claim Bounty
+              </AppButton>
+            ) : null}
+
+            <Separator />
+
+            {/* Properties details */}
+            <div className="space-y-3">
+              {/* Status */}
+              <div className="flex items-center justify-between py-1">
+                <span className="text-xs text-muted-foreground">Status</span>
+                <div className="flex items-center gap-1.5">
+                  <StatusIcon size="sm" />
+                  <span className="text-xs">{statusLabel}</span>
+                </div>
+              </div>
+
+              {/* Points */}
+              <div className="flex items-center justify-between py-1">
+                <span className="text-xs text-muted-foreground">Points</span>
+                <span className="rounded-sm bg-primary/10 px-2 py-0.5 text-xs font-semibold text-primary">
+                  +{bounty.points}
+                </span>
+              </div>
+
+              {/* Assignee */}
+              <div className="flex items-center justify-between py-1">
+                <span className="text-xs text-muted-foreground">Assignee</span>
+                {assignee ? (
+                  <div className="flex items-center gap-1.5">
+                    <Avatar className="size-5">
+                      <AvatarImage src={assignee.image ?? undefined} />
+                      <AvatarFallback className="text-[9px]">
+                        {assignee.name.charAt(0)}
+                      </AvatarFallback>
+                    </Avatar>
+                    <span className="text-xs">{assignee.name}</span>
+                  </div>
+                ) : (
+                  <div className="flex items-center gap-1.5 text-muted-foreground">
+                    <div className="flex size-5 items-center justify-center rounded-full border border-dashed border-muted-foreground/30">
+                      <User01 className="size-2.5" />
+                    </div>
+                    <span className="text-xs">Unassigned</span>
+                  </div>
+                )}
+              </div>
+
+              {/* Labels */}
+              <div className="space-y-2 py-1">
+                <div className="flex items-center justify-between">
+                  <span className="text-xs text-muted-foreground">Labels</span>
+                  {isFounder && (
+                    <Popover
+                      open={showLabelPicker}
+                      onOpenChange={setShowLabelPicker}
+                    >
+                      <PopoverTrigger asChild>
+                        <button
+                          type="button"
+                          className="cursor-pointer text-xs text-muted-foreground transition-colors hover:text-foreground"
+                        >
+                          <Plus className="size-3.5" />
+                        </button>
+                      </PopoverTrigger>
+                      <PopoverContent className="w-56 p-2" align="end">
+                        <div className="space-y-2">
+                          <div className="text-xs font-medium text-muted-foreground">
+                            Select labels
+                          </div>
+                          <div className="max-h-48 space-y-1 overflow-y-auto">
+                            {(projectLabels ?? []).map((label) => {
+                              const color = getLabelColor(label.color)
+                              const isSelected = bounty.labels.some(
+                                (l) => l.label.id === label.id,
+                              )
+                              return (
+                                <button
+                                  key={label.id}
+                                  type="button"
+                                  onClick={() => {
+                                    const currentIds = bounty.labels.map(
+                                      (l) => l.label.id,
+                                    )
+                                    const newIds = isSelected
+                                      ? currentIds.filter(
+                                          (id) => id !== label.id,
+                                        )
+                                      : [...currentIds, label.id]
+                                    updateBountyLabels.mutate({
+                                      id: bounty.id,
+                                      labelIds: newIds,
+                                    })
+                                  }}
+                                  className={cn(
+                                    'flex w-full cursor-pointer items-center gap-2 rounded-md px-2 py-1.5 text-left text-xs transition-colors hover:bg-muted',
+                                    isSelected && 'bg-muted',
+                                  )}
+                                >
+                                  <span
+                                    className="size-2.5 shrink-0 rounded-full"
+                                    style={{ backgroundColor: color.dot }}
+                                  />
+                                  <span className="flex-1 truncate">
+                                    {label.name}
+                                  </span>
+                                  {isSelected && (
+                                    <Check className="size-3.5 text-primary" />
+                                  )}
+                                </button>
+                              )
+                            })}
+                            {(projectLabels ?? []).length === 0 && (
+                              <p className="px-2 py-1 text-xs text-muted-foreground">
+                                No labels yet
+                              </p>
+                            )}
+                          </div>
+                          <Separator />
+                          {showCreateLabel ? (
+                            <div className="space-y-2 pt-1">
+                              <input
+                                type="text"
+                                value={newLabelName}
+                                onChange={(e) =>
+                                  setNewLabelName(e.target.value)
+                                }
+                                placeholder="Label name"
+                                className="w-full rounded-md border border-border bg-background px-2 py-1 text-xs placeholder:text-muted-foreground focus:ring-1 focus:ring-ring focus:outline-none"
+                                autoFocus
+                                onKeyDown={(e) => {
+                                  if (
+                                    e.key === 'Enter' &&
+                                    newLabelName.trim()
+                                  ) {
+                                    e.preventDefault()
+                                    createLabel.mutate({
+                                      projectId: bounty.project.id,
+                                      name: newLabelName.trim(),
+                                      color: newLabelColor,
+                                    })
+                                  }
+                                  if (e.key === 'Escape') {
+                                    setShowCreateLabel(false)
+                                    setNewLabelName('')
+                                  }
+                                }}
+                              />
+                              <div className="flex items-center gap-1.5">
+                                <button
+                                  type="button"
+                                  onClick={() =>
+                                    setNewLabelColor(generateRandomLabelColor())
+                                  }
+                                  className="flex size-6 cursor-pointer items-center justify-center rounded-sm border border-border transition-colors hover:bg-muted"
+                                  style={{
+                                    backgroundColor: `${newLabelColor}30`,
+                                  }}
+                                >
+                                  <RefreshCcw01
+                                    className="size-3"
+                                    style={{ color: newLabelColor }}
+                                  />
+                                </button>
+                                <input
+                                  type="text"
+                                  value={newLabelColor.replace('#', '')}
+                                  onChange={(e) => {
+                                    const value = e.target.value.replace(
+                                      /[^0-9A-Fa-f]/g,
+                                      '',
+                                    )
+                                    if (value.length <= 6) {
+                                      setNewLabelColor(`#${value}`)
+                                    }
+                                  }}
+                                  className="w-full flex-1 rounded-sm border border-border bg-background px-2 py-1 font-mono text-xs focus:ring-1 focus:ring-ring focus:outline-none"
+                                  placeholder="d73a4a"
+                                  maxLength={6}
+                                />
+                              </div>
+                              <div className="flex gap-1">
+                                <AppButton
+                                  size="sm"
+                                  variant="ghost"
+                                  className="h-6 flex-1 cursor-pointer text-xs"
+                                  onClick={() => {
+                                    setShowCreateLabel(false)
+                                    setNewLabelName('')
+                                  }}
+                                >
+                                  Cancel
+                                </AppButton>
+                                <AppButton
+                                  size="sm"
+                                  className="h-6 flex-1 cursor-pointer text-xs"
+                                  disabled={
+                                    !newLabelName.trim() ||
+                                    newLabelColor.length !== 7 ||
+                                    createLabel.isPending
+                                  }
+                                  onClick={() => {
+                                    createLabel.mutate({
+                                      projectId: bounty.project.id,
+                                      name: newLabelName.trim(),
+                                      color: newLabelColor,
+                                    })
+                                  }}
+                                >
+                                  {createLabel.isPending ? (
+                                    <Loader2 className="size-3 animate-spin" />
+                                  ) : (
+                                    'Create'
+                                  )}
+                                </AppButton>
+                              </div>
+                            </div>
+                          ) : (
+                            <button
+                              type="button"
+                              onClick={() => {
+                                setShowCreateLabel(true)
+                                setNewLabelColor(generateRandomLabelColor())
+                              }}
+                              className="flex w-full cursor-pointer items-center gap-2 rounded-md px-2 py-1.5 text-xs text-muted-foreground transition-colors hover:bg-muted hover:text-foreground"
+                            >
+                              <Plus className="size-3.5" />
+                              Create new label
+                            </button>
+                          )}
+                        </div>
+                      </PopoverContent>
+                    </Popover>
+                  )}
+                </div>
+                {bounty.labels.length > 0 ? (
+                  <div className="flex flex-wrap gap-1">
+                    {bounty.labels.map(({ label }) => {
+                      const color = getLabelColor(label.color)
+                      return (
+                        <Badge
+                          key={label.id}
+                          variant="outline"
+                          className="text-[10px]"
+                        >
+                          <span
+                            className="mr-1 size-1.5 rounded-full"
+                            style={{ backgroundColor: color.dot }}
+                          />
+                          {label.name}
+                        </Badge>
+                      )
+                    })}
+                  </div>
+                ) : null}
+              </div>
+
+              {/* Claim mode */}
+              <div className="flex items-center justify-between py-1">
+                <Tooltip>
+                  <TooltipTrigger asChild>
+                    <span className="flex cursor-help items-center gap-1 text-xs text-muted-foreground">
+                      <Users01 className="size-3 text-foreground opacity-50" />
+                      Claim Type
+                    </span>
+                  </TooltipTrigger>
+                  <TooltipContent className="max-w-xs">
+                    {bounty.claimMode === BountyClaimMode.SINGLE
+                      ? 'Only one person can work on this bounty at a time.'
+                      : 'Multiple people can work on this bounty simultaneously.'}
+                  </TooltipContent>
+                </Tooltip>
+                <span className="text-xs">
+                  {bounty.claimMode === BountyClaimMode.SINGLE
+                    ? 'Single'
+                    : 'Multiple'}
+                </span>
+              </div>
+
+              {/* Claim expiry */}
+              <div className="flex items-center justify-between py-1">
+                <Tooltip>
+                  <TooltipTrigger asChild>
+                    <span className="flex cursor-help items-center gap-1 text-xs text-muted-foreground">
+                      <Clock className="size-3 text-foreground opacity-50" />
+                      Claim Expires
+                    </span>
+                  </TooltipTrigger>
+                  <TooltipContent className="max-w-xs">
+                    Once you claim this bounty, you have this many days to
+                    complete and submit your work.
+                  </TooltipContent>
+                </Tooltip>
+                <span className="text-xs">
+                  {bounty.claimExpiryDays} day
+                  {bounty.claimExpiryDays !== 1 ? 's' : ''}
+                </span>
+              </div>
+
+              {/* Pool ends */}
+              {commitmentDate && (
+                <div className="flex items-center justify-between py-1">
+                  <Tooltip>
+                    <TooltipTrigger asChild>
+                      <span className="flex cursor-help items-center gap-1 text-xs text-muted-foreground">
+                        <Target01 className="size-3 text-foreground opacity-50" />
+                        Pool Ends
+                      </span>
+                    </TooltipTrigger>
+                    <TooltipContent className="max-w-xs">
+                      The founder has committed to paying contributors until
+                      this date.
+                    </TooltipContent>
+                  </Tooltip>
+                  <span className="text-xs">
+                    {new Date(commitmentDate).toLocaleDateString('en-US', {
+                      month: 'short',
+                      day: 'numeric',
+                      year: 'numeric',
+                    })}
+                  </span>
+                </div>
+              )}
+            </div>
+
+            {/* Pool warning */}
+            {bounty.project.rewardPool &&
+              commitmentRemaining !== null &&
+              commitmentRemaining < 90 && (
+                <div className="rounded-lg border border-amber-500/20 bg-amber-500/10 p-3">
+                  <div className="flex gap-2">
+                    <AlertCircle className="size-4 shrink-0 text-amber-500" />
+                    <div className="text-xs text-amber-700 dark:text-amber-400">
+                      <p className="font-medium">Pool commitment ending soon</p>
+                      <p className="mt-0.5 opacity-80">
+                        Ends in {commitmentRemaining} days
+                      </p>
+                    </div>
+                  </div>
+                </div>
+              )}
+          </div>
+        </div>
+      </div>
+
+      {/* Release claim modal */}
+      <ConfirmModal
+        open={showReleaseModal}
+        onClose={() => {
+          setShowReleaseModal(false)
+          setReleaseReason('')
+        }}
+        onConfirm={handleReleaseClaim}
+        title="Release this claim?"
+        description={
+          hasSubmittedClaim
+            ? 'This will free up the bounty for others to claim. Your submission will be marked as withdrawn and will no longer be reviewed.'
+            : "This will free up the bounty for others to claim. Any work you've done won't be lost, but you'll need to claim it again to submit."
+        }
+        content={
+          <textarea
+            value={releaseReason}
+            onChange={(e) => setReleaseReason(e.target.value)}
+            placeholder="Reason for releasing (optional)"
+            className="w-full resize-none rounded-md border border-border bg-background px-3 py-2 text-sm placeholder:text-muted-foreground focus:ring-2 focus:ring-ring focus:outline-none"
+            rows={3}
+          />
+        }
+        confirmText="Release Claim"
+        cancelText="Keep Claim"
+        variant="destructive"
+        isLoading={isClaiming}
+      />
+
+      {/* Delete comment modal */}
+      <ConfirmModal
+        open={!!eventToDelete}
+        onClose={() => setEventToDelete(null)}
+        onConfirm={() => {
+          if (eventToDelete) {
+            deleteComment.mutate(
+              { eventId: eventToDelete },
+              { onSuccess: () => setEventToDelete(null) },
+            )
+          }
+        }}
+        title="Delete comment?"
+        description="This action cannot be undone."
+        confirmText="Delete"
+        cancelText="Cancel"
+        variant="destructive"
+        isLoading={deleteComment.isPending}
+      />
+    </AppBackground>
+  )
+}

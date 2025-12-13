@@ -118,7 +118,8 @@ export const payoutRouter = router({
       })
 
       const totalPaidOutCents = payouts.reduce(
-        (sum, p) => sum + p.recipients.reduce((rSum, r) => rSum + r.amountCents, 0),
+        (sum, p) =>
+          sum + p.recipients.reduce((rSum, r) => rSum + r.amountCents, 0),
         0,
       )
       const totalPayouts = payouts.length

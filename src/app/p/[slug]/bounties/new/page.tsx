@@ -1,10 +1,10 @@
-'use client'
+import type { Metadata } from 'next'
+import { NewBountyContent } from './_content'
 
-import { useParams } from 'next/navigation'
-import { BountyEditor } from '@/components/bounty/bounty-editor'
+export const metadata: Metadata = {
+  title: 'New Bounty',
+}
 
 export default function NewBountyPage() {
-  const params = useParams<{ slug: string }>()
-
-  return <BountyEditor mode="create" slug={params.slug} />
+  return <NewBountyContent />
 }

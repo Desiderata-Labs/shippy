@@ -1,3 +1,4 @@
+import type { Metadata } from 'next'
 import { headers } from 'next/headers'
 import { auth } from '@/lib/auth/server'
 import { prisma } from '@/lib/db/server'
@@ -16,6 +17,25 @@ import { ProjectTabs } from './_components/project-tabs'
 
 interface ProjectPageProps {
   params: Promise<{ slug: string }>
+}
+
+export async function generateMetadata({
+  params,
+}: ProjectPageProps): Promise<Metadata> {
+  const { slug } = await params
+  const project = await prisma.project.findUnique({
+    where: { slug },
+    select: { name: true, tagline: true },
+  })
+
+  if (!project) {
+    return { title: 'Project Not Found' }
+  }
+
+  return {
+    title: project.name,
+    description: project.tagline || undefined,
+  }
 }
 
 async function getProject(slug: string) {

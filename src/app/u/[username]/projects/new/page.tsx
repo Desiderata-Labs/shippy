@@ -1,10 +1,10 @@
-'use client'
+import type { Metadata } from 'next'
+import { NewProjectContent } from './_content'
 
-import { useParams } from 'next/navigation'
-import { ProjectEditor } from '@/components/project/project-editor'
+export const metadata: Metadata = {
+  title: 'Create Project',
+}
 
 export default function NewProjectPage() {
-  const params = useParams<{ username: string }>()
-
-  return <ProjectEditor mode="create" username={params.username} />
+  return <NewProjectContent />
 }

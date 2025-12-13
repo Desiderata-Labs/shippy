@@ -1,19 +1,10 @@
-'use client'
+import type { Metadata } from 'next'
+import { EditSubmissionContent } from './_content'
 
-import { useParams } from 'next/navigation'
-import { extractNanoIdFromSlug } from '@/lib/nanoid/shared'
-import { SubmissionEditor } from '@/components/submission/submission-editor'
+export const metadata: Metadata = {
+  title: 'Edit Submission',
+}
 
 export default function EditSubmissionPage() {
-  const params = useParams<{ slug: string; submissionId: string }>()
-  // Extract the nanoid from the URL slug (e.g., "bounty-title-TdFKukO9LuJe" -> "TdFKukO9LuJe")
-  const submissionId = extractNanoIdFromSlug(params.submissionId)
-
-  return (
-    <SubmissionEditor
-      mode="edit"
-      slug={params.slug}
-      submissionId={submissionId}
-    />
-  )
+  return <EditSubmissionContent />
 }

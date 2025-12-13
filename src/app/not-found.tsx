@@ -1,5 +1,10 @@
+import type { Metadata } from 'next'
 import { AppBackground } from '@/components/layout/app-background'
 import { NotFoundState } from '@/components/ui/not-found-state'
+
+export const metadata: Metadata = {
+  title: 'Page Not Found',
+}
 
 export default function NotFound() {
   return (

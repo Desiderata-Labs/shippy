@@ -1,10 +1,10 @@
-'use client'
+import type { Metadata } from 'next'
+import { ProjectSettingsContent } from './_content'
 
-import { useParams } from 'next/navigation'
-import { ProjectEditor } from '@/components/project/project-editor'
+export const metadata: Metadata = {
+  title: 'Project Settings',
+}
 
 export default function ProjectSettingsPage() {
-  const params = useParams<{ slug: string }>()
-
-  return <ProjectEditor mode="edit" slug={params.slug} />
+  return <ProjectSettingsContent />
 }

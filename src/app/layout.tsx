@@ -20,7 +20,10 @@ const archivoBlack = Archivo_Black({
 })
 
 export const metadata: Metadata = {
-  title: 'Shippy',
+  title: {
+    default: 'Shippy',
+    template: '%s | Shippy',
+  },
   description: 'Ship work. Earn royalties.',
 }
 

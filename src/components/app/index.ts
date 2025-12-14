@@ -18,3 +18,6 @@ export {
 export { AppButton, appButtonVariants } from './app-button'
 export { AppInput } from './app-input'
 export { AppTextarea } from './app-textarea'
+
+// Note: OpenGraphImage is NOT exported here to avoid bundling next/og in client components.
+// Import directly from '@/components/app/opengraph-image' in opengraph-image.tsx files.

@@ -56,7 +56,9 @@ export const config = {
      * - favicon.ico (favicon file)
      * - public folder
      * - api routes (handled separately)
+     * - opengraph-image routes (generated OG images)
+     * - twitter-image routes (generated Twitter images)
      */
-    '/((?!_next/static|_next/image|favicon.ico|.*\\.(?:svg|png|jpg|jpeg|gif|webp|ico)$).*)',
+    '/((?!_next/static|_next/image|favicon.ico|opengraph-image|twitter-image|.*\\.(?:svg|png|jpg|jpeg|gif|webp|ico)$).*)',
   ],
 }

@@ -182,14 +182,14 @@ export function SignInForm() {
             <p className="mt-4 text-center text-xs text-muted-foreground">
               By continuing, you agree to Shippy&apos;s{' '}
               <Link
-                href={routes.legal.terms()}
+                href={routes.company.terms()}
                 className="text-primary underline-offset-4 hover:underline"
               >
                 Terms of Service
               </Link>{' '}
               and{' '}
               <Link
-                href={routes.legal.privacy()}
+                href={routes.company.privacy()}
                 className="text-primary underline-offset-4 hover:underline"
               >
                 Privacy Policy

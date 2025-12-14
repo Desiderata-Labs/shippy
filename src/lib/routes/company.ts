@@ -1,13 +1,15 @@
-// Legal routes
+// Company routes (legal, media kit, etc.)
 
 // For Next.js app router paths
-export const legalPaths = {
+export const companyPaths = {
   terms: '/legal/terms',
   privacy: '/legal/privacy',
+  mediaKit: '/media-kit',
 } as const
 
 // For navigation - functions that generate actual URLs
-export const legalRoutes = {
+export const companyRoutes = {
   terms: () => '/legal/terms',
   privacy: () => '/legal/privacy',
+  mediaKit: () => '/media-kit',
 } as const

@@ -136,6 +136,9 @@ importers:
       lucide-react:
         specifier: ^0.554.0
         version: 0.554.0(react@19.2.1)
+      modern-screenshot:
+        specifier: ^4.6.7
+        version: 4.6.7
       nanoid:
         specifier: ^5.1.6
         version: 5.1.6
@@ -4688,6 +4691,12 @@ packages:
     resolution:
       {
         integrity: sha512-2yyAR8qBkN3YuheJanUpWC5U3bb5osDywNB8RzDVlDwDHbocAJveqqj1u8+SVD7jkWT4yvsHCpWqqWqAxb0zCA==,
+      }
+
+  modern-screenshot@4.6.7:
+    resolution:
+      {
+        integrity: sha512-0GhgI6i6le4AhKzCvLYjwEmsP47kTsX45iT5yuAzsLTi/7i3Rjxe8fbH2VjGJLuyOThwsa0CdQAPd4auoEtsZg==,
       }
 
   motion-dom@12.23.23:
@@ -9370,6 +9379,8 @@ snapshots:
       brace-expansion: 2.0.2
 
   minimist@1.2.8: {}
+
+  modern-screenshot@4.6.7: {}
 
   motion-dom@12.23.23:
     dependencies:

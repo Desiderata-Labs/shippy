@@ -13,10 +13,11 @@ const footerSections = [
     ],
   },
   {
-    heading: 'Legal',
+    heading: 'Company',
     links: [
-      { label: 'Terms of Service', href: routes.legal.terms() },
-      { label: 'Privacy Policy', href: routes.legal.privacy() },
+      { label: 'Media Kit', href: routes.company.mediaKit() },
+      { label: 'Terms of Service', href: routes.company.terms() },
+      { label: 'Privacy Policy', href: routes.company.privacy() },
     ],
   },
 ]

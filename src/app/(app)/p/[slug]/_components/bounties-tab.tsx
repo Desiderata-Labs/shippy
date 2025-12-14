@@ -108,7 +108,9 @@ export function BountiesTab({
       default:
         return bounties
     }
-  })()
+  })().toSorted(
+    (a, b) => new Date(b.createdAt).getTime() - new Date(a.createdAt).getTime(),
+  )
 
   if (bounties.length === 0) {
     return (

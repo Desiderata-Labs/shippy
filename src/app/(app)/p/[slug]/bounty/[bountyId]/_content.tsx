@@ -298,6 +298,9 @@ export function BountyDetailContent() {
           (1000 * 60 * 60 * 24),
       )
     : null
+  // Check if commitment is "forever" (more than 100 years away)
+  const isForeverCommitment =
+    commitmentRemaining !== null && commitmentRemaining > 365 * 100
 
   const bountyDisplayId = `${bounty.project.projectKey}-${bounty.number}`
 
@@ -1081,16 +1084,19 @@ export function BountyDetailContent() {
                       </span>
                     </TooltipTrigger>
                     <TooltipContent className="max-w-xs">
-                      The founder has committed to paying contributors until
-                      this date.
+                      {isForeverCommitment
+                        ? 'The founder has committed to paying contributors indefinitely.'
+                        : 'The founder has committed to paying contributors until this date.'}
                     </TooltipContent>
                   </Tooltip>
                   <span className="text-xs">
-                    {new Date(commitmentDate).toLocaleDateString('en-US', {
-                      month: 'short',
-                      day: 'numeric',
-                      year: 'numeric',
-                    })}
+                    {isForeverCommitment
+                      ? 'Never'
+                      : new Date(commitmentDate).toLocaleDateString('en-US', {
+                          month: 'short',
+                          day: 'numeric',
+                          year: 'numeric',
+                        })}
                   </span>
                 </div>
               )}

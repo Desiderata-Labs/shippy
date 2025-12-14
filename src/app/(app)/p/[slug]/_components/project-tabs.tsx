@@ -129,9 +129,12 @@ export function ProjectTabs({ project, isFounder }: ProjectTabsProps) {
 
   return (
     <div className="w-full">
-      {/* GitHub-style tab navigation */}
+      {/* GitHub-style tab navigation - scrollable on mobile */}
       <div className="border-b border-border">
-        <nav className="-mb-px flex gap-0.5" aria-label="Project tabs">
+        <nav
+          className="scrollbar-hide -mb-px flex gap-0.5 overflow-x-auto"
+          aria-label="Project tabs"
+        >
           {tabs.map((tab) => {
             const Icon = tab.icon
             const isActive = activeTab === tab.value
@@ -146,7 +149,7 @@ export function ProjectTabs({ project, isFounder }: ProjectTabsProps) {
                 href={href}
                 scroll={false}
                 className={cn(
-                  'group relative flex cursor-pointer items-center gap-2 px-4 py-2.5 text-sm font-medium transition-colors',
+                  'group relative flex shrink-0 cursor-pointer items-center gap-1.5 px-3 py-2.5 text-sm font-medium transition-colors sm:gap-2 sm:px-4',
                   isActive
                     ? 'text-foreground'
                     : 'text-muted-foreground hover:text-foreground',
@@ -154,7 +157,8 @@ export function ProjectTabs({ project, isFounder }: ProjectTabsProps) {
                 aria-current={isActive ? 'page' : undefined}
               >
                 <Icon className="size-4" />
-                <span>{tab.label}</span>
+                {/* Hide labels on mobile, show on sm+ */}
+                <span className="hidden sm:inline">{tab.label}</span>
                 {tab.count !== undefined && tab.count > 0 && (
                   <span
                     className={cn(

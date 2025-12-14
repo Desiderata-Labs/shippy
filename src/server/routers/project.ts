@@ -53,6 +53,9 @@ const createProjectSchema = z.object({
       CommitmentMonths.ONE_YEAR,
       CommitmentMonths.TWO_YEARS,
       CommitmentMonths.THREE_YEARS,
+      CommitmentMonths.FIVE_YEARS,
+      CommitmentMonths.TEN_YEARS,
+      CommitmentMonths.FOREVER,
     ])
     .transform(Number),
   payoutVisibility: z
@@ -95,6 +98,9 @@ const updateProjectSchema = z.object({
       CommitmentMonths.ONE_YEAR,
       CommitmentMonths.TWO_YEARS,
       CommitmentMonths.THREE_YEARS,
+      CommitmentMonths.FIVE_YEARS,
+      CommitmentMonths.TEN_YEARS,
+      CommitmentMonths.FOREVER,
     ])
     .transform(Number)
     .optional(),

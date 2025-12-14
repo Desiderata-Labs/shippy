@@ -78,7 +78,7 @@ export function ProjectEditor({ mode, username, slug }: ProjectEditorProps) {
     PayoutFrequency.MONTHLY,
   )
   const [commitmentMonths, setCommitmentMonths] = useState<CommitmentMonths>(
-    CommitmentMonths.ONE_YEAR,
+    CommitmentMonths.FIVE_YEARS,
   )
   const [payoutVisibility, setPayoutVisibility] = useState<PayoutVisibility>(
     PayoutVisibility.PRIVATE,
@@ -120,10 +120,14 @@ export function ProjectEditor({ mode, username, slug }: ProjectEditorProps) {
         // Convert commitment months number to enum
         const months = project.rewardPool.commitmentMonths
         if (months === 6) setCommitmentMonths(CommitmentMonths.SIX_MONTHS)
+        else if (months === 12) setCommitmentMonths(CommitmentMonths.ONE_YEAR)
         else if (months === 24) setCommitmentMonths(CommitmentMonths.TWO_YEARS)
         else if (months === 36)
           setCommitmentMonths(CommitmentMonths.THREE_YEARS)
-        else setCommitmentMonths(CommitmentMonths.ONE_YEAR)
+        else if (months === 60) setCommitmentMonths(CommitmentMonths.FIVE_YEARS)
+        else if (months === 120) setCommitmentMonths(CommitmentMonths.TEN_YEARS)
+        else if (months === 9999) setCommitmentMonths(CommitmentMonths.FOREVER)
+        else setCommitmentMonths(CommitmentMonths.FIVE_YEARS)
       }
       setPayoutVisibility(project.payoutVisibility as PayoutVisibility)
       setInitialized(true)
@@ -400,6 +404,9 @@ export function ProjectEditor({ mode, username, slug }: ProjectEditorProps) {
     [CommitmentMonths.ONE_YEAR]: '1 year',
     [CommitmentMonths.TWO_YEARS]: '2 years',
     [CommitmentMonths.THREE_YEARS]: '3 years',
+    [CommitmentMonths.FIVE_YEARS]: '5 years',
+    [CommitmentMonths.TEN_YEARS]: '10 years',
+    [CommitmentMonths.FOREVER]: 'Forever',
   }
 
   const canEditRewardPool = mode === 'create' || project?.canEditRewardPool
@@ -799,6 +806,15 @@ export function ProjectEditor({ mode, username, slug }: ProjectEditorProps) {
                         </SelectItem>
                         <SelectItem value={CommitmentMonths.THREE_YEARS}>
                           3 years
+                        </SelectItem>
+                        <SelectItem value={CommitmentMonths.FIVE_YEARS}>
+                          5 years
+                        </SelectItem>
+                        <SelectItem value={CommitmentMonths.TEN_YEARS}>
+                          10 years
+                        </SelectItem>
+                        <SelectItem value={CommitmentMonths.FOREVER}>
+                          Forever
                         </SelectItem>
                       </SelectContent>
                     </Select>

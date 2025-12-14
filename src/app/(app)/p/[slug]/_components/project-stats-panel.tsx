@@ -57,6 +57,23 @@ function formatUrl(url: string): string {
   }
 }
 
+function formatCommitmentDate(date: Date): string {
+  const endDate = new Date(date)
+  const now = new Date()
+  const yearsFromNow =
+    (endDate.getTime() - now.getTime()) / (1000 * 60 * 60 * 24 * 365)
+
+  // If more than 100 years away, show "Forever"
+  if (yearsFromNow > 100) {
+    return 'Forever'
+  }
+
+  return endDate.toLocaleDateString('en-US', {
+    month: 'short',
+    year: 'numeric',
+  })
+}
+
 export function ProjectStatsPanel({ project }: ProjectStatsPanelProps) {
   const { data: session } = useSession()
   const {
@@ -181,13 +198,7 @@ export function ProjectStatsPanel({ project }: ProjectStatsPanelProps) {
       <StatItem
         icon={Calendar}
         label="Commitment"
-        value={new Date(rewardPool.commitmentEndsAt).toLocaleDateString(
-          'en-US',
-          {
-            month: 'short',
-            year: 'numeric',
-          },
-        )}
+        value={formatCommitmentDate(rewardPool.commitmentEndsAt)}
       />
     </div>
   )

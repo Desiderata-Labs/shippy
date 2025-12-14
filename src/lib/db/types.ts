@@ -145,12 +145,15 @@ export enum CommitmentMonths {
   ONE_YEAR = '12',
   TWO_YEARS = '24',
   THREE_YEARS = '36',
+  FIVE_YEARS = '60',
+  TEN_YEARS = '120',
+  FOREVER = '9999',
 }
 
 /**
  * Commitment period options as numbers (for database storage)
  */
-export const COMMITMENT_PERIODS = [6, 12, 24, 36] as const
+export const COMMITMENT_PERIODS = [6, 12, 24, 36, 60, 120, 9999] as const
 export type CommitmentPeriod = (typeof COMMITMENT_PERIODS)[number]
 
 /**

@@ -52,13 +52,23 @@ function generateParticles(
   return particles
 }
 
-export function OpenGraphImage({
+export async function OpenGraphImage({
   title,
   description,
   badge,
-}: OpenGraphImageProps): ImageResponse {
+}: OpenGraphImageProps): Promise<ImageResponse> {
   const baseUrl = getBaseUrl()
   const particles = generateParticles(size.width, size.height, 50)
+
+  // Fetch Geist fonts
+  const [geistBold, geistRegular] = await Promise.all([
+    fetch('https://assets.shippy.sh/fonts/Geist-Bold.ttf').then((res) =>
+      res.arrayBuffer(),
+    ),
+    fetch('https://assets.shippy.sh/fonts/Geist-Regular.ttf').then((res) =>
+      res.arrayBuffer(),
+    ),
+  ])
 
   return new ImageResponse(
     <div
@@ -71,7 +81,7 @@ export function OpenGraphImage({
         justifyContent: 'flex-start',
         backgroundColor: '#1a1a1a',
         padding: '64px',
-        fontFamily: 'system-ui, sans-serif',
+        fontFamily: 'Geist, system-ui, sans-serif',
         position: 'relative',
         overflow: 'hidden',
       }}
@@ -141,7 +151,7 @@ export function OpenGraphImage({
               borderRadius: '9999px',
               fontSize: '24px',
               color: '#6bb3f8',
-              fontWeight: 600,
+              fontWeight: 700,
               letterSpacing: '-0.01em',
               marginTop: '24px',
             }}
@@ -184,6 +194,20 @@ export function OpenGraphImage({
     </div>,
     {
       ...size,
+      fonts: [
+        {
+          name: 'Geist',
+          data: geistBold,
+          style: 'normal',
+          weight: 700,
+        },
+        {
+          name: 'Geist',
+          data: geistRegular,
+          style: 'normal',
+          weight: 400,
+        },
+      ],
     },
   )
 }

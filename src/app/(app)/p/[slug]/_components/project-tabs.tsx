@@ -1,8 +1,8 @@
 'use client'
 
 import {
+  BankNote03,
   BookOpen02,
-  CoinsStacked01,
   Target01,
   Users01,
 } from '@untitled-ui/icons-react'
@@ -108,7 +108,7 @@ export function ProjectTabs({ project, isFounder }: ProjectTabsProps) {
     {
       value: ProjectTab.PAYOUTS,
       label: 'Payouts',
-      icon: CoinsStacked01,
+      icon: BankNote03,
       // Show count of verified payouts
       count:
         project.stats.verifiedPayoutCount > 0

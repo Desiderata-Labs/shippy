@@ -3,11 +3,11 @@
 import { trpc } from '@/lib/trpc/react'
 import {
   ArrowUp,
+  BankNote03,
   Calendar,
   Check,
   ChevronRight,
   Clock,
-  CoinsStacked01,
   Lock01,
   Plus,
   ShieldTick,
@@ -110,7 +110,7 @@ export function PayoutsTab({
       <Card className="py-12 text-center">
         <div className="mx-auto flex max-w-xs flex-col items-center">
           <div className="mb-3 flex size-12 items-center justify-center rounded-xl bg-muted">
-            <CoinsStacked01 className="size-6 text-foreground opacity-50" />
+            <BankNote03 className="size-6 text-foreground opacity-50" />
           </div>
           <h3 className="text-base font-semibold">No payouts yet</h3>
           <p className="mt-1.5 text-sm text-muted-foreground">
@@ -138,7 +138,7 @@ export function PayoutsTab({
         <div className="space-y-2">
           <div className="grid grid-cols-2 gap-3 sm:grid-cols-4">
             <StatCard
-              icon={CoinsStacked01}
+              icon={BankNote03}
               value={
                 isFounder || isPublicMode
                   ? formatCurrency(stats.totalPaidOutCents)

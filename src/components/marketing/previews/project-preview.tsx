@@ -1,6 +1,6 @@
 'use client'
 
-import { BankNote01, CheckVerified01, Users01 } from '@untitled-ui/icons-react'
+import { BankNote03, CheckVerified01, Users01 } from '@untitled-ui/icons-react'
 import { memo } from 'react'
 
 const ProjectPreviewComponent = () => {
@@ -36,7 +36,7 @@ const ProjectPreviewComponent = () => {
               <span className="font-medium">12 contributors</span>
             </div>
             <div className="flex items-center gap-1.5">
-              <BankNote01 className="size-4 text-primary" />
+              <BankNote03 className="size-4 text-primary" />
               <span className="font-semibold text-primary">$18k paid</span>
             </div>
           </div>

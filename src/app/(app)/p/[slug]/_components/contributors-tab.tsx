@@ -2,7 +2,7 @@
 
 import { trpc } from '@/lib/trpc/react'
 import {
-  CoinsStacked01,
+  BankNote03,
   ShieldTick,
   Trophy01,
   Users01,
@@ -91,7 +91,7 @@ export function ContributorsTab({ projectId }: ContributorsTabProps) {
           label="Total points"
         />
         <StatCard
-          icon={CoinsStacked01}
+          icon={BankNote03}
           value={formatCurrency(
             data.contributors.reduce(
               (sum, c) => sum + c.lifetimeEarningsCents,

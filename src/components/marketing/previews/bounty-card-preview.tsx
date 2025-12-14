@@ -1,6 +1,6 @@
 'use client'
 
-import { BankNote01, Clock, Target01 } from '@untitled-ui/icons-react'
+import { BankNote03, Clock, Target01 } from '@untitled-ui/icons-react'
 import { memo } from 'react'
 
 const BountyCardPreviewComponent = () => {
@@ -35,7 +35,7 @@ const BountyCardPreviewComponent = () => {
           {/* Meta */}
           <div className="flex items-center gap-4 text-sm text-muted-foreground">
             <div className="flex items-center gap-1.5">
-              <BankNote01 className="size-4 text-primary" />
+              <BankNote03 className="size-4 text-primary" />
               <span className="font-semibold text-foreground">500 pts</span>
             </div>
             <div className="flex items-center gap-1.5">

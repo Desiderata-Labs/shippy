@@ -1,7 +1,7 @@
 'use client'
 
 import {
-  BankNote01,
+  BankNote03,
   CheckCircle,
   ClipboardCheck,
   Target01,
@@ -86,7 +86,7 @@ export function HowItWorksSection() {
           {/* Step 3: Split profits */}
           <GlassCard>
             <StepNumber>03</StepNumber>
-            <CardHeader icon={BankNote01} title="Split profits" />
+            <CardHeader icon={BankNote03} title="Split profits" />
             <p className="mb-6 text-sm leading-relaxed text-muted-foreground">
               When you profit, contributors get paid based on their points.
               Founders only pay out what was actually earned.

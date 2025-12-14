@@ -4,10 +4,10 @@ import { useSession } from '@/lib/auth/react'
 import { trpc } from '@/lib/trpc/react'
 import {
   ArrowUpRight,
+  BankNote03,
   Check,
   ChevronRight,
   Clock,
-  CoinsStacked01,
   Folder,
   MessageTextSquare02,
   Target01,
@@ -151,7 +151,7 @@ export function DashboardContent() {
             label={`Across ${data?.projects.length ?? 0} projects`}
           />
           <StatCard
-            icon={CoinsStacked01}
+            icon={BankNote03}
             value={formatCurrency(data?.totalLifetimeEarnings ?? 0)}
             label="Lifetime earnings"
           />
@@ -330,7 +330,7 @@ export function DashboardContent() {
             {!data || data.recentPayouts.length === 0 ? (
               <div className="flex flex-col items-center justify-center py-12 text-center">
                 <div className="mb-3 flex size-12 items-center justify-center rounded-xl bg-muted">
-                  <CoinsStacked01 className="size-6 opacity-50" />
+                  <BankNote03 className="size-6 opacity-50" />
                 </div>
                 <h3 className="text-base font-semibold">No payouts yet</h3>
                 <p className="mt-1.5 text-sm text-muted-foreground">

@@ -2,7 +2,7 @@
 
 import {
   ArrowRight,
-  BankNote01,
+  BankNote03,
   ChartBreakoutSquare,
   Eye,
   PieChart01,
@@ -69,7 +69,7 @@ export function FeaturesSection() {
           </GlassCard>
 
           <GlassCard className="md:col-span-2">
-            <CardHeader icon={BankNote01} title="Recurring royalties" />
+            <CardHeader icon={BankNote03} title="Recurring royalties" />
             <p className="mt-2 text-sm text-muted-foreground">
               Every time the project profits, you get paid.
             </p>

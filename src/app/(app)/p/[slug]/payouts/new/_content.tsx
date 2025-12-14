@@ -2,7 +2,7 @@
 
 import { useSession } from '@/lib/auth/react'
 import { trpc } from '@/lib/trpc/react'
-import { Calendar, Check, CoinsStacked01 } from '@untitled-ui/icons-react'
+import { BankNote03, Calendar, Check } from '@untitled-ui/icons-react'
 import { Loader2 } from 'lucide-react'
 import { useState } from 'react'
 import Link from 'next/link'
@@ -306,7 +306,7 @@ export function NewPayoutContent() {
                 {/* Profit input - prominent */}
                 <div className="p-4">
                   <div className="mb-2 flex items-center gap-2 text-xs text-muted-foreground">
-                    <CoinsStacked01 className="size-3" />
+                    <BankNote03 className="size-3" />
                     Reported Profit
                   </div>
                   <div className="flex items-center gap-3">

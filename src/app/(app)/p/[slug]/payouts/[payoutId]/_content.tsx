@@ -3,11 +3,11 @@
 import { useSession } from '@/lib/auth/react'
 import { trpc } from '@/lib/trpc/react'
 import {
+  BankNote03,
   Calendar,
   Check,
   CheckCircle,
   Clock,
-  CoinsStacked01,
   Lock01,
   X,
 } from '@untitled-ui/icons-react'
@@ -407,7 +407,7 @@ export function PayoutDetailContent() {
 
                   <div className="p-4">
                     <div className="mb-2 flex items-center gap-2 text-xs text-muted-foreground">
-                      <CoinsStacked01 className="size-3" />
+                      <BankNote03 className="size-3" />
                       Reported Profit
                     </div>
                     <div className="text-3xl font-bold">

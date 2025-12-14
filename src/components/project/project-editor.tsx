@@ -608,7 +608,7 @@ export function ProjectEditor({ mode, username, slug }: ProjectEditorProps) {
                   <div className="space-y-1">
                     <p>
                       <span className="font-medium text-foreground">
-                        Pool Percentage:
+                        Profit share:
                       </span>{' '}
                       {project?.rewardPool?.poolPercentage}%
                     </p>
@@ -666,7 +666,7 @@ export function ProjectEditor({ mode, username, slug }: ProjectEditorProps) {
                       <div className="flex items-center gap-2">
                         <PieChart01 className="size-3.5 text-muted-foreground" />
                         <span className="text-xs text-muted-foreground">
-                          Pool Percentage
+                          Profit share
                         </span>
                       </div>
                       <div className="flex items-center">

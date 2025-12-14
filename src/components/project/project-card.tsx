@@ -1,9 +1,9 @@
 'use client'
 
 import {
+  BankNote03,
   Calendar,
   ChevronRight,
-  CoinsStacked01,
   Target01,
   Users01,
 } from '@untitled-ui/icons-react'
@@ -95,7 +95,7 @@ export function ProjectCard({ project }: ProjectCardProps) {
           {project.rewardPool && (
             <>
               <span className="flex items-center gap-1 font-medium">
-                <CoinsStacked01 className="size-3.5 opacity-50" />
+                <BankNote03 className="size-3.5 opacity-50" />
                 {project.rewardPool.poolPercentage}% pool
               </span>
               <span className="flex items-center gap-1">

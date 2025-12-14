@@ -1,6 +1,6 @@
 'use client'
 
-import { BankNote01, PieChart01, TrendUp01 } from '@untitled-ui/icons-react'
+import { BankNote03, PieChart01, TrendUp01 } from '@untitled-ui/icons-react'
 import { memo } from 'react'
 
 const ContributorStatsPreviewComponent = () => {
@@ -22,7 +22,7 @@ const ContributorStatsPreviewComponent = () => {
         <div className="grid grid-cols-2 gap-3">
           <div className="rounded-2xl bg-primary/5 p-4">
             <div className="flex items-center gap-2 text-primary">
-              <BankNote01 className="size-4" />
+              <BankNote03 className="size-4" />
               <span className="text-xs font-semibold tracking-wider uppercase">
                 Total Points
               </span>

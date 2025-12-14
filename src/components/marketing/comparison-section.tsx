@@ -1,6 +1,6 @@
 'use client'
 
-import { ArrowRight, BankNote01, CheckCircle } from '@untitled-ui/icons-react'
+import { ArrowRight, BankNote03, CheckCircle } from '@untitled-ui/icons-react'
 import { X } from 'lucide-react'
 import { useEffect, useRef, useState } from 'react'
 import Link from 'next/link'
@@ -218,7 +218,7 @@ export function ComparisonSection() {
             asChild
           >
             <Link href={routes.auth.signUp()}>
-              <BankNote01 className="size-4" />
+              <BankNote03 className="size-4" />
               Start Earning
               <ArrowRight className="size-4 transition-transform group-hover:translate-x-1" />
             </Link>

@@ -1,6 +1,6 @@
 'use client'
 
-import { BankNote01, CheckCircle } from '@untitled-ui/icons-react'
+import { BankNote03, CheckCircle } from '@untitled-ui/icons-react'
 import { memo } from 'react'
 
 const contributors = [
@@ -22,7 +22,7 @@ const PayoutPreviewComponent = () => {
             <p className="text-2xl font-bold">$1,000</p>
           </div>
           <div className="flex size-12 items-center justify-center rounded-full bg-emerald-500/10">
-            <BankNote01 className="size-6 text-emerald-600 dark:text-emerald-400" />
+            <BankNote03 className="size-6 text-emerald-600 dark:text-emerald-400" />
           </div>
         </div>
 

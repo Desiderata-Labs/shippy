@@ -2,11 +2,12 @@
 
 import { useSession } from '@/lib/auth/react'
 import {
+  BankNote03,
   Calendar,
-  CoinsStacked01,
   Link03,
   Lock01,
   MessageSquare01,
+  PieChart01,
   ShieldTick,
   Users01,
 } from '@untitled-ui/icons-react'
@@ -142,7 +143,7 @@ export function ProjectStatsPanel({ project }: ProjectStatsPanelProps) {
 
       {/* Total Paid Out - Lead with this for trust */}
       <StatItem
-        icon={CoinsStacked01}
+        icon={BankNote03}
         label="Paid out"
         value={
           showPrivateToOthers
@@ -176,7 +177,7 @@ export function ProjectStatsPanel({ project }: ProjectStatsPanelProps) {
 
       {/* Reward Pool */}
       <StatItem
-        icon={CoinsStacked01}
+        icon={PieChart01}
         label="Profit share"
         value={`${rewardPool.poolPercentage}%`}
       />

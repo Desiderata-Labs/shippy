@@ -386,10 +386,11 @@ model Payout {
   periodLabel String // e.g., "December 2024", "Q4 2024"
 
   // Financials (all in cents to avoid floating point issues)
-  reportedProfitCents Int // Profit/revenue reported by founder
-  poolAmountCents     Int // Pool amount (profit * pool %)
-  platformFeeCents    Int // Platform fee (pool * platform %)
-  totalPointsAtPayout Int // Total points at time of payout (for calculating shares)
+  reportedProfitCents  Int // Profit/revenue reported by founder
+  poolAmountCents      Int // Pool amount (profit * pool %)
+  platformFeeCents     Int // Platform fee (pool * platform %)
+  totalPointsAtPayout  Int // Total earned points at time of payout (for calculating shares)
+  poolCapacityAtPayout Int // Pool capacity at time of payout (for calculating utilization)
 
   // Status
   status   String   @default("ANNOUNCED") // "ANNOUNCED" | "SENT" | "COMPLETED"

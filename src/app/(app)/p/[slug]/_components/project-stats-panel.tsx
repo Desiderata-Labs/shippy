@@ -1,21 +1,26 @@
 'use client'
 
+import { useSession } from '@/lib/auth/react'
 import {
   Calendar,
   CoinsStacked01,
   Link03,
+  Lock01,
   MessageSquare01,
   ShieldTick,
   Target01,
   Users01,
 } from '@untitled-ui/icons-react'
+import { PayoutVisibility } from '@/lib/db/types'
 import { Separator } from '@/components/ui/separator'
 
 interface ProjectStatsPanelProps {
   project: {
+    founderId: string
     tagline: string | null
     websiteUrl: string | null
     discordUrl: string | null
+    payoutVisibility: PayoutVisibility
     rewardPool: {
       poolPercentage: number
       payoutFrequency: string
@@ -53,9 +58,23 @@ function formatUrl(url: string): string {
 }
 
 export function ProjectStatsPanel({ project }: ProjectStatsPanelProps) {
-  const { stats, rewardPool, _count, tagline, websiteUrl, discordUrl } = project
+  const { data: session } = useSession()
+  const {
+    founderId,
+    stats,
+    rewardPool,
+    _count,
+    tagline,
+    websiteUrl,
+    discordUrl,
+    payoutVisibility,
+  } = project
 
+  const isFounder = session?.user?.id === founderId
   const hasLinks = websiteUrl || discordUrl
+  const isPayoutPrivate = payoutVisibility === PayoutVisibility.PRIVATE
+  const showPrivateToOthers = isPayoutPrivate && !isFounder
+  const showPrivateLock = isPayoutPrivate && isFounder
 
   if (!rewardPool) return null
 
@@ -110,7 +129,12 @@ export function ProjectStatsPanel({ project }: ProjectStatsPanelProps) {
       <StatItem
         icon={CoinsStacked01}
         label="Paid out"
-        value={formatCurrency(stats.totalPaidOutCents)}
+        value={
+          showPrivateToOthers
+            ? 'Private'
+            : formatCurrency(stats.totalPaidOutCents)
+        }
+        showPrivateLock={showPrivateLock}
       />
 
       <div className="pl-5.5">
@@ -173,10 +197,12 @@ function StatItem({
   icon: Icon,
   label,
   value,
+  showPrivateLock,
 }: {
   icon: React.ComponentType<{ className?: string }>
   label: string
   value: string
+  showPrivateLock?: boolean
 }) {
   return (
     <div className="flex items-center justify-between">
@@ -184,7 +210,14 @@ function StatItem({
         <Icon className="size-3.5 text-foreground opacity-50" />
         <span className="text-xs text-muted-foreground">{label}</span>
       </div>
-      <span className="text-xs font-semibold">{value}</span>
+      <div className="flex items-center gap-1.5">
+        {showPrivateLock && (
+          <span title="Hidden from others">
+            <Lock01 className="size-3 opacity-50" />
+          </span>
+        )}
+        <span className="text-xs font-semibold">{value}</span>
+      </div>
     </div>
   )
 }

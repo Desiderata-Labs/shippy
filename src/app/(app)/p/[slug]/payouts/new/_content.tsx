@@ -86,10 +86,12 @@ export function NewPayoutContent() {
   const utils = trpc.useUtils()
 
   const createPayout = trpc.payout.create.useMutation({
-    onSuccess: () => {
+    onSuccess: (data) => {
       toast.success('Payout created!')
       utils.payout.getByProject.invalidate({ projectId: project?.id })
-      router.push(routes.project.payouts({ slug: params.slug }))
+      router.push(
+        routes.project.payoutDetail({ slug: params.slug, payoutId: data.id }),
+      )
     },
     onError: (error) => {
       toast.error(error.message)
@@ -464,7 +466,12 @@ export function NewPayoutContent() {
                                 delay: preview.breakdown.length * 0.08,
                                 ease: [0.34, 1.56, 0.64, 1],
                               }}
-                              className="h-full bg-primary/80 hover:opacity-80"
+                              className="h-full hover:opacity-80"
+                              style={{
+                                backgroundColor: getChartColor(
+                                  preview.breakdown.length,
+                                ),
+                              }}
                               title={`Shippy: ${formatCurrency(preview.platformFeeCents)} (${formatPercentage((preview.platformFeeCents / preview.poolAmountCents) * 100)})`}
                             />
                           )}
@@ -527,38 +534,54 @@ export function NewPayoutContent() {
                           ))}
 
                           {/* Shippy Platform Fee */}
-                          {preview.platformFeeCents > 0 && (
-                            <div className="flex items-center justify-between rounded-lg border border-primary/30 bg-primary/5 px-3 py-2.5">
-                              <div className="flex items-center gap-3">
-                                {/* eslint-disable-next-line @next/next/no-img-element */}
-                                <img
-                                  src="/logo-mark.svg"
-                                  alt="Shippy"
-                                  className="size-6"
-                                />
-                                <div>
-                                  <span className="text-sm font-medium">
-                                    Shippy
-                                  </span>
-                                  <p className="text-[10px] text-muted-foreground">
-                                    Platform fee (
-                                    {preview.platformFeePercentage}% of pool)
-                                  </p>
-                                </div>
-                              </div>
-                              <div className="text-right">
-                                <div className="text-sm font-semibold text-primary">
-                                  {formatCurrency(preview.platformFeeCents)}
-                                </div>
-                                <a
-                                  href="mailto:pay@shippy.sh"
-                                  className="text-[10px] text-primary/70 underline hover:text-primary"
+                          {preview.platformFeeCents > 0 &&
+                            (() => {
+                              const shippyColor = getChartColor(
+                                preview.breakdown.length,
+                              )
+                              return (
+                                <div
+                                  className="flex items-center justify-between rounded-lg border px-3 py-2.5"
+                                  style={{
+                                    borderColor: shippyColor,
+                                    backgroundColor: shippyColor.replace(
+                                      ')',
+                                      ' / 0.1)',
+                                    ),
+                                  }}
                                 >
-                                  pay@shippy.sh
-                                </a>
-                              </div>
-                            </div>
-                          )}
+                                  <div className="flex items-center gap-3">
+                                    {/* eslint-disable-next-line @next/next/no-img-element */}
+                                    <img
+                                      src="/logo-mark.svg"
+                                      alt="Shippy"
+                                      className="size-6"
+                                    />
+                                    <div>
+                                      <span className="text-sm font-medium">
+                                        Shippy
+                                      </span>
+                                      <p className="text-[10px] text-muted-foreground">
+                                        Platform fee (
+                                        {preview.platformFeePercentage}% of
+                                        pool)
+                                      </p>
+                                    </div>
+                                  </div>
+                                  <div className="text-right">
+                                    <div className="text-sm font-semibold text-muted-foreground">
+                                      {formatCurrency(preview.platformFeeCents)}
+                                    </div>
+                                    <a
+                                      href="mailto:pay@shippy.sh"
+                                      className="text-[10px] text-muted-foreground underline"
+                                    >
+                                      pay@shippy.sh
+                                    </a>
+                                  </div>
+                                </div>
+                              )
+                            })()}
                         </div>
 
                         {/* Total */}

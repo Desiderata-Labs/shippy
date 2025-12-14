@@ -315,6 +315,7 @@ export const payoutRouter = router({
           poolAmountCents,
           platformFeeCents,
           totalPointsAtPayout: totalEarnedPoints,
+          poolCapacityAtPayout: poolCapacity,
           recipients: {
             create: contributors.map((c) => {
               const amountCents = Math.floor(

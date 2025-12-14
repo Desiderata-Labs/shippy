@@ -8,6 +8,7 @@ import {
   CheckCircle,
   Clock,
   CoinsStacked01,
+  Lock01,
   X,
 } from '@untitled-ui/icons-react'
 import { Loader2 } from 'lucide-react'
@@ -21,7 +22,7 @@ import {
   PayoutStatus,
   PayoutVisibility,
 } from '@/lib/db/types'
-import { routes } from '@/lib/routes'
+import { ProjectTab, routes } from '@/lib/routes'
 import { cn } from '@/lib/utils'
 import { AppButton } from '@/components/app'
 import { AppBackground } from '@/components/layout/app-background'
@@ -202,14 +203,20 @@ export function PayoutDetailContent() {
           {isNotFound ? (
             <NotFoundState
               resourceType="payout"
-              backHref={routes.project.payouts({ slug: params.slug })}
+              backHref={routes.project.detail({
+                slug: params.slug,
+                tab: ProjectTab.PAYOUTS,
+              })}
               backLabel="Back to Payouts"
             />
           ) : (
             <ErrorState
               message={payoutErrorData?.message}
               errorId={payoutErrorData?.data?.errorId}
-              backHref={routes.project.payouts({ slug: params.slug })}
+              backHref={routes.project.detail({
+                slug: params.slug,
+                tab: ProjectTab.PAYOUTS,
+              })}
               backLabel="Back to Payouts"
               onRetry={() => refetchPayout()}
             />
@@ -225,7 +232,10 @@ export function PayoutDetailContent() {
         <div className="mx-auto max-w-7xl p-6">
           <NotFoundState
             resourceType="payout"
-            backHref={routes.project.payouts({ slug: params.slug })}
+            backHref={routes.project.detail({
+              slug: params.slug,
+              tab: ProjectTab.PAYOUTS,
+            })}
             backLabel="Back to Payouts"
           />
         </div>
@@ -236,6 +246,8 @@ export function PayoutDetailContent() {
   const isFounder = payout.project.founderId === session.user.id
   const isPublicMode =
     payout.project.payoutVisibility === PayoutVisibility.PUBLIC
+  const showPrivateLock =
+    payout.project.payoutVisibility === PayoutVisibility.PRIVATE && isFounder
 
   // Check if current user is a recipient
   const myRecipient = payout.recipients.find(
@@ -261,12 +273,13 @@ export function PayoutDetailContent() {
 
   const status =
     statusConfig[payout.status] || statusConfig[PayoutStatus.ANNOUNCED]
-  const poolCapacity = payout.project.rewardPool?.poolCapacity ?? 1000
+  // Use snapshotted values from payout time for historical accuracy
+  const poolCapacityAtPayout = payout.poolCapacityAtPayout
   const totalPoints = payout.recipients.reduce(
     (sum, r) => sum + r.pointsAtPayout,
     0,
   )
-  const poolUtilization = (totalPoints / poolCapacity) * 100
+  const poolUtilization = (totalPoints / poolCapacityAtPayout) * 100
 
   // Group recipients by status
   const unpaidRecipients = payout.recipients.filter((r) => !r.paidAt)
@@ -348,7 +361,10 @@ export function PayoutDetailContent() {
           </Link>
           <span className="text-muted-foreground/50">/</span>
           <Link
-            href={routes.project.payouts({ slug: params.slug })}
+            href={routes.project.detail({
+              slug: params.slug,
+              tab: ProjectTab.PAYOUTS,
+            })}
             className="text-muted-foreground transition-colors hover:text-foreground"
           >
             Payouts
@@ -385,21 +401,26 @@ export function PayoutDetailContent() {
                 </div>
               </div>
 
-              <Separator />
+              {canSeeFinancials && (
+                <>
+                  <Separator />
 
-              <div className="p-4">
-                <div className="mb-2 flex items-center gap-2 text-xs text-muted-foreground">
-                  <CoinsStacked01 className="size-3" />
-                  Reported Profit
-                </div>
-                <div className="text-3xl font-bold">
-                  {formatCurrency(payout.reportedProfitCents)}
-                </div>
-                <p className="mt-1 text-xs text-muted-foreground">
-                  Pool: {formatCurrency(payout.poolAmountCents)} (
-                  {payout.project.rewardPool?.poolPercentage ?? 10}% of profit)
-                </p>
-              </div>
+                  <div className="p-4">
+                    <div className="mb-2 flex items-center gap-2 text-xs text-muted-foreground">
+                      <CoinsStacked01 className="size-3" />
+                      Reported Profit
+                    </div>
+                    <div className="text-3xl font-bold">
+                      {formatCurrency(payout.reportedProfitCents)}
+                    </div>
+                    <p className="mt-1 text-xs text-muted-foreground">
+                      Pool: {formatCurrency(payout.poolAmountCents)} (
+                      {payout.project.rewardPool?.poolPercentage ?? 10}% of
+                      profit)
+                    </p>
+                  </div>
+                </>
+              )}
             </div>
 
             {/* Summary stats */}
@@ -425,7 +446,7 @@ export function PayoutDetailContent() {
                   {formatPercentage(Math.min(poolUtilization, 100))}
                 </div>
                 <div className="text-[10px] text-muted-foreground">
-                  {totalPoints} / {poolCapacity} pts
+                  {totalPoints} / {poolCapacityAtPayout} pts
                 </div>
               </div>
               <div className="rounded-lg border border-border bg-card px-4 py-3">
@@ -582,6 +603,22 @@ export function PayoutDetailContent() {
                 </p>
               </div>
             )}
+
+            {/* Private visibility notice for founder */}
+            {showPrivateLock && (
+              <div className="flex items-start gap-2.5 rounded-lg border border-border bg-muted/30 p-3">
+                <Lock01 className="mt-0.5 size-4 shrink-0 opacity-50" />
+                <div className="text-xs text-muted-foreground">
+                  <span className="font-medium text-foreground">
+                    Private payouts enabled
+                  </span>
+                  <p className="mt-0.5">
+                    Financial details on this page are only visible to you and
+                    contributors.
+                  </p>
+                </div>
+              </div>
+            )}
           </div>
 
           {/* Vertical separator */}
@@ -694,7 +731,10 @@ export function PayoutDetailContent() {
                     delay: payout.recipients.length * 0.08,
                     ease: [0.34, 1.56, 0.64, 1],
                   }}
-                  className="h-full bg-primary/80 hover:opacity-80"
+                  className="h-full hover:opacity-80"
+                  style={{
+                    backgroundColor: getChartColor(payout.recipients.length),
+                  }}
                   title={`Shippy: ${formatCurrency(payout.platformFeeCents)} (${formatPercentage((payout.platformFeeCents / payout.poolAmountCents) * 100)})`}
                 />
               )}
@@ -842,33 +882,49 @@ export function PayoutDetailContent() {
               )}
 
               {/* Shippy Platform Fee - only show to those who can see financials */}
-              {payout.platformFeeCents > 0 && canSeeFinancials && (
-                <div className="flex items-center justify-between rounded-lg border border-primary/30 bg-primary/5 px-3 py-2.5">
-                  <div className="flex items-center gap-3">
-                    {/* eslint-disable-next-line @next/next/no-img-element */}
-                    <img src="/logo-mark.svg" alt="Shippy" className="size-6" />
-                    <div>
-                      <span className="text-sm font-medium">Shippy</span>
-                      <p className="text-[10px] text-muted-foreground">
-                        Platform fee (
-                        {payout.project.rewardPool?.platformFeePercentage ?? 10}
-                        % of pool)
-                      </p>
-                    </div>
-                  </div>
-                  <div className="text-right">
-                    <div className="text-sm font-semibold text-primary">
-                      {formatCurrency(payout.platformFeeCents)}
-                    </div>
-                    <a
-                      href="mailto:pay@shippy.sh"
-                      className="text-[10px] text-primary/70 underline hover:text-primary"
+              {payout.platformFeeCents > 0 &&
+                canSeeFinancials &&
+                (() => {
+                  const shippyColor = getChartColor(payout.recipients.length)
+                  return (
+                    <div
+                      className="flex items-center justify-between rounded-lg border px-3 py-2.5"
+                      style={{
+                        borderColor: shippyColor,
+                        backgroundColor: shippyColor.replace(')', ' / 0.1)'),
+                      }}
                     >
-                      pay@shippy.sh
-                    </a>
-                  </div>
-                </div>
-              )}
+                      <div className="flex items-center gap-3">
+                        {/* eslint-disable-next-line @next/next/no-img-element */}
+                        <img
+                          src="/logo-mark.svg"
+                          alt="Shippy"
+                          className="size-6"
+                        />
+                        <div>
+                          <span className="text-sm font-medium">Shippy</span>
+                          <p className="text-[10px] text-muted-foreground">
+                            Platform fee (
+                            {payout.project.rewardPool?.platformFeePercentage ??
+                              10}
+                            % of pool)
+                          </p>
+                        </div>
+                      </div>
+                      <div className="text-right">
+                        <div className="text-sm font-semibold text-muted-foreground">
+                          {formatCurrency(payout.platformFeeCents)}
+                        </div>
+                        <a
+                          href="mailto:pay@shippy.sh"
+                          className="text-[10px] text-muted-foreground underline"
+                        >
+                          pay@shippy.sh
+                        </a>
+                      </div>
+                    </div>
+                  )
+                })()}
             </div>
 
             {/* Total - only show if user can see financials */}

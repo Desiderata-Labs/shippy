@@ -269,8 +269,8 @@ export function DashboardContent() {
             </div>
             {!data || data.projects.length === 0 ? (
               <div className="flex flex-col items-center justify-center py-12 text-center">
-                <div className="mb-3 flex size-12 items-center justify-center rounded-xl bg-primary/10">
-                  <Folder className="size-6 text-primary" />
+                <div className="mb-3 flex size-12 items-center justify-center rounded-xl bg-muted">
+                  <Folder className="size-6 opacity-50" />
                 </div>
                 <h3 className="text-base font-semibold">No projects yet</h3>
                 <p className="mt-1.5 text-sm text-muted-foreground">
@@ -330,7 +330,7 @@ export function DashboardContent() {
             {!data || data.recentPayouts.length === 0 ? (
               <div className="flex flex-col items-center justify-center py-12 text-center">
                 <div className="mb-3 flex size-12 items-center justify-center rounded-xl bg-muted">
-                  <CoinsStacked01 className="size-6" />
+                  <CoinsStacked01 className="size-6 opacity-50" />
                 </div>
                 <h3 className="text-base font-semibold">No payouts yet</h3>
                 <p className="mt-1.5 text-sm text-muted-foreground">

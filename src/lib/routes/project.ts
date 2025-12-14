@@ -36,10 +36,6 @@ export type SubmissionEditParams = SubmissionParams
 
 export type BountySubmitParams = BountyParams
 
-export interface PayoutParams extends ProjectParams {
-  payoutId?: string
-}
-
 export interface PayoutDetailParams extends ProjectParams {
   payoutId: string
 }
@@ -66,7 +62,6 @@ export const projectPaths = {
   submissionEdit: '/p/[slug]/submission/[submissionId]/edit',
   submissions: '/p/[slug]/submissions',
   newPayout: '/p/[slug]/payouts/new',
-  payouts: '/p/[slug]/payouts',
   payoutDetail: '/p/[slug]/payouts/[payoutId]',
 } as const
 
@@ -92,7 +87,6 @@ export const projectRoutes = {
     `/p/${params.slug}/submission/${createIdSlug(params.submissionId, params.title)}/edit`,
   submissions: (params: ProjectParams) => `/p/${params.slug}/submissions`,
   newPayout: (params: ProjectParams) => `/p/${params.slug}/payouts/new`,
-  payouts: (params: ProjectParams) => `/p/${params.slug}/payouts`,
   payoutDetail: (params: PayoutDetailParams) =>
     `/p/${params.slug}/payouts/${params.payoutId}`,
 } as const

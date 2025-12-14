@@ -8,6 +8,7 @@ import {
   ChevronRight,
   Clock,
   CoinsStacked01,
+  Lock01,
   Plus,
   ShieldTick,
   Target01,
@@ -70,6 +71,8 @@ export function PayoutsTab({
   payoutVisibility,
 }: PayoutsTabProps) {
   const isPublicMode = payoutVisibility === PayoutVisibility.PUBLIC
+  const showPrivateLock =
+    payoutVisibility === PayoutVisibility.PRIVATE && isFounder
   // Fetch payouts
   const { data: payouts, isLoading } = trpc.payout.getByProject.useQuery(
     { projectId },
@@ -87,8 +90,6 @@ export function PayoutsTab({
     { projectId },
     { enabled: !!projectId },
   )
-
-  const poolCapacity = poolStats?.poolCapacity ?? 1000
 
   if (isLoading) {
     return (
@@ -144,6 +145,7 @@ export function PayoutsTab({
                   : '—'
               }
               label="Total paid out"
+              showPrivateLock={showPrivateLock}
             />
             <StatCard
               icon={Calendar}
@@ -194,11 +196,13 @@ export function PayoutsTab({
         {payouts.map((payout) => {
           const status =
             statusConfig[payout.status] || statusConfig[PayoutStatus.ANNOUNCED]
+          // Use snapshotted capacity from payout time for historical accuracy
+          const poolCapacityAtPayout = payout.poolCapacityAtPayout
           const totalPoints = payout.recipients.reduce(
             (sum, r) => sum + r.pointsAtPayout,
             0,
           )
-          const poolUtilization = (totalPoints / poolCapacity) * 100
+          const poolUtilization = (totalPoints / poolCapacityAtPayout) * 100
           const confirmedCount = payout.recipients.filter(
             (r) => r.status === PayoutRecipientStatus.CONFIRMED,
           ).length
@@ -242,13 +246,15 @@ export function PayoutsTab({
                   <div className="hidden w-32 sm:block">
                     <div className="flex h-3 overflow-hidden rounded-sm bg-muted/50">
                       {payout.recipients.slice(0, 5).map((recipient, index) => {
-                        const capacityPercent =
-                          (recipient.pointsAtPayout / poolCapacity) * 100
+                        // Calculate as portion of total to match utilization %
+                        const portionPercent =
+                          (recipient.pointsAtPayout / poolCapacityAtPayout) *
+                          100
                         return (
                           <div
                             key={recipient.id}
                             style={{
-                              width: `${capacityPercent}%`,
+                              width: `${portionPercent}%`,
                               backgroundColor: getChartColor(index),
                             }}
                           />
@@ -264,7 +270,12 @@ export function PayoutsTab({
                   {/* Right: Amount and status counts */}
                   <div className="flex items-center gap-3">
                     <div className="text-right">
-                      <div className="text-sm font-semibold">
+                      <div className="flex items-center justify-end gap-1.5 text-sm font-semibold">
+                        {showPrivateLock && (
+                          <span title="Hidden from others">
+                            <Lock01 className="size-3 opacity-50" />
+                          </span>
+                        )}
                         {isFounder || isPublicMode
                           ? formatCurrency(payout.poolAmountCents)
                           : `${payout.recipients.length} recipient${payout.recipients.length !== 1 ? 's' : ''}`}
@@ -354,10 +365,12 @@ function StatCard({
   icon: Icon,
   value,
   label,
+  showPrivateLock,
 }: {
   icon: React.ComponentType<{ className?: string }>
   value: React.ReactNode
   label: string
+  showPrivateLock?: boolean
 }) {
   return (
     <Card className="p-3">
@@ -368,7 +381,14 @@ function StatCard({
           <Icon className="-mt-1 size-3.5 text-foreground opacity-50" />
         </div>
         <div>
-          <p className="text-xs font-bold">{value}</p>
+          <div className="flex items-center gap-1.5">
+            {showPrivateLock && (
+              <span title="Hidden from others">
+                <Lock01 className="size-3 opacity-50" />
+              </span>
+            )}
+            <p className="text-xs font-bold">{value}</p>
+          </div>
           <p className="text-[10px] text-muted-foreground">{label}</p>
         </div>
       </div>

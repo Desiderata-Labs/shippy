@@ -38,7 +38,7 @@ export type Paths = typeof paths
 export { DEFAULT_PROJECT_TAB, ProjectTab } from './project'
 export type {
   BountyParams,
-  PayoutParams,
+  PayoutDetailParams,
   ProjectParams,
   ProjectTabParams,
   SubmissionParams,

@@ -510,7 +510,8 @@ export function ProjectEditor({ mode, username, slug }: ProjectEditorProps) {
                         className="w-16 bg-transparent text-center font-mono text-sm tracking-widest uppercase placeholder:text-muted-foreground/50 focus:outline-none"
                       />
                       <span className="text-sm text-muted-foreground">
-                        → {normalizeProjectKey(projectKey || 'ABC')}-1
+                        <span className="mr-5">→ </span>
+                        {normalizeProjectKey(projectKey || 'ABC')}-1
                       </span>
                     </div>
                     <div className="shrink-0">{renderProjectKeyStatus()}</div>

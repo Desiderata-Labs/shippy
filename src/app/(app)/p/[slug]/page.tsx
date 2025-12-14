@@ -6,6 +6,7 @@ import {
   BountyStatus,
   ClaimStatus,
   PayoutStatus,
+  PayoutVisibility,
   SubmissionStatus,
 } from '@/lib/db/types'
 import { NotFoundState } from '@/components/ui/not-found-state'
@@ -174,7 +175,7 @@ async function getProject(slug: string) {
   return {
     ...project,
     bounties: bountiesWithPendingCount,
-    payoutVisibility: project.payoutVisibility,
+    payoutVisibility: project.payoutVisibility as PayoutVisibility,
     stats: {
       contributorCount,
       totalPaidOutCents,

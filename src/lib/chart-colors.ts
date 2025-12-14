@@ -1,52 +1,53 @@
 /**
  * Chart color utilities for visualizations.
- * Generates a harmonious palette using OKLCH color space.
  *
- * Colors are generated starting from the primary hue and rotating
- * by the golden angle (≈137.5°) which provides optimal visual distinction
- * while maintaining harmonic relationships.
+ * Colors are generated using consistent 30° hue steps in OKLCH space,
+ * starting from our primary blue. This creates smooth, harmonious
+ * transitions between adjacent colors regardless of how many there are.
  */
 
-// Primary color from theme: oklch(0.6574 0.135 237.09)
-const PRIMARY_HUE = 237.09
-const BASE_LIGHTNESS = 0.6574
-const BASE_CHROMA = 0.135
+export type OklchColorString = `oklch(${string} ${string} ${string})`
 
-// Golden angle for optimal color distribution
-const GOLDEN_ANGLE = 137.5077640500378
+// Primary color from theme: oklch(0.6574 0.135 237.09)
+const PRIMARY_HUE = 237
+const BASE_LIGHTNESS = 0.65
+const BASE_CHROMA = 0.14
+
+// Hue step for smooth analogous transitions (~30° keeps colors harmonious)
+const HUE_STEP = 30
 
 /**
  * Get a color for an item by index.
  *
- * Uses golden angle rotation from the primary hue to generate
- * visually distinct but harmonious colors.
+ * Each subsequent index shifts hue by 30° for smooth transitions.
+ * Adjacent colors always look good together.
  *
  * @param index - The index of the item (0-based)
  * @returns OKLCH color string
  */
-export function getChartColor(index: number): string {
-  // Rotate hue by golden angle for each index
-  // This ensures maximum visual distinction between adjacent colors
-  const hue = (PRIMARY_HUE + index * GOLDEN_ANGLE) % 360
+export function getChartColor(index: number): OklchColorString {
+  const hue = (PRIMARY_HUE + index * HUE_STEP) % 360
 
-  // Vary lightness slightly to add depth (oscillate between 0.58-0.72)
-  const lightnessOffset = Math.sin(index * 0.8) * 0.07
-  const lightness = Math.max(0.5, Math.min(0.75, BASE_LIGHTNESS + lightnessOffset))
+  // Slight lightness variation to add depth (oscillates ±0.05)
+  const lightnessOffset = Math.sin(index * 1.2) * 0.05
+  const lightness = Math.max(
+    0.55,
+    Math.min(0.75, BASE_LIGHTNESS + lightnessOffset),
+  )
 
-  // Keep chroma consistent but slightly reduce for very high indices
-  // to avoid overly saturated colors
-  const chroma = index < 12 ? BASE_CHROMA : BASE_CHROMA * 0.9
+  // Slight chroma variation for visual interest
+  const chromaOffset = Math.cos(index * 0.9) * 0.02
+  const chroma = Math.max(0.1, Math.min(0.16, BASE_CHROMA + chromaOffset))
 
   return `oklch(${lightness.toFixed(4)} ${chroma.toFixed(4)} ${hue.toFixed(2)})`
 }
 
 /**
  * Get a specific number of chart colors.
- * Useful for generating a palette upfront.
  *
  * @param count - Number of colors to generate
  * @returns Array of OKLCH color strings
  */
-export function getChartColors(count: number): string[] {
+export function getChartColors(count: number): OklchColorString[] {
   return Array.from({ length: count }, (_, i) => getChartColor(i))
 }

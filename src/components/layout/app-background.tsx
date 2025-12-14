@@ -43,7 +43,7 @@ export function AppBackground({
     <div className="relative min-h-screen">
       {/* Particles */}
       <div className="pointer-events-none fixed inset-0 -z-10">
-        <ParticleBackground intensity={ParticleIntensity.Subtle} />
+        <ParticleBackground intensity={ParticleIntensity.Hero} />
       </div>
 
       {/* Header */}

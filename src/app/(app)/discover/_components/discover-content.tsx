@@ -1,5 +1,6 @@
 'use client'
 
+import { useSession } from '@/lib/auth/react'
 import { trpc } from '@/lib/trpc/react'
 import { SearchLg } from '@untitled-ui/icons-react'
 import { Loader2 } from 'lucide-react'
@@ -19,6 +20,12 @@ type SortOption = 'newest' | 'openBounties' | 'totalPaidOut'
 
 export function DiscoverContent() {
   const [sortBy, setSortBy] = useState<SortOption>('newest')
+  const { data: session } = useSession()
+
+  const username = (session?.user as { username?: string })?.username
+  const createProjectUrl = username
+    ? routes.user.newProject({ username })
+    : routes.auth.signUp()
 
   const { data, isLoading, error } = trpc.project.discover.useQuery({
     limit: 20,
@@ -81,20 +88,20 @@ export function DiscoverContent() {
             </AppButton>
           </Card>
         ) : data?.projects.length === 0 ? (
-          <Card className="py-12 text-center">
+          <div className="py-12 text-center">
             <div className="mx-auto flex max-w-xs flex-col items-center">
-              <div className="mb-3 flex size-12 items-center justify-center rounded-xl bg-primary/10">
-                <SearchLg className="size-6 text-primary" />
+              <div className="mb-3 flex size-12 items-center justify-center rounded-xl bg-muted">
+                <SearchLg className="size-6 opacity-50" />
               </div>
               <h3 className="text-base font-semibold">No projects yet</h3>
               <p className="mt-1.5 text-sm text-muted-foreground">
                 Be the first to create a project and attract contributors!
               </p>
               <AppButton asChild className="mt-4" size="sm">
-                <Link href={routes.auth.signUp()}>Create Project</Link>
+                <Link href={createProjectUrl}>Create Project</Link>
               </AppButton>
             </div>
-          </Card>
+          </div>
         ) : (
           <div className="grid gap-3 sm:grid-cols-2">
             {data?.projects.map((project) => (

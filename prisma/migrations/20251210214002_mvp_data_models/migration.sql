@@ -236,6 +236,7 @@ CREATE TABLE "payout" (
     "poolAmountCents" INTEGER NOT NULL,
     "platformFeeCents" INTEGER NOT NULL,
     "totalPointsAtPayout" INTEGER NOT NULL,
+    "poolCapacityAtPayout" INTEGER NOT NULL,
     "status" TEXT NOT NULL DEFAULT 'ANNOUNCED',
     "sentAt" TIMESTAMPTZ(3),
     "sentNote" TEXT,

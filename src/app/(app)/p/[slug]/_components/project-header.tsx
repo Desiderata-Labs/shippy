@@ -1,26 +1,12 @@
 'use client'
 
-import {
-  CheckCircle,
-  Clock,
-  CoinsStacked01,
-  Plus,
-  Settings01,
-  Share07,
-} from '@untitled-ui/icons-react'
+import { CheckCircle, Settings01, Share07 } from '@untitled-ui/icons-react'
 import { useState } from 'react'
 import Image from 'next/image'
 import Link from 'next/link'
 import { routes } from '@/lib/routes'
 import { AppButton } from '@/components/app'
 import { Avatar, AvatarFallback, AvatarImage } from '@/components/ui/avatar'
-import {
-  DropdownMenu,
-  DropdownMenuContent,
-  DropdownMenuItem,
-  DropdownMenuSeparator,
-  DropdownMenuTrigger,
-} from '@/components/ui/dropdown-menu'
 import {
   Tooltip,
   TooltipContent,
@@ -137,47 +123,17 @@ export function ProjectHeader({ project, isFounder }: ProjectHeaderProps) {
           </TooltipProvider>
 
           {isFounder && (
-            <DropdownMenu>
-              <DropdownMenuTrigger asChild>
-                <AppButton
-                  variant="outline"
-                  size="sm"
-                  className="cursor-pointer border-border bg-secondary hover:bg-accent"
-                >
-                  <Settings01 className="mr-1.5 size-3.5" />
-                  Manage
-                </AppButton>
-              </DropdownMenuTrigger>
-              <DropdownMenuContent align="end" className="w-48">
-                <DropdownMenuItem asChild className="cursor-pointer">
-                  <Link href={routes.project.newBounty({ slug: project.slug })}>
-                    <Plus className="mr-2 size-4" />
-                    Create Bounty
-                  </Link>
-                </DropdownMenuItem>
-                <DropdownMenuItem asChild className="cursor-pointer">
-                  <Link
-                    href={routes.project.submissions({ slug: project.slug })}
-                  >
-                    <Clock className="mr-2 size-4" />
-                    Pending Submissions
-                  </Link>
-                </DropdownMenuItem>
-                <DropdownMenuItem asChild className="cursor-pointer">
-                  <Link href={routes.project.newPayout({ slug: project.slug })}>
-                    <CoinsStacked01 className="mr-2 size-4" />
-                    Create Payout
-                  </Link>
-                </DropdownMenuItem>
-                <DropdownMenuSeparator />
-                <DropdownMenuItem asChild className="cursor-pointer">
-                  <Link href={routes.project.settings({ slug: project.slug })}>
-                    <Settings01 className="mr-2 size-4" />
-                    Project Settings
-                  </Link>
-                </DropdownMenuItem>
-              </DropdownMenuContent>
-            </DropdownMenu>
+            <AppButton
+              variant="outline"
+              size="sm"
+              className="cursor-pointer border-border bg-secondary hover:bg-accent"
+              asChild
+            >
+              <Link href={routes.project.settings({ slug: project.slug })}>
+                <Settings01 className="mr-1.5 size-3.5" />
+                Edit
+              </Link>
+            </AppButton>
           )}
         </div>
       </div>

@@ -8,7 +8,6 @@ import {
   Lock01,
   MessageSquare01,
   ShieldTick,
-  Target01,
   Users01,
 } from '@untitled-ui/icons-react'
 import { PayoutVisibility } from '@/lib/db/types'
@@ -80,7 +79,6 @@ export function ProjectStatsPanel({ project }: ProjectStatsPanelProps) {
     founderId,
     stats,
     rewardPool,
-    _count,
     tagline,
     websiteUrl,
     discordUrl,
@@ -179,19 +177,8 @@ export function ProjectStatsPanel({ project }: ProjectStatsPanelProps) {
       {/* Reward Pool */}
       <StatItem
         icon={CoinsStacked01}
-        label={
-          rewardPool.payoutFrequency === 'MONTHLY'
-            ? 'Monthly pool'
-            : 'Quarterly pool'
-        }
+        label="Profit share"
         value={`${rewardPool.poolPercentage}%`}
-      />
-
-      {/* Open Bounties */}
-      <StatItem
-        icon={Target01}
-        label={_count.bounties === 1 ? 'Bounty' : 'Bounties'}
-        value={_count.bounties.toString()}
       />
 
       {/* Commitment */}

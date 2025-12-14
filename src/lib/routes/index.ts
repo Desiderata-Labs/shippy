@@ -1,6 +1,7 @@
 import { authPaths, authRoutes } from './auth'
 import { dashboardPaths, dashboardRoutes } from './dashboard'
 import { discoverPaths, discoverRoutes } from './discover'
+import { legalPaths, legalRoutes } from './legal'
 import { projectPaths, projectRoutes } from './project'
 import { userPaths, userRoutes } from './user'
 
@@ -9,6 +10,8 @@ export const publicRoutes = [
   authRoutes.signIn(),
   authRoutes.signUp(),
   discoverRoutes.root(),
+  legalRoutes.terms(),
+  legalRoutes.privacy(),
 ]
 
 // All application routes
@@ -17,6 +20,7 @@ export const routes = {
   auth: authRoutes,
   dashboard: dashboardRoutes,
   discover: discoverRoutes,
+  legal: legalRoutes,
   project: projectRoutes,
   user: userRoutes,
 } as const
@@ -27,6 +31,7 @@ export const paths = {
   auth: authPaths,
   dashboard: dashboardPaths,
   discover: discoverPaths,
+  legal: legalPaths,
   project: projectPaths,
   user: userPaths,
 } as const

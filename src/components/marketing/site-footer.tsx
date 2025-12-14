@@ -15,8 +15,8 @@ const footerSections = [
   {
     heading: 'Legal',
     links: [
-      { label: 'Terms of Service', href: '/terms' },
-      { label: 'Privacy Policy', href: '/privacy' },
+      { label: 'Terms of Service', href: routes.legal.terms() },
+      { label: 'Privacy Policy', href: routes.legal.privacy() },
     ],
   },
 ]

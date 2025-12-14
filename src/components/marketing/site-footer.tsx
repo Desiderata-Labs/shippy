@@ -98,8 +98,7 @@ export function SiteFooter() {
 
           {/* Social links */}
           <div className="flex items-center gap-4">
-            {/* TODO: Uncomment when we have real social accounts
-            <SocialLink href="https://twitter.com/shippy" label="Twitter">
+            <SocialLink href="https://x.com/Shhhippy" label="X (Twitter)">
               <svg
                 className="size-5"
                 fill="currentColor"
@@ -109,6 +108,7 @@ export function SiteFooter() {
                 <path d="M18.244 2.25h3.308l-7.227 8.26 8.502 11.24H16.17l-5.214-6.817L4.99 21.75H1.68l7.73-8.835L1.254 2.25H8.08l4.713 6.231zm-1.161 17.52h1.833L7.084 4.126H5.117z" />
               </svg>
             </SocialLink>
+            {/* TODO: Uncomment when we have real social accounts
             <SocialLink href="https://discord.gg/shippy" label="Discord">
               <svg
                 className="size-5"

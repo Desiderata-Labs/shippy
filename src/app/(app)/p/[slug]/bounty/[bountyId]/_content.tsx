@@ -15,6 +15,8 @@ import {
   Pencil01,
   Plus,
   RefreshCcw01,
+  RefreshCw01,
+  SlashCircle01,
   Target01,
   Trash01,
   User01,
@@ -84,6 +86,10 @@ export function BountyDetailContent() {
   const [newComment, setNewComment] = useState('')
   const [isPostingComment, setIsPostingComment] = useState(false)
   const [eventToDelete, setEventToDelete] = useState<string | null>(null)
+
+  // Close/reopen state
+  const [showCloseModal, setShowCloseModal] = useState(false)
+  const [closeReason, setCloseReason] = useState('')
 
   // Label management state
   const [showLabelPicker, setShowLabelPicker] = useState(false)
@@ -175,6 +181,28 @@ export function BountyDetailContent() {
 
   const updateBountyLabels = trpc.bounty.update.useMutation({
     onSuccess: () => {
+      utils.bounty.getById.invalidate({ id: bountyId })
+    },
+    onError: (error) => {
+      toast.error(error.message)
+    },
+  })
+
+  const closeBounty = trpc.bounty.close.useMutation({
+    onSuccess: () => {
+      toast.success('Bounty closed')
+      utils.bounty.getById.invalidate({ id: bountyId })
+      setShowCloseModal(false)
+      setCloseReason('')
+    },
+    onError: (error) => {
+      toast.error(error.message)
+    },
+  })
+
+  const reopenBounty = trpc.bounty.reopen.useMutation({
+    onSuccess: () => {
+      toast.success('Bounty reopened')
       utils.bounty.getById.invalidate({ id: bountyId })
     },
     onError: (error) => {
@@ -384,43 +412,79 @@ export function BountyDetailContent() {
           <h1 className="text-xl font-semibold tracking-tight sm:text-2xl">
             {bounty.title}
           </h1>
-          {isFounder &&
-            (bounty.status === BountyStatus.COMPLETED ||
-            bounty.status === BountyStatus.CLOSED ? (
-              <Tooltip>
-                <TooltipTrigger asChild>
-                  <span className="shrink-0">
-                    <AppButton variant="outline" size="sm" disabled>
-                      <Pencil01 className="mr-1.5 size-3.5" />
-                      Edit
+          {isFounder && (
+            <div className="flex shrink-0 items-center gap-2">
+              {/* Edit button */}
+              {bounty.status === BountyStatus.COMPLETED ||
+              bounty.status === BountyStatus.CLOSED ? (
+                <Tooltip>
+                  <TooltipTrigger asChild>
+                    <span>
+                      <AppButton variant="outline" size="sm" disabled>
+                        <Pencil01 className="mr-1.5 size-3.5" />
+                        Edit
+                      </AppButton>
+                    </span>
+                  </TooltipTrigger>
+                  <TooltipContent>
+                    {bounty.status === BountyStatus.COMPLETED
+                      ? 'Completed bounties cannot be edited'
+                      : 'Closed bounties cannot be edited'}
+                  </TooltipContent>
+                </Tooltip>
+              ) : (
+                <AppButton variant="outline" size="sm" asChild>
+                  <Link
+                    href={routes.project.bountyEdit({
+                      slug: params.slug,
+                      bountyId: bounty.id,
+                      title: bounty.title,
+                    })}
+                  >
+                    <Pencil01 className="mr-1.5 size-3.5" />
+                    Edit
+                  </Link>
+                </AppButton>
+              )}
+
+              {/* Close/Reopen dropdown */}
+              {bounty.status !== BountyStatus.COMPLETED && (
+                <DropdownMenu>
+                  <DropdownMenuTrigger asChild>
+                    <AppButton
+                      variant="ghost"
+                      size="icon-sm"
+                      className="cursor-pointer"
+                    >
+                      <DotsVertical className="size-4" />
                     </AppButton>
-                  </span>
-                </TooltipTrigger>
-                <TooltipContent>
-                  {bounty.status === BountyStatus.COMPLETED
-                    ? 'Completed bounties cannot be edited'
-                    : 'Closed bounties cannot be edited'}
-                </TooltipContent>
-              </Tooltip>
-            ) : (
-              <AppButton
-                variant="outline"
-                size="sm"
-                asChild
-                className="shrink-0"
-              >
-                <Link
-                  href={routes.project.bountyEdit({
-                    slug: params.slug,
-                    bountyId: bounty.id,
-                    title: bounty.title,
-                  })}
-                >
-                  <Pencil01 className="mr-1.5 size-3.5" />
-                  Edit
-                </Link>
-              </AppButton>
-            ))}
+                  </DropdownMenuTrigger>
+                  <DropdownMenuContent align="end">
+                    {bounty.status === BountyStatus.CLOSED ? (
+                      <DropdownMenuItem
+                        onClick={() =>
+                          reopenBounty.mutate({ bountyId: bounty.id })
+                        }
+                        disabled={reopenBounty.isPending}
+                        className="cursor-pointer"
+                      >
+                        <RefreshCw01 className="mr-2 size-4" />
+                        {reopenBounty.isPending ? 'Reopening...' : 'Reopen'}
+                      </DropdownMenuItem>
+                    ) : (
+                      <DropdownMenuItem
+                        onClick={() => setShowCloseModal(true)}
+                        className="cursor-pointer text-destructive focus:text-destructive"
+                      >
+                        <SlashCircle01 className="mr-2 size-4" />
+                        Close Bounty
+                      </DropdownMenuItem>
+                    )}
+                  </DropdownMenuContent>
+                </DropdownMenu>
+              )}
+            </div>
+          )}
         </div>
 
         {/* Main layout */}
@@ -607,37 +671,56 @@ export function BountyDetailContent() {
                   // Status change event
                   if (event.type === BountyEventType.STATUS_CHANGE) {
                     const statusLabels: Record<string, string> = {
+                      [BountyStatus.BACKLOG]: 'Backlog',
                       [BountyStatus.OPEN]: 'Open',
                       [BountyStatus.CLAIMED]: 'In Progress',
                       [BountyStatus.COMPLETED]: 'Completed',
                       [BountyStatus.CLOSED]: 'Closed',
                     }
+                    const isClosed = event.toStatus === BountyStatus.CLOSED
+                    const isReopened =
+                      event.fromStatus === BountyStatus.CLOSED &&
+                      event.toStatus !== BountyStatus.CLOSED
+
                     return (
                       <div key={`evt-${event.id}`} className="text-xs">
                         <div className="flex items-start gap-2">
-                          <Edit02 className="mt-0.5 size-3.5 text-muted-foreground" />
-                          <div className="flex flex-wrap items-center gap-x-1.5 gap-y-0.5">
-                            <span className="font-medium">
-                              {event.user.name}
-                            </span>
-                            <span className="text-muted-foreground">
-                              changed status from{' '}
-                              {statusLabels[event.fromStatus ?? ''] ||
-                                event.fromStatus}{' '}
-                              to{' '}
-                              {statusLabels[event.toStatus ?? ''] ||
-                                event.toStatus}
-                            </span>
-                            <span className="text-muted-foreground">·</span>
-                            <span className="text-xs text-muted-foreground">
-                              {new Date(event.createdAt).toLocaleDateString(
-                                'en-US',
-                                {
-                                  month: 'short',
-                                  day: 'numeric',
-                                },
-                              )}
-                            </span>
+                          {isClosed ? (
+                            <SlashCircle01 className="mt-0.5 size-3.5 text-muted-foreground" />
+                          ) : isReopened ? (
+                            <RefreshCw01 className="mt-0.5 size-3.5 text-muted-foreground" />
+                          ) : (
+                            <Edit02 className="mt-0.5 size-3.5 text-muted-foreground" />
+                          )}
+                          <div className="space-y-1">
+                            <div className="flex flex-wrap items-center gap-x-1.5 gap-y-0.5">
+                              <span className="font-medium">
+                                {event.user.name}
+                              </span>
+                              <span className="text-muted-foreground">
+                                {isClosed
+                                  ? 'closed this bounty'
+                                  : isReopened
+                                    ? 'reopened this bounty'
+                                    : `changed status from ${statusLabels[event.fromStatus ?? ''] || event.fromStatus} to ${statusLabels[event.toStatus ?? ''] || event.toStatus}`}
+                              </span>
+                              <span className="text-muted-foreground">·</span>
+                              <span className="text-xs text-muted-foreground">
+                                {new Date(event.createdAt).toLocaleDateString(
+                                  'en-US',
+                                  {
+                                    month: 'short',
+                                    day: 'numeric',
+                                  },
+                                )}
+                              </span>
+                            </div>
+                            {/* Show reason/content if present (e.g., close reason) */}
+                            {event.content && (
+                              <div className="rounded-md bg-muted/50 px-2 py-1.5 text-xs text-muted-foreground">
+                                {event.content}
+                              </div>
+                            )}
                           </div>
                         </div>
                       </div>
@@ -1233,6 +1316,40 @@ export function BountyDetailContent() {
         cancelText="Cancel"
         variant="destructive"
         isLoading={deleteComment.isPending}
+      />
+
+      {/* Close bounty modal */}
+      <ConfirmModal
+        open={showCloseModal}
+        onClose={() => {
+          setShowCloseModal(false)
+          setCloseReason('')
+        }}
+        onConfirm={() => {
+          closeBounty.mutate({
+            bountyId: bounty.id,
+            reason: closeReason.trim() || undefined,
+          })
+        }}
+        title="Close this bounty?"
+        description={
+          bounty.status === BountyStatus.CLAIMED
+            ? 'This bounty is currently being worked on. Closing it will expire all active claims and withdraw pending submissions.'
+            : 'This bounty will no longer be claimable. You can reopen it later if needed.'
+        }
+        content={
+          <textarea
+            value={closeReason}
+            onChange={(e) => setCloseReason(e.target.value)}
+            placeholder="Reason for closing (optional)"
+            className="w-full resize-none rounded-md border border-border bg-background px-3 py-2 text-sm placeholder:text-muted-foreground focus:ring-2 focus:ring-ring focus:outline-none"
+            rows={3}
+          />
+        }
+        confirmText="Close Bounty"
+        cancelText="Cancel"
+        variant="destructive"
+        isLoading={closeBounty.isPending}
       />
     </AppBackground>
   )

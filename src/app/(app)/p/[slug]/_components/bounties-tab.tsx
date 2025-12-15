@@ -4,8 +4,10 @@ import {
   CheckCircle,
   Circle,
   Clock,
+  Contrast01,
   FileCheck02,
   Plus,
+  SlashCircle01,
   Target01,
   User01,
 } from '@untitled-ui/icons-react'
@@ -27,6 +29,15 @@ enum BountyFilter {
   NeedsReview = 'needs_review',
   Completed = 'completed',
   Closed = 'closed',
+}
+
+type Bounty = BountiesTabProps['bounties'][number]
+
+interface BountySection {
+  key: string
+  label: string
+  icon: React.ReactNode
+  bounties: Bounty[]
 }
 
 interface BountyLabel {
@@ -84,6 +95,12 @@ export function BountiesTab({
 }: BountiesTabProps) {
   const [filter, setFilter] = useState<BountyFilter>(BountyFilter.All)
 
+  const sortByCreatedDesc = (list: Bounty[]) =>
+    [...list].sort(
+      (a, b) =>
+        new Date(b.createdAt).getTime() - new Date(a.createdAt).getTime(),
+    )
+
   const openBounties = bounties.filter((b) => b.status === 'OPEN')
   const backlogBounties = bounties.filter((b) => b.status === 'BACKLOG')
   const needsReviewBounties = bounties.filter(
@@ -94,6 +111,72 @@ export function BountiesTab({
   )
   const completedBounties = bounties.filter((b) => b.status === 'COMPLETED')
   const closedBounties = bounties.filter((b) => b.status === 'CLOSED')
+
+  // Build sections for grouped display (when filter is "All")
+  const sectionIconClass = 'size-4 text-muted-foreground/50'
+
+  const sections: BountySection[] = [
+    ...(isFounder && needsReviewBounties.length > 0
+      ? [
+          {
+            key: 'needs_review',
+            label: 'Needs Review',
+            icon: <FileCheck02 className={sectionIconClass} />,
+            bounties: sortByCreatedDesc(needsReviewBounties),
+          },
+        ]
+      : []),
+    ...(inProgressBounties.length > 0
+      ? [
+          {
+            key: 'in_progress',
+            label: 'In Progress',
+            icon: <Clock className={sectionIconClass} />,
+            bounties: sortByCreatedDesc(inProgressBounties),
+          },
+        ]
+      : []),
+    ...(openBounties.length > 0
+      ? [
+          {
+            key: 'open',
+            label: 'Open',
+            icon: <Circle className={sectionIconClass} />,
+            bounties: sortByCreatedDesc(openBounties),
+          },
+        ]
+      : []),
+    ...(completedBounties.length > 0
+      ? [
+          {
+            key: 'completed',
+            label: 'Completed',
+            icon: <CheckCircle className={sectionIconClass} />,
+            bounties: sortByCreatedDesc(completedBounties),
+          },
+        ]
+      : []),
+    ...(backlogBounties.length > 0
+      ? [
+          {
+            key: 'backlog',
+            label: 'Backlog',
+            icon: <Contrast01 className="size-4 text-muted-foreground/50" />,
+            bounties: sortByCreatedDesc(backlogBounties),
+          },
+        ]
+      : []),
+    ...(closedBounties.length > 0
+      ? [
+          {
+            key: 'closed',
+            label: 'Closed',
+            icon: <SlashCircle01 className={sectionIconClass} />,
+            bounties: sortByCreatedDesc(closedBounties),
+          },
+        ]
+      : []),
+  ]
 
   const filteredBounties = (() => {
     switch (filter) {
@@ -112,9 +195,9 @@ export function BountiesTab({
       default:
         return bounties
     }
-  })().toSorted(
-    (a, b) => new Date(b.createdAt).getTime() - new Date(a.createdAt).getTime(),
-  )
+  })()
+
+  const sortedFilteredBounties = sortByCreatedDesc(filteredBounties)
 
   if (bounties.length === 0) {
     return (
@@ -240,13 +323,46 @@ export function BountiesTab({
       </div>
 
       {/* Bounty list */}
-      {filteredBounties.length === 0 ? (
+      {filter === BountyFilter.All ? (
+        // Grouped view by status
+        <div className="space-y-6">
+          {sections.map((section) => (
+            <div key={section.key}>
+              {/* Section header */}
+              <div className="sticky top-0 z-10 mb-1 flex items-center gap-2 border-b border-border/10 bg-card py-1 pr-1 pl-3">
+                {section.icon}
+                <span className="text-sm font-medium text-muted-foreground">
+                  {section.label}
+                </span>
+                <span className="text-sm text-muted-foreground/50">
+                  {section.bounties.length}
+                </span>
+              </div>
+              {/* Section items */}
+              <div className="space-y-2">
+                {section.bounties.map((bounty) => (
+                  <BountyRow
+                    key={bounty.id}
+                    bounty={bounty}
+                    projectSlug={projectSlug}
+                    projectKey={projectKey}
+                    showNeedsReview={
+                      isFounder && bounty._count.pendingSubmissions > 0
+                    }
+                  />
+                ))}
+              </div>
+            </div>
+          ))}
+        </div>
+      ) : sortedFilteredBounties.length === 0 ? (
         <div className="py-8 text-center text-sm text-muted-foreground">
           No bounties match this filter
         </div>
       ) : (
+        // Flat list for filtered view
         <div className="space-y-2">
-          {filteredBounties.map((bounty) => (
+          {sortedFilteredBounties.map((bounty) => (
             <BountyRow
               key={bounty.id}
               bounty={bounty}
@@ -305,6 +421,8 @@ function BountyRow({
   projectKey,
   showNeedsReview,
 }: BountyRowProps) {
+  const isBacklog = bounty.status === 'BACKLOG'
+  const isOpen = bounty.status === 'OPEN'
   const isClaimed = bounty.status === 'CLAIMED'
   const isCompleted = bounty.status === 'COMPLETED'
   const isClosed = bounty.status === 'CLOSED'
@@ -329,16 +447,26 @@ function BountyRow({
       })}
       className="group flex min-h-[44px] items-center gap-3 rounded-lg border border-border bg-card px-3 py-4 shadow-md transition-all duration-300 hover:border-primary/75 hover:shadow-lg"
     >
-      {/* Status icon (Linear-style circle) */}
+      {/* Status icon */}
       <span className="flex shrink-0 items-center justify-center">
-        {isCompleted ? (
-          <CheckCircle className="size-3.5 text-foreground opacity-50" />
+        {showNeedsReview ? (
+          <FileCheck02 className={cn('size-3.5', needsReviewColor.icon)} />
+        ) : isCompleted ? (
+          <CheckCircle
+            className={cn('size-3.5', bountyStatusColors.COMPLETED.icon)}
+          />
         ) : isClosed ? (
-          <Circle className="size-3.5 text-foreground opacity-50" />
+          <SlashCircle01
+            className={cn('size-3.5', bountyStatusColors.CLOSED.icon)}
+          />
         ) : isClaimed ? (
-          <Clock className="size-3.5 text-foreground opacity-50" />
+          <Clock className={cn('size-3.5', bountyStatusColors.CLAIMED.icon)} />
+        ) : isOpen ? (
+          <Circle className={cn('size-3.5', bountyStatusColors.OPEN.icon)} />
+        ) : isBacklog ? (
+          <Contrast01 className="size-3.5 text-muted-foreground/50" />
         ) : (
-          <Circle className="size-3.5 text-foreground opacity-50" />
+          <Circle className="size-3.5 text-muted-foreground" />
         )}
       </span>
 

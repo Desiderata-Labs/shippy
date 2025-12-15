@@ -706,4 +706,189 @@ export const bountyRouter = router({
 
       return { success: true }
     }),
+
+  /**
+   * Close a bounty (founder only)
+   * Can close BACKLOG, OPEN, or CLAIMED bounties
+   * Cannot close COMPLETED or already CLOSED bounties
+   */
+  close: protectedProcedure
+    .input(
+      z.object({
+        bountyId: nanoId(),
+        reason: z.string().max(1000).optional(),
+      }),
+    )
+    .mutation(async ({ ctx, input }) => {
+      const bounty = await ctx.prisma.bounty.findUnique({
+        where: { id: input.bountyId },
+        include: {
+          project: { select: { founderId: true } },
+          claims: {
+            where: {
+              status: { in: [ClaimStatus.ACTIVE, ClaimStatus.SUBMITTED] },
+            },
+            select: { id: true, userId: true, status: true },
+          },
+          submissions: {
+            where: {
+              status: {
+                in: [
+                  SubmissionStatus.DRAFT,
+                  SubmissionStatus.PENDING,
+                  SubmissionStatus.NEEDS_INFO,
+                ],
+              },
+            },
+            select: { id: true, status: true, userId: true },
+          },
+        },
+      })
+
+      if (!bounty) {
+        throw new TRPCError({ code: 'NOT_FOUND', message: 'Bounty not found' })
+      }
+
+      if (bounty.project.founderId !== ctx.user.id) {
+        throw new TRPCError({
+          code: 'FORBIDDEN',
+          message: 'You do not own this project',
+        })
+      }
+
+      // Cannot close completed bounties (points already awarded)
+      if (bounty.status === BountyStatus.COMPLETED) {
+        throw new TRPCError({
+          code: 'BAD_REQUEST',
+          message: 'Cannot close a completed bounty - points have been awarded',
+        })
+      }
+
+      // Already closed
+      if (bounty.status === BountyStatus.CLOSED) {
+        throw new TRPCError({
+          code: 'BAD_REQUEST',
+          message: 'Bounty is already closed',
+        })
+      }
+
+      const previousStatus = bounty.status
+
+      // Use transaction to update everything
+      return ctx.prisma.$transaction(async (tx) => {
+        // Expire all active claims
+        if (bounty.claims.length > 0) {
+          await tx.bountyClaim.updateMany({
+            where: {
+              bountyId: input.bountyId,
+              status: { in: [ClaimStatus.ACTIVE, ClaimStatus.SUBMITTED] },
+            },
+            data: { status: ClaimStatus.EXPIRED },
+          })
+        }
+
+        // Withdraw all pending submissions
+        for (const submission of bounty.submissions) {
+          await tx.submission.update({
+            where: { id: submission.id },
+            data: { status: SubmissionStatus.WITHDRAWN },
+          })
+
+          await tx.submissionEvent.create({
+            data: {
+              submissionId: submission.id,
+              userId: ctx.user.id,
+              type: SubmissionEventType.STATUS_CHANGE,
+              fromStatus: submission.status,
+              toStatus: SubmissionStatus.WITHDRAWN,
+              note: input.reason
+                ? `Bounty closed: ${input.reason}`
+                : 'Bounty closed by founder',
+            },
+          })
+        }
+
+        // Update bounty status
+        const updated = await tx.bounty.update({
+          where: { id: input.bountyId },
+          data: { status: BountyStatus.CLOSED },
+        })
+
+        // Create status change event
+        await tx.bountyEvent.create({
+          data: {
+            bountyId: input.bountyId,
+            userId: ctx.user.id,
+            type: BountyEventType.STATUS_CHANGE,
+            fromStatus: previousStatus,
+            toStatus: BountyStatus.CLOSED,
+            content: input.reason || null,
+          },
+        })
+
+        return updated
+      })
+    }),
+
+  /**
+   * Reopen a closed bounty (founder only)
+   * Reopens to OPEN status (or BACKLOG if no points)
+   */
+  reopen: protectedProcedure
+    .input(
+      z.object({
+        bountyId: nanoId(),
+      }),
+    )
+    .mutation(async ({ ctx, input }) => {
+      const bounty = await ctx.prisma.bounty.findUnique({
+        where: { id: input.bountyId },
+        include: {
+          project: { select: { founderId: true } },
+        },
+      })
+
+      if (!bounty) {
+        throw new TRPCError({ code: 'NOT_FOUND', message: 'Bounty not found' })
+      }
+
+      if (bounty.project.founderId !== ctx.user.id) {
+        throw new TRPCError({
+          code: 'FORBIDDEN',
+          message: 'You do not own this project',
+        })
+      }
+
+      // Can only reopen closed bounties
+      if (bounty.status !== BountyStatus.CLOSED) {
+        throw new TRPCError({
+          code: 'BAD_REQUEST',
+          message: 'Only closed bounties can be reopened',
+        })
+      }
+
+      // Determine new status based on points
+      const newStatus =
+        bounty.points === null ? BountyStatus.BACKLOG : BountyStatus.OPEN
+
+      return ctx.prisma.$transaction(async (tx) => {
+        const updated = await tx.bounty.update({
+          where: { id: input.bountyId },
+          data: { status: newStatus },
+        })
+
+        // Create status change event
+        await tx.bountyEvent.create({
+          data: {
+            bountyId: input.bountyId,
+            userId: ctx.user.id,
+            type: BountyEventType.STATUS_CHANGE,
+            fromStatus: BountyStatus.CLOSED,
+            toStatus: newStatus,
+          },
+        })
+
+        return updated
+      })
+    }),
 })

@@ -4,7 +4,7 @@ import {
   SubmissionEventType,
   SubmissionStatus,
 } from '@/lib/db/types'
-import { nanoId } from '@/lib/nanoid/schema'
+import { nanoId } from '@/lib/nanoid/zod'
 import { protectedProcedure, router, userError } from '@/server/trpc'
 import { Prisma } from '@prisma/client'
 import { z } from 'zod/v4'

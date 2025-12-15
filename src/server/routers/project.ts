@@ -6,7 +6,7 @@ import {
   PayoutVisibility,
   ProfitBasis,
 } from '@/lib/db/types'
-import { nanoId } from '@/lib/nanoid/schema'
+import { nanoId } from '@/lib/nanoid/zod'
 import { isProjectKeyAvailable } from '@/lib/project-key/server'
 import {
   normalizeProjectKey,

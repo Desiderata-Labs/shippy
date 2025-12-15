@@ -1,5 +1,5 @@
 import { PayoutRecipientStatus, SubmissionStatus } from '@/lib/db/types'
-import { nanoId } from '@/lib/nanoid/schema'
+import { nanoId } from '@/lib/nanoid/zod'
 import { protectedProcedure, publicProcedure, router } from '@/server/trpc'
 import { z } from 'zod/v4'
 

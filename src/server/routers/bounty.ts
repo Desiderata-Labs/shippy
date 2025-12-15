@@ -7,7 +7,7 @@ import {
   SubmissionEventType,
   SubmissionStatus,
 } from '@/lib/db/types'
-import { nanoId } from '@/lib/nanoid/schema'
+import { nanoId } from '@/lib/nanoid/zod'
 import {
   protectedProcedure,
   publicProcedure,

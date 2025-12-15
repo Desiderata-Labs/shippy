@@ -15,9 +15,20 @@ const getDatabaseUrl = (): string => {
     if (!url) throw new Error('PROD_DATABASE_URL is not set')
     return url
   }
+
   // For local: prefer direct connection URL, fallback to pooled
   const url = process.env.DATABASE_MIGRATION_URL || process.env.DATABASE_URL
-  if (!url) throw new Error('DATABASE_URL is not set')
+
+  // In CI, return placeholder for generate (doesn't actually connect)
+  // Only migrations need a real connection
+  if (!url && process.env.CI === 'true') {
+    return 'postgresql://ci:ci@localhost:5432/ci'
+  }
+
+  if (!url) {
+    throw new Error('DATABASE_URL is not set')
+  }
+
   return url
 }
 

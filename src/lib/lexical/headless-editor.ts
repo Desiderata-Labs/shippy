@@ -1,4 +1,5 @@
 import { editorTheme } from './editor-theme'
+import { MentionNode } from './mention-node'
 import { CodeHighlightNode, CodeNode } from '@lexical/code'
 import { HorizontalRuleNode } from '@lexical/extension'
 import { createHeadlessEditor } from '@lexical/headless'
@@ -20,6 +21,7 @@ export const editorConfig = {
     AutoLinkNode,
     LinkNode,
     HorizontalRuleNode,
+    MentionNode,
   ],
   theme: editorTheme,
 }

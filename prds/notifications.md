@@ -58,7 +58,7 @@ These are explicitly deferred but the schema design supports them:
 | Grouped/digest emails     | Batch notifications into daily/weekly summaries |
 | Watch a bounty/project    | Opt-in to notifications even if not involved    |
 | Slack/Discord integration | Push notifications to external channels         |
-| @mentions                 | Parse comment content for @username and notify  |
+| ~~@mentions~~             | ✅ Implemented - notifies with MENTION type     |
 | Push notifications        | Browser/mobile push                             |
 | Agent webhooks            | Dispatch notifications to AI agents via webhook |
 

@@ -4,6 +4,7 @@ import {
   NotificationType,
   SubmissionEventType,
 } from '@/lib/db/types'
+import { parseMentions } from '@/lib/mentions/shared'
 import { routes } from '@/lib/routes'
 import { protectedProcedure, router } from '@/server/trpc'
 import { z } from 'zod/v4'
@@ -268,12 +269,45 @@ export async function createNotifications({
 }
 
 /**
+ * Resolve @mentioned usernames to user IDs
+ */
+export async function resolveMentionedUserIds(
+  prisma: typeof import('@/lib/db/server').prisma,
+  content: string,
+): Promise<string[]> {
+  const usernames = parseMentions(content)
+
+  if (usernames.length === 0) {
+    return []
+  }
+
+  // Find users with matching usernames (case-insensitive)
+  const users = await prisma.user.findMany({
+    where: {
+      username: { in: usernames, mode: 'insensitive' },
+    },
+    select: { id: true },
+  })
+
+  return users.map((u) => u.id)
+}
+
+interface CommentRecipientsResult {
+  /** Users who are thread participants but NOT @mentioned */
+  threadRecipients: string[]
+  /** Users who were @mentioned (always get mention notification, higher priority) */
+  mentionedRecipients: string[]
+}
+
+/**
  * Get recipient IDs for a bounty comment notification
+ * Mentioned users always get MENTION type (higher priority than thread participation)
  */
 export async function getBountyCommentRecipients(
   prisma: typeof import('@/lib/db/server').prisma,
   bountyId: string,
-): Promise<string[]> {
+  commentContent?: string,
+): Promise<CommentRecipientsResult> {
   // Get bounty with project founder
   const bounty = await prisma.bounty.findUnique({
     where: { id: bountyId },
@@ -283,7 +317,7 @@ export async function getBountyCommentRecipients(
   })
 
   if (!bounty) {
-    return []
+    return { threadRecipients: [], mentionedRecipients: [] }
   }
 
   // Get previous commenters on this bounty
@@ -295,27 +329,47 @@ export async function getBountyCommentRecipients(
     select: { userId: true },
   })
 
-  // Build recipient set (automatically dedupes)
-  const recipientSet = new Set<string>()
-
-  // Always include founder
-  recipientSet.add(bounty.project.founderId)
-
-  // Add previous commenters
+  // Build thread participant set (founder + previous commenters)
+  const threadParticipants = new Set<string>()
+  threadParticipants.add(bounty.project.founderId)
   for (const comment of previousComments) {
-    recipientSet.add(comment.userId)
+    threadParticipants.add(comment.userId)
   }
 
-  return Array.from(recipientSet)
+  // Get @mentioned users (they always get MENTION notification)
+  const mentionedRecipients: string[] = []
+  if (commentContent) {
+    const mentionedUserIds = await resolveMentionedUserIds(
+      prisma,
+      commentContent,
+    )
+    for (const userId of mentionedUserIds) {
+      mentionedRecipients.push(userId)
+    }
+  }
+
+  // Thread recipients = participants who are NOT mentioned
+  // (mentioned users get a more specific notification)
+  const mentionedSet = new Set(mentionedRecipients)
+  const threadRecipients = Array.from(threadParticipants).filter(
+    (id) => !mentionedSet.has(id),
+  )
+
+  return {
+    threadRecipients,
+    mentionedRecipients,
+  }
 }
 
 /**
  * Get recipient IDs for a submission comment notification
+ * Separates thread participants from mention-only recipients
  */
 export async function getSubmissionCommentRecipients(
   prisma: typeof import('@/lib/db/server').prisma,
   submissionId: string,
-): Promise<string[]> {
+  commentContent?: string,
+): Promise<CommentRecipientsResult> {
   // Get submission with bounty project founder
   const submission = await prisma.submission.findUnique({
     where: { id: submissionId },
@@ -330,7 +384,7 @@ export async function getSubmissionCommentRecipients(
   })
 
   if (!submission) {
-    return []
+    return { threadRecipients: [], mentionedRecipients: [] }
   }
 
   // Get previous commenters on this submission
@@ -342,19 +396,35 @@ export async function getSubmissionCommentRecipients(
     select: { userId: true },
   })
 
-  // Build recipient set (automatically dedupes)
-  const recipientSet = new Set<string>()
-
-  // Always include founder
-  recipientSet.add(submission.bounty.project.founderId)
-
-  // Always include submission author
-  recipientSet.add(submission.userId)
-
-  // Add previous commenters
+  // Build thread participant set (founder + submitter + previous commenters)
+  const threadParticipants = new Set<string>()
+  threadParticipants.add(submission.bounty.project.founderId)
+  threadParticipants.add(submission.userId)
   for (const comment of previousComments) {
-    recipientSet.add(comment.userId)
+    threadParticipants.add(comment.userId)
   }
 
-  return Array.from(recipientSet)
+  // Get @mentioned users (they always get MENTION notification - higher priority)
+  const mentionedRecipients: string[] = []
+  if (commentContent) {
+    const mentionedUserIds = await resolveMentionedUserIds(
+      prisma,
+      commentContent,
+    )
+    for (const userId of mentionedUserIds) {
+      mentionedRecipients.push(userId)
+    }
+  }
+
+  // Thread recipients = participants who are NOT mentioned
+  // (mentioned users get a more specific notification)
+  const mentionedSet = new Set(mentionedRecipients)
+  const threadRecipients = Array.from(threadParticipants).filter(
+    (id) => !mentionedSet.has(id),
+  )
+
+  return {
+    threadRecipients,
+    mentionedRecipients,
+  }
 }

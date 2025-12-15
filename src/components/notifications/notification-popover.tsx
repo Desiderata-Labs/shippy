@@ -31,6 +31,12 @@ function getNotificationDescription(
     case NotificationType.SUBMISSION_COMMENT:
       return `${actorName} commented on a submission for "${title}"`
 
+    // Mentions
+    case NotificationType.BOUNTY_MENTION:
+      return `${actorName} mentioned you in "${title}"`
+    case NotificationType.SUBMISSION_MENTION:
+      return `${actorName} mentioned you in a submission for "${title}"`
+
     // Submissions
     case NotificationType.SUBMISSION_CREATED:
       return `${actorName} submitted work for "${title}"`

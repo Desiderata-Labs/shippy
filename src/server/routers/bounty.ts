@@ -10,7 +10,11 @@ import {
   SubmissionStatus,
 } from '@/lib/db/types'
 import { nanoId } from '@/lib/nanoid/zod'
-import { createNotifications, getBountyCommentRecipients } from './notification'
+import {
+  createNotifications,
+  getBountyCommentRecipients,
+  resolveMentionedUserIds,
+} from './notification'
 import {
   protectedProcedure,
   publicProcedure,
@@ -132,7 +136,9 @@ export const bountyRouter = router({
           events: {
             orderBy: { createdAt: 'asc' },
             include: {
-              user: { select: { id: true, name: true, image: true } },
+              user: {
+                select: { id: true, name: true, image: true, username: true },
+              },
             },
           },
           _count: {
@@ -656,10 +662,13 @@ export const bountyRouter = router({
       }
 
       // Get recipients before creating the comment (so we don't include this comment's author twice)
-      const recipientIds = await getBountyCommentRecipients(
-        ctx.prisma,
-        input.bountyId,
-      )
+      // Pass content to include @mentioned users
+      const { threadRecipients, mentionedRecipients } =
+        await getBountyCommentRecipients(
+          ctx.prisma,
+          input.bountyId,
+          input.content,
+        )
 
       const comment = await ctx.prisma.bountyEvent.create({
         data: {
@@ -669,21 +678,37 @@ export const bountyRouter = router({
           content: input.content,
         },
         include: {
-          user: { select: { id: true, name: true, image: true } },
+          user: {
+            select: { id: true, name: true, image: true, username: true },
+          },
         },
       })
 
-      // Create notifications for recipients (runs in background, don't await)
+      // Create notifications for thread participants (runs in background, don't await)
       createNotifications({
         prisma: ctx.prisma,
         type: NotificationType.BOUNTY_COMMENT,
         referenceType: NotificationReferenceType.BOUNTY,
         referenceId: input.bountyId,
         actorId: ctx.user.id,
-        recipientIds,
+        recipientIds: threadRecipients,
       }).catch((err) => {
         console.error('Failed to create bounty comment notifications:', err)
       })
+
+      // Create separate notifications for mentioned-only users
+      if (mentionedRecipients.length > 0) {
+        createNotifications({
+          prisma: ctx.prisma,
+          type: NotificationType.BOUNTY_MENTION,
+          referenceType: NotificationReferenceType.BOUNTY,
+          referenceId: input.bountyId,
+          actorId: ctx.user.id,
+          recipientIds: mentionedRecipients,
+        }).catch((err) => {
+          console.error('Failed to create bounty mention notifications:', err)
+        })
+      }
 
       return comment
     }),
@@ -698,7 +723,9 @@ export const bountyRouter = router({
         where: { bountyId: input.bountyId },
         orderBy: { createdAt: 'asc' },
         include: {
-          user: { select: { id: true, name: true, image: true } },
+          user: {
+            select: { id: true, name: true, image: true, username: true },
+          },
         },
       })
     }),
@@ -737,6 +764,85 @@ export const bountyRouter = router({
       })
 
       return { success: true }
+    }),
+
+  /**
+   * Update a comment (author only)
+   */
+  updateComment: protectedProcedure
+    .input(
+      z.object({
+        eventId: nanoId(),
+        content: z.string().min(1).max(5000),
+      }),
+    )
+    .mutation(async ({ ctx, input }) => {
+      const event = await ctx.prisma.bountyEvent.findUnique({
+        where: { id: input.eventId },
+        include: {
+          bounty: { include: { project: { select: { founderId: true } } } },
+        },
+      })
+
+      if (!event) {
+        throw userError('NOT_FOUND', 'Event not found')
+      }
+
+      // Can only edit COMMENT events
+      if (event.type !== BountyEventType.COMMENT) {
+        throw userError('BAD_REQUEST', 'Only comments can be edited')
+      }
+
+      // Only author can edit their own comments
+      if (event.userId !== ctx.user.id) {
+        throw userError('FORBIDDEN', 'You can only edit your own comments')
+      }
+
+      const oldContent = event.content ?? ''
+      const newContent = input.content
+
+      // Update the comment
+      const updatedEvent = await ctx.prisma.bountyEvent.update({
+        where: { id: input.eventId },
+        data: { content: newContent },
+        include: {
+          user: {
+            select: { id: true, name: true, image: true, username: true },
+          },
+        },
+      })
+
+      // Find newly @mentioned users (in new content but not in old content)
+      const oldMentionedUserIds = await resolveMentionedUserIds(
+        ctx.prisma,
+        oldContent,
+      )
+      const newMentionedUserIds = await resolveMentionedUserIds(
+        ctx.prisma,
+        newContent,
+      )
+      const newlyMentionedUserIds = newMentionedUserIds.filter(
+        (id) => !oldMentionedUserIds.includes(id),
+      )
+
+      // Notify newly mentioned users with MENTION type
+      if (newlyMentionedUserIds.length > 0) {
+        createNotifications({
+          prisma: ctx.prisma,
+          type: NotificationType.BOUNTY_MENTION,
+          referenceType: NotificationReferenceType.BOUNTY,
+          referenceId: event.bountyId,
+          actorId: ctx.user.id,
+          recipientIds: newlyMentionedUserIds,
+        }).catch((err) => {
+          console.error(
+            'Failed to create mention notifications for edited comment:',
+            err,
+          )
+        })
+      }
+
+      return updatedEvent
     }),
 
   /**

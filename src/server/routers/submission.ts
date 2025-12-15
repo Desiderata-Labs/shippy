@@ -10,6 +10,7 @@ import { nanoId } from '@/lib/nanoid/zod'
 import {
   createNotifications,
   getSubmissionCommentRecipients,
+  resolveMentionedUserIds,
 } from './notification'
 import { protectedProcedure, router, userError } from '@/server/trpc'
 import { Prisma } from '@prisma/client'
@@ -109,12 +110,22 @@ export const submissionRouter = router({
         },
         orderBy: { createdAt: 'asc' },
         include: {
-          user: { select: { id: true, name: true, image: true, email: true } },
+          user: {
+            select: {
+              id: true,
+              name: true,
+              image: true,
+              email: true,
+              username: true,
+            },
+          },
           bounty: true,
           events: {
             orderBy: { createdAt: 'asc' },
             include: {
-              user: { select: { id: true, name: true, image: true } },
+              user: {
+                select: { id: true, name: true, image: true, username: true },
+              },
             },
           },
           attachments: true,
@@ -131,7 +142,15 @@ export const submissionRouter = router({
       const submission = await ctx.prisma.submission.findUnique({
         where: { id: input.id },
         include: {
-          user: { select: { id: true, name: true, image: true, email: true } },
+          user: {
+            select: {
+              id: true,
+              name: true,
+              image: true,
+              email: true,
+              username: true,
+            },
+          },
           bounty: {
             include: {
               project: {
@@ -145,7 +164,9 @@ export const submissionRouter = router({
           events: {
             orderBy: { createdAt: 'asc' },
             include: {
-              user: { select: { id: true, name: true, image: true } },
+              user: {
+                select: { id: true, name: true, image: true, username: true },
+              },
             },
           },
           attachments: true,
@@ -598,10 +619,13 @@ export const submissionRouter = router({
       }
 
       // Get recipients before creating the comment (so we don't include this comment's author twice)
-      const recipientIds = await getSubmissionCommentRecipients(
-        ctx.prisma,
-        input.submissionId,
-      )
+      // Pass content to include @mentioned users
+      const { threadRecipients, mentionedRecipients } =
+        await getSubmissionCommentRecipients(
+          ctx.prisma,
+          input.submissionId,
+          input.content,
+        )
 
       const comment = await ctx.prisma.submissionEvent.create({
         data: {
@@ -611,22 +635,124 @@ export const submissionRouter = router({
           content: input.content,
         },
         include: {
-          user: { select: { id: true, name: true, image: true } },
+          user: {
+            select: { id: true, name: true, image: true, username: true },
+          },
         },
       })
 
-      // Create notifications for recipients (runs in background, don't await)
+      // Create notifications for thread participants (runs in background, don't await)
       createNotifications({
         prisma: ctx.prisma,
         type: NotificationType.SUBMISSION_COMMENT,
         referenceType: NotificationReferenceType.SUBMISSION,
         referenceId: input.submissionId,
         actorId: ctx.user.id,
-        recipientIds,
+        recipientIds: threadRecipients,
       }).catch((err) => {
         console.error('Failed to create submission comment notifications:', err)
       })
 
+      // Create separate notifications for mentioned-only users
+      if (mentionedRecipients.length > 0) {
+        createNotifications({
+          prisma: ctx.prisma,
+          type: NotificationType.SUBMISSION_MENTION,
+          referenceType: NotificationReferenceType.SUBMISSION,
+          referenceId: input.submissionId,
+          actorId: ctx.user.id,
+          recipientIds: mentionedRecipients,
+        }).catch((err) => {
+          console.error(
+            'Failed to create submission mention notifications:',
+            err,
+          )
+        })
+      }
+
       return comment
+    }),
+
+  /**
+   * Update a comment (author only)
+   */
+  updateComment: protectedProcedure
+    .input(
+      z.object({
+        eventId: nanoId(),
+        content: z.string().min(1).max(5000),
+      }),
+    )
+    .mutation(async ({ ctx, input }) => {
+      const event = await ctx.prisma.submissionEvent.findUnique({
+        where: { id: input.eventId },
+        include: {
+          submission: {
+            include: {
+              bounty: { include: { project: { select: { founderId: true } } } },
+            },
+          },
+        },
+      })
+
+      if (!event) {
+        throw userError('NOT_FOUND', 'Event not found')
+      }
+
+      // Can only edit COMMENT events
+      if (event.type !== SubmissionEventType.COMMENT) {
+        throw userError('BAD_REQUEST', 'Only comments can be edited')
+      }
+
+      // Only author can edit their own comments
+      if (event.userId !== ctx.user.id) {
+        throw userError('FORBIDDEN', 'You can only edit your own comments')
+      }
+
+      const oldContent = event.content ?? ''
+      const newContent = input.content
+
+      // Update the comment
+      const updatedEvent = await ctx.prisma.submissionEvent.update({
+        where: { id: input.eventId },
+        data: { content: newContent },
+        include: {
+          user: {
+            select: { id: true, name: true, image: true, username: true },
+          },
+        },
+      })
+
+      // Find newly @mentioned users (in new content but not in old content)
+      const oldMentionedUserIds = await resolveMentionedUserIds(
+        ctx.prisma,
+        oldContent,
+      )
+      const newMentionedUserIds = await resolveMentionedUserIds(
+        ctx.prisma,
+        newContent,
+      )
+      const newlyMentionedUserIds = newMentionedUserIds.filter(
+        (id) => !oldMentionedUserIds.includes(id),
+      )
+
+      // Notify newly mentioned users with MENTION type
+      if (newlyMentionedUserIds.length > 0) {
+        createNotifications({
+          prisma: ctx.prisma,
+          type: NotificationType.SUBMISSION_MENTION,
+          referenceType: NotificationReferenceType.SUBMISSION,
+          referenceId: event.submissionId,
+          actorId: ctx.user.id,
+          recipientIds: newlyMentionedUserIds,
+        }).catch((err) => {
+          console.error(
+            'Failed to create mention notifications for edited comment:',
+            err,
+          )
+        })
+      }
+
+      return updatedEvent
     }),
 })

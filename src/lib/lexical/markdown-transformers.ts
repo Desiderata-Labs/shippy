@@ -2,6 +2,7 @@
  * Markdown Transformers for Lexical Editor
  * Provides import/export functionality with proper newline preservation
  */
+import { $createMentionNode, $isMentionNode, MentionNode } from './mention-node'
 import {
   $createHorizontalRuleNode,
   $isHorizontalRuleNode,
@@ -16,7 +17,11 @@ import {
   $convertFromMarkdownString as lexicalConvertFromMarkdown,
   $convertToMarkdownString as lexicalConvertToMarkdown,
 } from '@lexical/markdown'
-import type { ElementTransformer, Transformer } from '@lexical/markdown'
+import type {
+  ElementTransformer,
+  TextMatchTransformer,
+  Transformer,
+} from '@lexical/markdown'
 import type { ElementNode, LexicalNode } from 'lexical'
 
 /**
@@ -41,11 +46,34 @@ export const HR: ElementTransformer = {
 }
 
 /**
+ * Mention transformer - converts @username to MentionNode and back
+ */
+export const MENTION: TextMatchTransformer = {
+  dependencies: [MentionNode],
+  export: (node: LexicalNode) => {
+    if (!$isMentionNode(node)) {
+      return null
+    }
+    return `@${node.getUsername()}`
+  },
+  importRegExp: /(?:^|(?<=\s))@([a-zA-Z0-9_-]+)/,
+  regExp: /(?:^|(?<=\s))@([a-zA-Z0-9_-]+)$/,
+  replace: (textNode, match) => {
+    const username = match[1]
+    const mentionNode = $createMentionNode(username)
+    textNode.replace(mentionNode)
+  },
+  trigger: ' ',
+  type: 'text-match',
+}
+
+/**
  * Combined transformers for convenience - matches playground structure
  */
 export const markdownTransformers: Array<Transformer> = [
   HR,
   CHECK_LIST,
+  MENTION,
   ...ELEMENT_TRANSFORMERS,
   ...MULTILINE_ELEMENT_TRANSFORMERS,
   ...TEXT_FORMAT_TRANSFORMERS,

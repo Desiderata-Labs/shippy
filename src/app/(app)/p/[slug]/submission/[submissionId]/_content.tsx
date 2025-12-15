@@ -7,6 +7,8 @@ import {
   CheckCircle,
   ChevronDown,
   Clock,
+  DotsVertical,
+  Edit02,
   Link03,
   MessageTextSquare02,
   Pencil01,
@@ -17,6 +19,7 @@ import { useState } from 'react'
 import Link from 'next/link'
 import { useParams } from 'next/navigation'
 import { SubmissionEventType, SubmissionStatus } from '@/lib/db/types'
+import { formatRelativeTime } from '@/lib/format/relative-time'
 import { extractNanoIdFromSlug } from '@/lib/nanoid/shared'
 import { routes } from '@/lib/routes'
 import {
@@ -30,6 +33,12 @@ import { AppBackground } from '@/components/layout/app-background'
 import { Avatar, AvatarFallback, AvatarImage } from '@/components/ui/avatar'
 import { Badge } from '@/components/ui/badge'
 import { ConfirmModal } from '@/components/ui/confirm-modal'
+import {
+  DropdownMenu,
+  DropdownMenuContent,
+  DropdownMenuItem,
+  DropdownMenuTrigger,
+} from '@/components/ui/dropdown-menu'
 import { ErrorState } from '@/components/ui/error-state'
 import { Markdown } from '@/components/ui/markdown'
 import { NotFoundState } from '@/components/ui/not-found-state'
@@ -97,6 +106,9 @@ export function SubmissionDetailContent() {
   const [showReviewPopover, setShowReviewPopover] = useState(false)
   const [showRejectModal, setShowRejectModal] = useState(false)
   const [copied, setCopied] = useState(false)
+  const [editingEventId, setEditingEventId] = useState<string | null>(null)
+  const [editContent, setEditContent] = useState('')
+  const [isUpdatingComment, setIsUpdatingComment] = useState(false)
 
   const {
     data: submission,
@@ -121,6 +133,18 @@ export function SubmissionDetailContent() {
     onSuccess: () => {
       setMessageContent('')
       utils.submission.getById.invalidate({ id: submissionId })
+    },
+    onError: (error) => {
+      toast.error(error.message)
+    },
+  })
+
+  const updateComment = trpc.submission.updateComment.useMutation({
+    onSuccess: () => {
+      utils.submission.getById.invalidate({ id: submissionId })
+      toast.success('Comment updated')
+      setEditingEventId(null)
+      setEditContent('')
     },
     onError: (error) => {
       toast.error(error.message)
@@ -253,6 +277,31 @@ export function SubmissionDetailContent() {
       // Error is handled by onError callback
     } finally {
       setIsSending(false)
+    }
+  }
+
+  const handleStartEdit = (eventId: string, content: string) => {
+    setEditingEventId(eventId)
+    setEditContent(content)
+  }
+
+  const handleCancelEdit = () => {
+    setEditingEventId(null)
+    setEditContent('')
+  }
+
+  const handleUpdateComment = async () => {
+    if (!editingEventId || !editContent.trim()) return
+    setIsUpdatingComment(true)
+    try {
+      await updateComment.mutateAsync({
+        eventId: editingEventId,
+        content: editContent,
+      })
+    } catch {
+      // Error is handled by onError callback
+    } finally {
+      setIsUpdatingComment(false)
     }
   }
 
@@ -609,8 +658,11 @@ export function SubmissionDetailContent() {
                   }
 
                   // Comment events
+                  const isEditing = editingEventId === event.id
+                  const isAuthor = event.user.id === session?.user?.id
+
                   return (
-                    <div key={event.id} className="flex gap-3">
+                    <div key={event.id} className="group flex gap-3">
                       <Avatar className="size-7 shrink-0">
                         <AvatarImage src={event.user.image ?? undefined} />
                         <AvatarFallback className="text-xs">
@@ -622,6 +674,11 @@ export function SubmissionDetailContent() {
                           <span className="text-sm font-medium">
                             {event.user.name}
                           </span>
+                          {event.user.username && (
+                            <span className="text-sm text-muted-foreground">
+                              @{event.user.username}
+                            </span>
+                          )}
                           {event.user.id ===
                             submission.bounty.project.founderId && (
                             <Badge
@@ -632,23 +689,53 @@ export function SubmissionDetailContent() {
                             </Badge>
                           )}
                           <span className="text-xs text-muted-foreground">
-                            {new Date(event.createdAt).toLocaleDateString(
-                              'en-US',
-                              {
-                                month: 'short',
-                                day: 'numeric',
-                                hour: 'numeric',
-                                minute: '2-digit',
-                              },
-                            )}
+                            {formatRelativeTime(event.createdAt)}
                           </span>
                         </div>
-                        <Markdown
-                          markdown={event.content!}
-                          proseSize="sm"
-                          className="mt-1"
-                        />
+                        {isEditing ? (
+                          <div className="mt-2">
+                            <CommentInput
+                              value={editContent}
+                              onChange={setEditContent}
+                              onSubmit={handleUpdateComment}
+                              onCancel={handleCancelEdit}
+                              isLoading={isUpdatingComment}
+                              isEditing
+                              placeholder="Edit your comment..."
+                            />
+                          </div>
+                        ) : (
+                          <Markdown
+                            markdown={event.content!}
+                            proseSize="sm"
+                            className="mt-1"
+                          />
+                        )}
                       </div>
+                      {!isEditing && isAuthor && canComment && (
+                        <DropdownMenu>
+                          <DropdownMenuTrigger asChild>
+                            <AppButton
+                              variant="ghost"
+                              size="icon-sm"
+                              className="size-6 cursor-pointer text-muted-foreground opacity-0 transition-opacity group-hover:opacity-100"
+                            >
+                              <DotsVertical className="size-3.5" />
+                            </AppButton>
+                          </DropdownMenuTrigger>
+                          <DropdownMenuContent align="end">
+                            <DropdownMenuItem
+                              onClick={() =>
+                                handleStartEdit(event.id, event.content ?? '')
+                              }
+                              className="cursor-pointer"
+                            >
+                              <Edit02 className="mr-2 size-4" />
+                              Edit
+                            </DropdownMenuItem>
+                          </DropdownMenuContent>
+                        </DropdownMenu>
+                      )}
                     </div>
                   )
                 })}

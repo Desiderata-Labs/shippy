@@ -14,6 +14,10 @@ interface CommentInputProps {
   isLoading?: boolean
   disabled?: boolean
   className?: string
+  /** Called when user starts editing (for canceling) */
+  onCancel?: () => void
+  /** Whether this is in edit mode */
+  isEditing?: boolean
 }
 
 export function CommentInput({
@@ -24,10 +28,12 @@ export function CommentInput({
   isLoading = false,
   disabled = false,
   className,
+  onCancel,
+  isEditing = false,
 }: CommentInputProps) {
   const containerRef = useRef<HTMLDivElement>(null)
 
-  // Handle Cmd/Ctrl+Enter to submit
+  // Handle Cmd/Ctrl+Enter to submit, Escape to cancel
   useEffect(() => {
     const container = containerRef.current
     if (!container) return
@@ -37,11 +43,15 @@ export function CommentInput({
         e.preventDefault()
         onSubmit()
       }
+      if (e.key === 'Escape' && onCancel) {
+        e.preventDefault()
+        onCancel()
+      }
     }
 
     container.addEventListener('keydown', handleKeyDown)
     return () => container.removeEventListener('keydown', handleKeyDown)
-  }, [value, onSubmit])
+  }, [value, onSubmit, onCancel])
 
   const handleChange = useCallback(
     (newValue: string) => {
@@ -58,7 +68,7 @@ export function CommentInput({
         className,
       )}
     >
-      <div className="px-4 pr-12">
+      <div className={cn('px-4', isEditing ? 'pr-24' : 'pr-12')}>
         <MarkdownEditor
           value={value}
           onChange={handleChange}
@@ -67,20 +77,33 @@ export function CommentInput({
           minHeight="60px"
           contentClassName="text-sm"
           hideMarkdownHint
+          enableMentions
         />
       </div>
-      <button
-        type="button"
-        onClick={onSubmit}
-        disabled={!value.trim() || isLoading || disabled}
-        className="absolute right-3 bottom-3 cursor-pointer text-muted-foreground transition-colors hover:text-foreground disabled:cursor-not-allowed disabled:opacity-30"
-      >
-        {isLoading ? (
-          <Loader2 className="size-5 animate-spin" />
-        ) : (
-          <ArrowCircleUp className="size-5" />
+      <div className="absolute right-3 bottom-3 flex items-center gap-1">
+        {isEditing && onCancel && (
+          <button
+            type="button"
+            onClick={onCancel}
+            disabled={isLoading}
+            className="cursor-pointer rounded-sm px-2 py-1 text-xs text-muted-foreground transition-colors hover:bg-accent hover:text-foreground disabled:cursor-not-allowed disabled:opacity-30"
+          >
+            Cancel
+          </button>
         )}
-      </button>
+        <button
+          type="button"
+          onClick={onSubmit}
+          disabled={!value.trim() || isLoading || disabled}
+          className="cursor-pointer text-muted-foreground transition-colors hover:text-foreground disabled:cursor-not-allowed disabled:opacity-30"
+        >
+          {isLoading ? (
+            <Loader2 className="size-5 animate-spin" />
+          ) : (
+            <ArrowCircleUp className="size-5" />
+          )}
+        </button>
+      </div>
     </div>
   )
 }

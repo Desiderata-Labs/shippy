@@ -13,7 +13,54 @@ import {
 } from '@/server/trpc'
 import { z } from 'zod'
 
+/**
+ * Maximum number of users to return in search results
+ */
+const SEARCH_LIMIT = 10
+
 export const userRouter = router({
+  /**
+   * Search users by username or name (for @mention autocomplete)
+   */
+  search: publicProcedure
+    .input(
+      z.object({
+        query: z.string().min(1).max(50),
+      }),
+    )
+    .query(async ({ ctx, input }) => {
+      const searchQuery = input.query.toLowerCase()
+
+      // Search by username (primary) or name (secondary)
+      const users = await ctx.prisma.user.findMany({
+        where: {
+          AND: [
+            // Must have a username to be mentionable
+            { username: { not: null } },
+            // Match query
+            {
+              OR: [
+                { username: { contains: searchQuery, mode: 'insensitive' } },
+                { name: { contains: searchQuery, mode: 'insensitive' } },
+              ],
+            },
+          ],
+        },
+        select: {
+          id: true,
+          name: true,
+          username: true,
+          image: true,
+        },
+        take: SEARCH_LIMIT,
+        orderBy: [
+          // Prioritize exact username match, then prefix match
+          { username: 'asc' },
+        ],
+      })
+
+      return users
+    }),
   /**
    * Get a user's public profile by username
    */

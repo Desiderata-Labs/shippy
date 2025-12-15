@@ -92,3 +92,10 @@
 .lexical-nested-listitem:after {
   display: none;
 }
+
+/* Mention styling */
+.mention {
+  color: var(--primary);
+  font-weight: 500;
+  cursor: default;
+}

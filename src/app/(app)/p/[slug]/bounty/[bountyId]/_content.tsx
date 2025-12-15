@@ -36,6 +36,7 @@ import {
   SubmissionStatus,
   generateRandomLabelColor,
 } from '@/lib/db/types'
+import { formatRelativeTime } from '@/lib/format/relative-time'
 import { extractNanoIdFromSlug } from '@/lib/nanoid/shared'
 import { ProjectTab, routes } from '@/lib/routes'
 import {
@@ -86,6 +87,9 @@ export function BountyDetailContent() {
   const [newComment, setNewComment] = useState('')
   const [isPostingComment, setIsPostingComment] = useState(false)
   const [eventToDelete, setEventToDelete] = useState<string | null>(null)
+  const [editingEventId, setEditingEventId] = useState<string | null>(null)
+  const [editContent, setEditContent] = useState('')
+  const [isUpdatingComment, setIsUpdatingComment] = useState(false)
 
   // Close/reopen state
   const [showCloseModal, setShowCloseModal] = useState(false)
@@ -146,6 +150,18 @@ export function BountyDetailContent() {
     onSuccess: () => {
       utils.bounty.getById.invalidate({ id: bountyId })
       toast.success('Comment deleted')
+    },
+    onError: (error) => {
+      toast.error(error.message)
+    },
+  })
+
+  const updateComment = trpc.bounty.updateComment.useMutation({
+    onSuccess: () => {
+      utils.bounty.getById.invalidate({ id: bountyId })
+      toast.success('Comment updated')
+      setEditingEventId(null)
+      setEditContent('')
     },
     onError: (error) => {
       toast.error(error.message)
@@ -330,6 +346,31 @@ export function BountyDetailContent() {
       // Error is handled by onError callback
     } finally {
       setIsPostingComment(false)
+    }
+  }
+
+  const handleStartEdit = (eventId: string, content: string) => {
+    setEditingEventId(eventId)
+    setEditContent(content)
+  }
+
+  const handleCancelEdit = () => {
+    setEditingEventId(null)
+    setEditContent('')
+  }
+
+  const handleUpdateComment = async () => {
+    if (!editingEventId || !editContent.trim()) return
+    setIsUpdatingComment(true)
+    try {
+      await updateComment.mutateAsync({
+        eventId: editingEventId,
+        content: editContent,
+      })
+    } catch {
+      // Error is handled by onError callback
+    } finally {
+      setIsUpdatingComment(false)
     }
   }
 
@@ -741,6 +782,9 @@ export function BountyDetailContent() {
                   }
 
                   // Comment event
+                  const isEditing = editingEventId === event.id
+                  const isAuthor = event.userId === session?.user?.id
+
                   return (
                     <div key={`evt-${event.id}`} className="group flex gap-3">
                       <Avatar className="size-7 shrink-0">
@@ -754,25 +798,36 @@ export function BountyDetailContent() {
                           <span className="text-sm font-medium">
                             {event.user.name}
                           </span>
+                          {event.user.username && (
+                            <span className="text-sm text-muted-foreground">
+                              @{event.user.username}
+                            </span>
+                          )}
                           <span className="text-xs text-muted-foreground">
-                            {new Date(event.createdAt).toLocaleDateString(
-                              'en-US',
-                              {
-                                month: 'short',
-                                day: 'numeric',
-                                hour: 'numeric',
-                                minute: '2-digit',
-                              },
-                            )}
+                            {formatRelativeTime(event.createdAt)}
                           </span>
                         </div>
-                        <Markdown
-                          markdown={event.content ?? ''}
-                          proseSize="sm"
-                          className="mt-1"
-                        />
+                        {isEditing ? (
+                          <div className="mt-2">
+                            <CommentInput
+                              value={editContent}
+                              onChange={setEditContent}
+                              onSubmit={handleUpdateComment}
+                              onCancel={handleCancelEdit}
+                              isLoading={isUpdatingComment}
+                              isEditing
+                              placeholder="Edit your comment..."
+                            />
+                          </div>
+                        ) : (
+                          <Markdown
+                            markdown={event.content ?? ''}
+                            proseSize="sm"
+                            className="mt-1"
+                          />
+                        )}
                       </div>
-                      {(event.userId === session?.user?.id || isFounder) && (
+                      {!isEditing && (isAuthor || isFounder) && (
                         <DropdownMenu>
                           <DropdownMenuTrigger asChild>
                             <AppButton
@@ -784,6 +839,17 @@ export function BountyDetailContent() {
                             </AppButton>
                           </DropdownMenuTrigger>
                           <DropdownMenuContent align="end">
+                            {isAuthor && (
+                              <DropdownMenuItem
+                                onClick={() =>
+                                  handleStartEdit(event.id, event.content ?? '')
+                                }
+                                className="cursor-pointer"
+                              >
+                                <Edit02 className="mr-2 size-4" />
+                                Edit
+                              </DropdownMenuItem>
+                            )}
                             <DropdownMenuItem
                               onClick={() => setEventToDelete(event.id)}
                               className="cursor-pointer text-destructive focus:text-destructive"

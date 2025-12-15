@@ -451,6 +451,149 @@ describe('Markdown Transformers', () => {
     })
   })
 
+  describe('MENTION Transformer', () => {
+    it('should import @mention from markdown', async () => {
+      const markdown = 'Hello @johndoe how are you?'
+
+      await new Promise<void>((resolve) => {
+        editor.update(() => {
+          $convertFromMarkdownString({ markdown })
+          resolve()
+        })
+      })
+
+      const html = await new Promise<string>((resolve) => {
+        editor.getEditorState().read(() => {
+          resolve($generateHtmlFromNodes(editor))
+        })
+      })
+
+      // The mention should be in a span with mention class
+      expect(html).toContain('data-lexical-mention')
+      expect(html).toContain('@johndoe')
+    })
+
+    it('should export MentionNode as @username in markdown', async () => {
+      const markdown = 'Check with @alice about this'
+
+      await new Promise<void>((resolve) => {
+        editor.update(() => {
+          $convertFromMarkdownString({ markdown })
+          resolve()
+        })
+      })
+
+      const result = await new Promise<string>((resolve) => {
+        editor.getEditorState().read(() => {
+          resolve($convertToMarkdownString({}))
+        })
+      })
+
+      expect(result).toContain('@alice')
+    })
+
+    it('should round-trip mentions correctly', async () => {
+      const markdown = 'Hey @rob and @jane, please review this'
+
+      // Import
+      await new Promise<void>((resolve) => {
+        editor.update(() => {
+          $convertFromMarkdownString({ markdown })
+          resolve()
+        })
+      })
+
+      // Export
+      const exported = await new Promise<string>((resolve) => {
+        editor.getEditorState().read(() => {
+          resolve($convertToMarkdownString({}))
+        })
+      })
+
+      // Should contain both mentions
+      expect(exported).toContain('@rob')
+      expect(exported).toContain('@jane')
+
+      // Import again to verify round-trip
+      const editor2 = createHeadlessEditorForTest()
+      await new Promise<void>((resolve) => {
+        editor2.update(() => {
+          $convertFromMarkdownString({ markdown: exported })
+          resolve()
+        })
+      })
+
+      const secondExport = await new Promise<string>((resolve) => {
+        editor2.getEditorState().read(() => {
+          resolve($convertToMarkdownString({}))
+        })
+      })
+
+      expect(secondExport).toContain('@rob')
+      expect(secondExport).toContain('@jane')
+    })
+
+    it('should handle mentions with underscores and hyphens', async () => {
+      const markdown = 'Contact @user_name and @user-name'
+
+      await new Promise<void>((resolve) => {
+        editor.update(() => {
+          $convertFromMarkdownString({ markdown })
+          resolve()
+        })
+      })
+
+      const result = await new Promise<string>((resolve) => {
+        editor.getEditorState().read(() => {
+          resolve($convertToMarkdownString({}))
+        })
+      })
+
+      expect(result).toContain('@user_name')
+      expect(result).toContain('@user-name')
+    })
+
+    it('should handle mention at start of text', async () => {
+      const markdown = '@admin please help'
+
+      await new Promise<void>((resolve) => {
+        editor.update(() => {
+          $convertFromMarkdownString({ markdown })
+          resolve()
+        })
+      })
+
+      const result = await new Promise<string>((resolve) => {
+        editor.getEditorState().read(() => {
+          resolve($convertToMarkdownString({}))
+        })
+      })
+
+      expect(result).toContain('@admin')
+    })
+
+    it('should not match email addresses as mentions', async () => {
+      const markdown = 'Email me at test@example.com'
+
+      await new Promise<void>((resolve) => {
+        editor.update(() => {
+          $convertFromMarkdownString({ markdown })
+          resolve()
+        })
+      })
+
+      const html = await new Promise<string>((resolve) => {
+        editor.getEditorState().read(() => {
+          resolve($generateHtmlFromNodes(editor))
+        })
+      })
+
+      // Should not have a mention node for the email
+      // The @ in email is part of the email, not a standalone mention
+      expect(html).not.toContain('data-lexical-mention="true"')
+    })
+  })
+
   describe('Export Tests', () => {
     it('should export headings correctly', async () => {
       const markdown = '# Heading 1\n\n## Heading 2'

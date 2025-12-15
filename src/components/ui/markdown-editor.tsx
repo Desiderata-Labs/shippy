@@ -22,6 +22,8 @@ import {
   $convertToMarkdownString,
   markdownTransformers,
 } from '@/lib/lexical/markdown-transformers'
+import { MentionNode } from '@/lib/lexical/mention-node'
+import { MentionPlugin } from '@/lib/lexical/mention-plugin'
 import { SyncPlugin } from '@/lib/lexical/sync-plugin'
 import { cn } from '@/lib/utils'
 import { FloatingToolbar } from '@/components/ui/floating-toolbar'
@@ -47,6 +49,8 @@ interface MarkdownEditorProps {
   minHeight?: string
   maxHeight?: string
   hideMarkdownHint?: boolean
+  /** Enable @mention autocomplete */
+  enableMentions?: boolean
 }
 
 export function MarkdownEditor({
@@ -60,6 +64,7 @@ export function MarkdownEditor({
   minHeight = '150px',
   maxHeight = '50vh',
   hideMarkdownHint = false,
+  enableMentions = false,
 }: MarkdownEditorProps) {
   const initialValueRef = useRef(value)
 
@@ -88,6 +93,7 @@ export function MarkdownEditor({
       AutoLinkNode,
       LinkNode,
       HorizontalRuleNode,
+      MentionNode,
     ],
     onError: (error: Error) => {
       console.error('MarkdownEditor error:', error)
@@ -145,6 +151,7 @@ export function MarkdownEditor({
         <AutoLinkPlugin matchers={LINK_MATCHERS} />
         <ClickableLinkPlugin />
         <FloatingToolbar />
+        {enableMentions && <MentionPlugin />}
         <MarkdownShortcutPlugin transformers={markdownTransformers} />
         <OnChangePlugin onChange={handleChange} ignoreSelectionChange />
         <SyncPlugin value={value} initialValueRef={initialValueRef} />

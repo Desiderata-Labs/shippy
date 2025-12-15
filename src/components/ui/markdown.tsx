@@ -3,11 +3,65 @@
 import React, { memo, useState } from 'react'
 import ReactMarkdown, { type Components } from 'react-markdown'
 import Image from 'next/image'
+import Link from 'next/link'
+import { routes } from '@/lib/routes'
 import { cn } from '@/lib/utils'
 import { Checkbox } from '@/components/ui/checkbox'
 import { AppButton } from '../app/app-button'
 import rehypeRaw from 'rehype-raw'
 import remarkGfm from 'remark-gfm'
+
+/**
+ * Regex to match @mentions in text for rendering
+ * Matches @username where username is alphanumeric with underscores/hyphens
+ */
+const MENTION_RENDER_REGEX = /(^|[\s])@([a-zA-Z0-9_-]+)/g
+
+/**
+ * Processes text to replace @mentions with links
+ */
+function processMentions(text: string): (string | React.ReactElement)[] {
+  const parts: (string | React.ReactElement)[] = []
+  let lastIndex = 0
+  let match: RegExpExecArray | null
+
+  MENTION_RENDER_REGEX.lastIndex = 0
+
+  while ((match = MENTION_RENDER_REGEX.exec(text)) !== null) {
+    const [fullMatch, prefix, username] = match
+    const matchStart = match.index
+
+    // Add text before the match
+    if (matchStart > lastIndex) {
+      parts.push(text.slice(lastIndex, matchStart))
+    }
+
+    // Add the prefix (whitespace or start)
+    if (prefix) {
+      parts.push(prefix)
+    }
+
+    // Add the mention as a link
+    parts.push(
+      <Link
+        key={`mention-${matchStart}`}
+        href={routes.user.profile({ username })}
+        className="font-semibold text-primary no-underline hover:no-underline"
+      >
+        @{username}
+      </Link>,
+    )
+
+    lastIndex = matchStart + fullMatch.length
+  }
+
+  // Add remaining text
+  if (lastIndex < text.length) {
+    parts.push(text.slice(lastIndex))
+  }
+
+  return parts.length > 0 ? parts : [text]
+}
 
 type MarkdownViewerProps = {
   markdown: string
@@ -172,6 +226,33 @@ const components: Partial<Components> = {
       {children}
     </a>
   ),
+  // Process @mentions in text and paragraph nodes
+  p: ({ children, ...props }) => {
+    const processedChildren = React.Children.map(children, (child) => {
+      if (typeof child === 'string') {
+        const parts = processMentions(child)
+        return parts.length === 1 && typeof parts[0] === 'string' ? (
+          child
+        ) : (
+          <>{parts}</>
+        )
+      }
+      return child
+    })
+    return <p {...props}>{processedChildren}</p>
+  },
+  // Also handle text in other inline elements
+  text: ({ children }) => {
+    if (typeof children === 'string') {
+      const parts = processMentions(children)
+      return parts.length === 1 && typeof parts[0] === 'string' ? (
+        <>{children}</>
+      ) : (
+        <>{parts}</>
+      )
+    }
+    return <>{children}</>
+  },
 }
 
 const NonMemoizedMarkdownViewer = ({

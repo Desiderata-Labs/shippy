@@ -5,9 +5,8 @@ import {
   SubmissionStatus,
 } from '@/lib/db/types'
 import { nanoId } from '@/lib/nanoid/schema'
-import { protectedProcedure, router } from '@/server/trpc'
+import { protectedProcedure, router, userError } from '@/server/trpc'
 import { Prisma } from '@prisma/client'
-import { TRPCError } from '@trpc/server'
 import { z } from 'zod/v4'
 
 // Validation schemas
@@ -92,7 +91,7 @@ export const submissionRouter = router({
       })
 
       if (!project || project.founderId !== ctx.user.id) {
-        throw new TRPCError({ code: 'FORBIDDEN', message: 'Access denied' })
+        throw userError('FORBIDDEN', 'Access denied')
       }
 
       return ctx.prisma.submission.findMany({
@@ -148,10 +147,7 @@ export const submissionRouter = router({
       })
 
       if (!submission) {
-        throw new TRPCError({
-          code: 'NOT_FOUND',
-          message: 'Submission not found',
-        })
+        throw userError('NOT_FOUND', 'Submission not found')
       }
 
       // Only submitter or founder can view
@@ -159,7 +155,7 @@ export const submissionRouter = router({
       const isFounder = submission.bounty.project.founderId === ctx.user.id
 
       if (!isSubmitter && !isFounder) {
-        throw new TRPCError({ code: 'FORBIDDEN', message: 'Access denied' })
+        throw userError('FORBIDDEN', 'Access denied')
       }
 
       return submission
@@ -180,7 +176,7 @@ export const submissionRouter = router({
       })
 
       if (!bounty) {
-        throw new TRPCError({ code: 'NOT_FOUND', message: 'Bounty not found' })
+        throw userError('NOT_FOUND', 'Bounty not found')
       }
 
       // Check if user has an active claim
@@ -193,10 +189,10 @@ export const submissionRouter = router({
       })
 
       if (!claim) {
-        throw new TRPCError({
-          code: 'BAD_REQUEST',
-          message: 'You must claim this bounty before submitting',
-        })
+        throw userError(
+          'BAD_REQUEST',
+          'You must claim this bounty before submitting',
+        )
       }
 
       // Check for existing submission
@@ -209,10 +205,10 @@ export const submissionRouter = router({
       })
 
       if (existingSubmission) {
-        throw new TRPCError({
-          code: 'CONFLICT',
-          message: 'You already have a submission for this bounty',
-        })
+        throw userError(
+          'CONFLICT',
+          'You already have a submission for this bounty',
+        )
       }
 
       // Create submission
@@ -249,17 +245,11 @@ export const submissionRouter = router({
       })
 
       if (!submission) {
-        throw new TRPCError({
-          code: 'NOT_FOUND',
-          message: 'Submission not found',
-        })
+        throw userError('NOT_FOUND', 'Submission not found')
       }
 
       if (submission.userId !== ctx.user.id) {
-        throw new TRPCError({
-          code: 'FORBIDDEN',
-          message: 'You cannot edit this submission',
-        })
+        throw userError('FORBIDDEN', 'You cannot edit this submission')
       }
 
       // Can only edit if not yet approved/rejected/withdrawn
@@ -268,10 +258,7 @@ export const submissionRouter = router({
         submission.status === SubmissionStatus.REJECTED ||
         submission.status === SubmissionStatus.WITHDRAWN
       ) {
-        throw new TRPCError({
-          code: 'BAD_REQUEST',
-          message: 'Cannot edit a finalized submission',
-        })
+        throw userError('BAD_REQUEST', 'Cannot edit a finalized submission')
       }
 
       // Build a record of what changed for the audit trail
@@ -361,17 +348,11 @@ export const submissionRouter = router({
       })
 
       if (!submission) {
-        throw new TRPCError({
-          code: 'NOT_FOUND',
-          message: 'Submission not found',
-        })
+        throw userError('NOT_FOUND', 'Submission not found')
       }
 
       if (submission.bounty.project.founderId !== ctx.user.id) {
-        throw new TRPCError({
-          code: 'FORBIDDEN',
-          message: 'You do not own this project',
-        })
+        throw userError('FORBIDDEN', 'You do not own this project')
       }
 
       const now = new Date()
@@ -384,11 +365,10 @@ export const submissionRouter = router({
 
           // Can't approve without points
           if (pointsAwarded === null || pointsAwarded === undefined) {
-            throw new TRPCError({
-              code: 'BAD_REQUEST',
-              message:
-                'Cannot approve submission: bounty has no points assigned. Please assign points first.',
-            })
+            throw userError(
+              'BAD_REQUEST',
+              'Cannot approve submission: bounty has no points assigned. Please assign points first.',
+            )
           }
 
           const project = submission.bounty.project
@@ -550,10 +530,7 @@ export const submissionRouter = router({
       })
 
       if (!submission) {
-        throw new TRPCError({
-          code: 'NOT_FOUND',
-          message: 'Submission not found',
-        })
+        throw userError('NOT_FOUND', 'Submission not found')
       }
 
       // Only submitter or founder can add comments
@@ -561,7 +538,7 @@ export const submissionRouter = router({
       const isFounder = submission.bounty.project.founderId === ctx.user.id
 
       if (!isSubmitter && !isFounder) {
-        throw new TRPCError({ code: 'FORBIDDEN', message: 'Access denied' })
+        throw userError('FORBIDDEN', 'Access denied')
       }
 
       return ctx.prisma.submissionEvent.create({

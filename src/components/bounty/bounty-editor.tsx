@@ -487,6 +487,8 @@ export function BountyEditor({ mode, slug, bountyId }: BountyEditorProps) {
           evidenceDescription: evidenceDescription || null,
         })
       }
+    } catch {
+      // Error is handled by onError callback
     } finally {
       setIsLoading(false)
     }

@@ -351,6 +351,8 @@ export function DashboardContent() {
                         payoutId: recipient.payoutId,
                         confirmed: true,
                       })
+                    } catch {
+                      // Error is handled by onError callback
                     } finally {
                       setConfirmingPayoutId(null)
                     }
@@ -364,6 +366,8 @@ export function DashboardContent() {
                         confirmed: false,
                         disputeReason: disputeReason || 'Payment not received',
                       })
+                    } catch {
+                      // Error is handled by onError callback
                     } finally {
                       setConfirmingPayoutId(null)
                     }

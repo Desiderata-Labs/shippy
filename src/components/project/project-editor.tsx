@@ -394,6 +394,8 @@ export function ProjectEditor({ mode, username, slug }: ProjectEditorProps) {
             : {}),
         })
       }
+    } catch {
+      // Error is handled by onError callback
     } finally {
       setIsLoading(false)
     }

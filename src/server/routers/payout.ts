@@ -4,8 +4,12 @@ import {
   SubmissionStatus,
 } from '@/lib/db/types'
 import { nanoId } from '@/lib/nanoid/schema'
-import { protectedProcedure, publicProcedure, router } from '@/server/trpc'
-import { TRPCError } from '@trpc/server'
+import {
+  protectedProcedure,
+  publicProcedure,
+  router,
+  userError,
+} from '@/server/trpc'
 import { z } from 'zod/v4'
 
 // Validation schemas
@@ -75,7 +79,7 @@ export const payoutRouter = router({
       })
 
       if (!payout) {
-        throw new TRPCError({ code: 'NOT_FOUND', message: 'Payout not found' })
+        throw userError('NOT_FOUND', 'Payout not found')
       }
 
       return payout
@@ -167,14 +171,11 @@ export const payoutRouter = router({
       })
 
       if (!project || project.founderId !== ctx.user.id) {
-        throw new TRPCError({ code: 'FORBIDDEN', message: 'Access denied' })
+        throw userError('FORBIDDEN', 'Access denied')
       }
 
       if (!project.rewardPool) {
-        throw new TRPCError({
-          code: 'BAD_REQUEST',
-          message: 'Project has no reward pool',
-        })
+        throw userError('BAD_REQUEST', 'Project has no reward pool')
       }
 
       // Get all contributors with points
@@ -257,14 +258,11 @@ export const payoutRouter = router({
       })
 
       if (!project || project.founderId !== ctx.user.id) {
-        throw new TRPCError({ code: 'FORBIDDEN', message: 'Access denied' })
+        throw userError('FORBIDDEN', 'Access denied')
       }
 
       if (!project.rewardPool) {
-        throw new TRPCError({
-          code: 'BAD_REQUEST',
-          message: 'Project has no reward pool',
-        })
+        throw userError('BAD_REQUEST', 'Project has no reward pool')
       }
 
       // Get all contributors with points
@@ -274,10 +272,7 @@ export const payoutRouter = router({
       )
 
       if (contributors.length === 0) {
-        throw new TRPCError({
-          code: 'BAD_REQUEST',
-          message: 'No contributors with points to pay out',
-        })
+        throw userError('BAD_REQUEST', 'No contributors with points to pay out')
       }
 
       // Calculate amounts using capacity-based model
@@ -359,11 +354,11 @@ export const payoutRouter = router({
       })
 
       if (!payout) {
-        throw new TRPCError({ code: 'NOT_FOUND', message: 'Payout not found' })
+        throw userError('NOT_FOUND', 'Payout not found')
       }
 
       if (payout.project.founderId !== ctx.user.id) {
-        throw new TRPCError({ code: 'FORBIDDEN', message: 'Access denied' })
+        throw userError('FORBIDDEN', 'Access denied')
       }
 
       return ctx.prisma.payout.update({
@@ -392,14 +387,11 @@ export const payoutRouter = router({
       })
 
       if (!recipient) {
-        throw new TRPCError({
-          code: 'NOT_FOUND',
-          message: 'Recipient not found',
-        })
+        throw userError('NOT_FOUND', 'Recipient not found')
       }
 
       if (recipient.payout.project.founderId !== ctx.user.id) {
-        throw new TRPCError({ code: 'FORBIDDEN', message: 'Access denied' })
+        throw userError('FORBIDDEN', 'Access denied')
       }
 
       const now = new Date()
@@ -446,11 +438,11 @@ export const payoutRouter = router({
       })
 
       if (!payout) {
-        throw new TRPCError({ code: 'NOT_FOUND', message: 'Payout not found' })
+        throw userError('NOT_FOUND', 'Payout not found')
       }
 
       if (payout.project.founderId !== ctx.user.id) {
-        throw new TRPCError({ code: 'FORBIDDEN', message: 'Access denied' })
+        throw userError('FORBIDDEN', 'Access denied')
       }
 
       const now = new Date()
@@ -492,10 +484,7 @@ export const payoutRouter = router({
       })
 
       if (!recipient) {
-        throw new TRPCError({
-          code: 'NOT_FOUND',
-          message: 'You are not a recipient of this payout',
-        })
+        throw userError('NOT_FOUND', 'You are not a recipient of this payout')
       }
 
       const now = new Date()

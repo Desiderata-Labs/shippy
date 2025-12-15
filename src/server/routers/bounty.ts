@@ -8,9 +8,13 @@ import {
   SubmissionStatus,
 } from '@/lib/db/types'
 import { nanoId } from '@/lib/nanoid/schema'
-import { protectedProcedure, publicProcedure, router } from '@/server/trpc'
+import {
+  protectedProcedure,
+  publicProcedure,
+  router,
+  userError,
+} from '@/server/trpc'
 import { Prisma } from '@prisma/client'
-import { TRPCError } from '@trpc/server'
 import { z } from 'zod/v4'
 
 // Validation schemas
@@ -108,13 +112,17 @@ export const bountyRouter = router({
               status: { in: [ClaimStatus.ACTIVE, ClaimStatus.SUBMITTED] },
             },
             include: {
-              user: { select: { id: true, name: true, image: true } },
+              user: {
+                select: { id: true, name: true, image: true, username: true },
+              },
             },
           },
           submissions: {
             orderBy: { createdAt: 'desc' },
             include: {
-              user: { select: { id: true, name: true, image: true } },
+              user: {
+                select: { id: true, name: true, image: true, username: true },
+              },
               _count: { select: { events: true } },
             },
           },
@@ -131,7 +139,7 @@ export const bountyRouter = router({
       })
 
       if (!bounty) {
-        throw new TRPCError({ code: 'NOT_FOUND', message: 'Bounty not found' })
+        throw userError('NOT_FOUND', 'Bounty not found')
       }
 
       // Filter submissions based on viewer:
@@ -169,21 +177,15 @@ export const bountyRouter = router({
       })
 
       if (!project) {
-        throw new TRPCError({ code: 'NOT_FOUND', message: 'Project not found' })
+        throw userError('NOT_FOUND', 'Project not found')
       }
 
       if (project.founderId !== ctx.user.id) {
-        throw new TRPCError({
-          code: 'FORBIDDEN',
-          message: 'You do not own this project',
-        })
+        throw userError('FORBIDDEN', 'You do not own this project')
       }
 
       if (!project.rewardPool) {
-        throw new TRPCError({
-          code: 'BAD_REQUEST',
-          message: 'Project does not have a reward pool',
-        })
+        throw userError('BAD_REQUEST', 'Project does not have a reward pool')
       }
 
       // Reserve number + create bounty in a transaction
@@ -248,14 +250,11 @@ export const bountyRouter = router({
       })
 
       if (!bounty) {
-        throw new TRPCError({ code: 'NOT_FOUND', message: 'Bounty not found' })
+        throw userError('NOT_FOUND', 'Bounty not found')
       }
 
       if (bounty.project.founderId !== ctx.user.id) {
-        throw new TRPCError({
-          code: 'FORBIDDEN',
-          message: 'You do not own this project',
-        })
+        throw userError('FORBIDDEN', 'You do not own this project')
       }
 
       // Build a record of what changed for the audit trail
@@ -313,19 +312,18 @@ export const bountyRouter = router({
           bounty.status === BountyStatus.COMPLETED ||
           bounty.status === BountyStatus.CLOSED
         ) {
-          throw new TRPCError({
-            code: 'BAD_REQUEST',
-            message: 'Cannot change points on a completed or closed bounty',
-          })
+          throw userError(
+            'BAD_REQUEST',
+            'Cannot change points on a completed or closed bounty',
+          )
         }
 
         // Prevent removing points (backlog) on claimed bounties
         if (bounty.status === BountyStatus.CLAIMED && data.points === null) {
-          throw new TRPCError({
-            code: 'BAD_REQUEST',
-            message:
-              'Cannot remove points from a bounty that is being worked on',
-          })
+          throw userError(
+            'BAD_REQUEST',
+            'Cannot remove points from a bounty that is being worked on',
+          )
         }
       }
 
@@ -431,22 +429,35 @@ export const bountyRouter = router({
       })
 
       if (!bounty) {
-        throw new TRPCError({ code: 'NOT_FOUND', message: 'Bounty not found' })
+        throw userError('NOT_FOUND', 'Bounty not found')
       }
 
-      // Check if bounty is open (not backlog, claimed, completed, or closed)
+      // Check if bounty can be claimed
+      // - BACKLOG bounties cannot be claimed (no points assigned yet)
+      // - COMPLETED/CLOSED bounties cannot be claimed
+      // - OPEN bounties can always be claimed
+      // - CLAIMED bounties can be claimed if in MULTIPLE (competitive) mode
       if (bounty.status === BountyStatus.BACKLOG) {
-        throw new TRPCError({
-          code: 'BAD_REQUEST',
-          message: 'This bounty is in the backlog and cannot be claimed yet',
-        })
+        throw userError(
+          'BAD_REQUEST',
+          'This bounty is in the backlog and cannot be claimed yet',
+        )
       }
 
-      if (bounty.status !== BountyStatus.OPEN) {
-        throw new TRPCError({
-          code: 'BAD_REQUEST',
-          message: 'This bounty is not open for claims',
-        })
+      if (bounty.status === BountyStatus.COMPLETED) {
+        throw userError('BAD_REQUEST', 'This bounty has already been completed')
+      }
+
+      if (bounty.status === BountyStatus.CLOSED) {
+        throw userError('BAD_REQUEST', 'This bounty is closed')
+      }
+
+      // For CLAIMED bounties, only allow if in MULTIPLE mode (competitive)
+      if (
+        bounty.status === BountyStatus.CLAIMED &&
+        bounty.claimMode !== BountyClaimMode.MULTIPLE
+      ) {
+        throw userError('BAD_REQUEST', 'This bounty has already been claimed')
       }
 
       // Check existing active claim
@@ -459,10 +470,7 @@ export const bountyRouter = router({
       })
 
       if (existingActiveClaim) {
-        throw new TRPCError({
-          code: 'CONFLICT',
-          message: 'You have already claimed this bounty',
-        })
+        throw userError('CONFLICT', 'You have already claimed this bounty')
       }
 
       // For SINGLE mode, check if already claimed
@@ -470,18 +478,15 @@ export const bountyRouter = router({
         bounty.claimMode === BountyClaimMode.SINGLE &&
         bounty.claims.length > 0
       ) {
-        throw new TRPCError({
-          code: 'CONFLICT',
-          message: 'This bounty has already been claimed',
-        })
+        throw userError('CONFLICT', 'This bounty has already been claimed')
       }
 
       // For MULTIPLE mode with maxClaims, check limit
       if (bounty.maxClaims && bounty.claims.length >= bounty.maxClaims) {
-        throw new TRPCError({
-          code: 'CONFLICT',
-          message: 'This bounty has reached its maximum number of claims',
-        })
+        throw userError(
+          'CONFLICT',
+          'This bounty has reached its maximum number of claims',
+        )
       }
 
       // Calculate expiry date
@@ -497,8 +502,9 @@ export const bountyRouter = router({
         },
       })
 
-      // Update bounty status if SINGLE mode
-      if (bounty.claimMode === BountyClaimMode.SINGLE) {
+      // Update bounty status to CLAIMED if this is the first claim
+      // For both SINGLE and MULTIPLE mode, status should reflect work is in progress
+      if (bounty.status === BountyStatus.OPEN) {
         await ctx.prisma.bounty.update({
           where: { id: input.bountyId },
           data: { status: BountyStatus.CLAIMED },
@@ -529,7 +535,7 @@ export const bountyRouter = router({
       })
 
       if (!claim) {
-        throw new TRPCError({ code: 'NOT_FOUND', message: 'Claim not found' })
+        throw userError('NOT_FOUND', 'Claim not found')
       }
 
       // Only claimant or founder can release
@@ -537,10 +543,7 @@ export const bountyRouter = router({
       const isFounder = claim.bounty.project.founderId === ctx.user.id
 
       if (!isClaimant && !isFounder) {
-        throw new TRPCError({
-          code: 'FORBIDDEN',
-          message: 'You cannot release this claim',
-        })
+        throw userError('FORBIDDEN', 'You cannot release this claim')
       }
 
       // Update claim status
@@ -626,7 +629,7 @@ export const bountyRouter = router({
       })
 
       if (!bounty) {
-        throw new TRPCError({ code: 'NOT_FOUND', message: 'Bounty not found' })
+        throw userError('NOT_FOUND', 'Bounty not found')
       }
 
       // Only allow comments on public projects or if user is founder
@@ -634,7 +637,7 @@ export const bountyRouter = router({
         !bounty.project.isPublic &&
         bounty.project.founderId !== ctx.user.id
       ) {
-        throw new TRPCError({ code: 'FORBIDDEN', message: 'Access denied' })
+        throw userError('FORBIDDEN', 'Access denied')
       }
 
       return ctx.prisma.bountyEvent.create({
@@ -679,25 +682,19 @@ export const bountyRouter = router({
       })
 
       if (!event) {
-        throw new TRPCError({ code: 'NOT_FOUND', message: 'Event not found' })
+        throw userError('NOT_FOUND', 'Event not found')
       }
 
       // Can only delete COMMENT events
       if (event.type !== BountyEventType.COMMENT) {
-        throw new TRPCError({
-          code: 'BAD_REQUEST',
-          message: 'Only comments can be deleted',
-        })
+        throw userError('BAD_REQUEST', 'Only comments can be deleted')
       }
 
       const isAuthor = event.userId === ctx.user.id
       const isFounder = event.bounty.project.founderId === ctx.user.id
 
       if (!isAuthor && !isFounder) {
-        throw new TRPCError({
-          code: 'FORBIDDEN',
-          message: 'You cannot delete this comment',
-        })
+        throw userError('FORBIDDEN', 'You cannot delete this comment')
       }
 
       await ctx.prisma.bountyEvent.delete({
@@ -746,30 +743,24 @@ export const bountyRouter = router({
       })
 
       if (!bounty) {
-        throw new TRPCError({ code: 'NOT_FOUND', message: 'Bounty not found' })
+        throw userError('NOT_FOUND', 'Bounty not found')
       }
 
       if (bounty.project.founderId !== ctx.user.id) {
-        throw new TRPCError({
-          code: 'FORBIDDEN',
-          message: 'You do not own this project',
-        })
+        throw userError('FORBIDDEN', 'You do not own this project')
       }
 
       // Cannot close completed bounties (points already awarded)
       if (bounty.status === BountyStatus.COMPLETED) {
-        throw new TRPCError({
-          code: 'BAD_REQUEST',
-          message: 'Cannot close a completed bounty - points have been awarded',
-        })
+        throw userError(
+          'BAD_REQUEST',
+          'Cannot close a completed bounty - points have been awarded',
+        )
       }
 
       // Already closed
       if (bounty.status === BountyStatus.CLOSED) {
-        throw new TRPCError({
-          code: 'BAD_REQUEST',
-          message: 'Bounty is already closed',
-        })
+        throw userError('BAD_REQUEST', 'Bounty is already closed')
       }
 
       const previousStatus = bounty.status
@@ -849,22 +840,16 @@ export const bountyRouter = router({
       })
 
       if (!bounty) {
-        throw new TRPCError({ code: 'NOT_FOUND', message: 'Bounty not found' })
+        throw userError('NOT_FOUND', 'Bounty not found')
       }
 
       if (bounty.project.founderId !== ctx.user.id) {
-        throw new TRPCError({
-          code: 'FORBIDDEN',
-          message: 'You do not own this project',
-        })
+        throw userError('FORBIDDEN', 'You do not own this project')
       }
 
       // Can only reopen closed bounties
       if (bounty.status !== BountyStatus.CLOSED) {
-        throw new TRPCError({
-          code: 'BAD_REQUEST',
-          message: 'Only closed bounties can be reopened',
-        })
+        throw userError('BAD_REQUEST', 'Only closed bounties can be reopened')
       }
 
       // Determine new status based on points

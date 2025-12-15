@@ -5,8 +5,12 @@ import {
   slugifyUsername,
   validateUsername,
 } from '@/lib/username/server'
-import { protectedProcedure, publicProcedure, router } from '@/server/trpc'
-import { TRPCError } from '@trpc/server'
+import {
+  protectedProcedure,
+  publicProcedure,
+  router,
+  userError,
+} from '@/server/trpc'
 import { z } from 'zod'
 
 export const userRouter = router({
@@ -28,7 +32,7 @@ export const userRouter = router({
       })
 
       if (!user) {
-        throw new TRPCError({ code: 'NOT_FOUND', message: 'User not found' })
+        throw userError('NOT_FOUND', 'User not found')
       }
 
       return user
@@ -46,7 +50,7 @@ export const userRouter = router({
       })
 
       if (!user) {
-        throw new TRPCError({ code: 'NOT_FOUND', message: 'User not found' })
+        throw userError('NOT_FOUND', 'User not found')
       }
 
       return ctx.prisma.project.findMany({

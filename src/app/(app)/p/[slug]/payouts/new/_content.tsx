@@ -193,6 +193,8 @@ export function NewPayoutContent() {
         periodEnd: new Date(periodEnd),
         periodLabel,
       })
+    } catch {
+      // Error is handled by onError callback
     } finally {
       setIsCreating(false)
     }

@@ -427,10 +427,8 @@ function BountyRow({
   const isCompleted = bounty.status === 'COMPLETED'
   const isClosed = bounty.status === 'CLOSED'
 
-  // Show approved submission's user as assignee if completed, otherwise first claimant
+  // Show approved submission's user if completed
   const approvedUser = bounty.approvedSubmission?.[0]?.user ?? null
-  const firstClaimant = bounty.claims?.[0]?.user ?? null
-  const assignee = approvedUser ?? firstClaimant
 
   // Format date like Linear: "Aug 8"
   const dateLabel = new Date(bounty.createdAt).toLocaleDateString('en-US', {
@@ -528,19 +526,46 @@ function BountyRow({
         {bounty.points !== null ? `${bounty.points} pts` : 'TBD'}
       </span>
 
-      {/* Assignee avatar (or dashed circle if unclaimed) */}
-      {assignee ? (
-        <Avatar className="size-5 shrink-0">
-          <AvatarImage src={assignee.image ?? undefined} />
-          <AvatarFallback className="text-[9px]">
-            {assignee.name.charAt(0).toUpperCase()}
-          </AvatarFallback>
-        </Avatar>
-      ) : (
-        <span className="flex size-5 shrink-0 items-center justify-center rounded-full border border-dashed border-muted-foreground/30">
-          <User01 className="size-2.5 text-muted-foreground/40" />
-        </span>
-      )}
+      {/* Assignee avatars (stacked, up to 3 shown) */}
+      {(() => {
+        // Show approved user first if completed, then claimants
+        const assignees = approvedUser
+          ? [approvedUser]
+          : bounty.claims.map((c) => c.user).slice(0, 3)
+        const totalCount = approvedUser ? 1 : bounty.claims.length
+
+        if (assignees.length === 0) {
+          return (
+            <span className="flex size-5 shrink-0 items-center justify-center rounded-full border border-dashed border-muted-foreground/30">
+              <User01 className="size-2.5 text-muted-foreground/40" />
+            </span>
+          )
+        }
+
+        return (
+          <div className="flex shrink-0 items-center">
+            <div className="flex -space-x-1.5">
+              {assignees.map((user, idx) => (
+                <Avatar
+                  key={user.id}
+                  className="size-5 ring-2 ring-card"
+                  style={{ zIndex: assignees.length - idx }}
+                >
+                  <AvatarImage src={user.image ?? undefined} />
+                  <AvatarFallback className="text-[9px]">
+                    {user.name.charAt(0).toUpperCase()}
+                  </AvatarFallback>
+                </Avatar>
+              ))}
+            </div>
+            {totalCount > 3 && (
+              <span className="ml-1 text-[10px] text-muted-foreground">
+                +{totalCount - 3}
+              </span>
+            )}
+          </div>
+        )
+      })()}
 
       {/* Date */}
       <span className="w-12 shrink-0 text-right text-xs text-muted-foreground">

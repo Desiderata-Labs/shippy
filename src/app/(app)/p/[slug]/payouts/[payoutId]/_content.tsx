@@ -322,6 +322,8 @@ export function PayoutDetailContent() {
     setMarkingAllPaid(true)
     try {
       await markAllPaid.mutateAsync({ payoutId: payout.id })
+    } catch {
+      // Error is handled by onError callback
     } finally {
       setMarkingAllPaid(false)
     }
@@ -331,6 +333,8 @@ export function PayoutDetailContent() {
     setMarkingRecipientId(recipientId)
     try {
       await markRecipientPaid.mutateAsync({ recipientId })
+    } catch {
+      // Error is handled by onError callback
     } finally {
       setMarkingRecipientId(null)
     }
@@ -343,6 +347,8 @@ export function PayoutDetailContent() {
         payoutId: payout.id,
         confirmed,
       })
+    } catch {
+      // Error is handled by onError callback
     } finally {
       setConfirmingReceipt(false)
     }

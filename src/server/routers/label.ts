@@ -1,7 +1,11 @@
 import { isValidHexColor } from '@/lib/db/types'
 import { nanoId } from '@/lib/nanoid/schema'
-import { protectedProcedure, publicProcedure, router } from '@/server/trpc'
-import { TRPCError } from '@trpc/server'
+import {
+  protectedProcedure,
+  publicProcedure,
+  router,
+  userError,
+} from '@/server/trpc'
 import { z } from 'zod/v4'
 
 // Custom Zod validator for hex colors
@@ -48,14 +52,11 @@ export const labelRouter = router({
       })
 
       if (!project) {
-        throw new TRPCError({ code: 'NOT_FOUND', message: 'Project not found' })
+        throw userError('NOT_FOUND', 'Project not found')
       }
 
       if (project.founderId !== ctx.user.id) {
-        throw new TRPCError({
-          code: 'FORBIDDEN',
-          message: 'You do not own this project',
-        })
+        throw userError('FORBIDDEN', 'You do not own this project')
       }
 
       // Check for duplicate name
@@ -69,10 +70,7 @@ export const labelRouter = router({
       })
 
       if (existing) {
-        throw new TRPCError({
-          code: 'CONFLICT',
-          message: 'A label with this name already exists',
-        })
+        throw userError('CONFLICT', 'A label with this name already exists')
       }
 
       return ctx.prisma.label.create({
@@ -99,14 +97,11 @@ export const labelRouter = router({
       })
 
       if (!label) {
-        throw new TRPCError({ code: 'NOT_FOUND', message: 'Label not found' })
+        throw userError('NOT_FOUND', 'Label not found')
       }
 
       if (label.project.founderId !== ctx.user.id) {
-        throw new TRPCError({
-          code: 'FORBIDDEN',
-          message: 'You do not own this project',
-        })
+        throw userError('FORBIDDEN', 'You do not own this project')
       }
 
       // If changing name, check for duplicates
@@ -121,10 +116,7 @@ export const labelRouter = router({
         })
 
         if (existing) {
-          throw new TRPCError({
-            code: 'CONFLICT',
-            message: 'A label with this name already exists',
-          })
+          throw userError('CONFLICT', 'A label with this name already exists')
         }
       }
 
@@ -147,14 +139,11 @@ export const labelRouter = router({
       })
 
       if (!label) {
-        throw new TRPCError({ code: 'NOT_FOUND', message: 'Label not found' })
+        throw userError('NOT_FOUND', 'Label not found')
       }
 
       if (label.project.founderId !== ctx.user.id) {
-        throw new TRPCError({
-          code: 'FORBIDDEN',
-          message: 'You do not own this project',
-        })
+        throw userError('FORBIDDEN', 'You do not own this project')
       }
 
       await ctx.prisma.label.delete({

@@ -275,17 +275,27 @@ export function BountyDetailContent() {
   const hasActiveClaim = userClaim?.status === ClaimStatus.ACTIVE
   const hasSubmittedClaim = userClaim?.status === ClaimStatus.SUBMITTED
   const isFounder = session?.user?.id === bounty.project.founderId
+  // User can claim if:
+  // - Logged in
+  // - Doesn't already have a claim
+  // - Bounty is OPEN, or CLAIMED but in MULTIPLE mode (competitive)
+  // - maxClaims limit not reached (if set)
+  const isAtMaxClaims =
+    bounty.maxClaims !== null && bounty.claims.length >= bounty.maxClaims
   const canClaim =
     session &&
-    bounty.status === BountyStatus.OPEN &&
     !userClaim &&
-    (bounty.claimMode === BountyClaimMode.MULTIPLE ||
-      bounty.claims.length === 0)
+    !isAtMaxClaims &&
+    (bounty.status === BountyStatus.OPEN ||
+      (bounty.status === BountyStatus.CLAIMED &&
+        bounty.claimMode === BountyClaimMode.MULTIPLE))
 
   const handleClaim = async () => {
     setIsClaiming(true)
     try {
       await claimBounty.mutateAsync({ bountyId: bounty.id })
+    } catch {
+      // Error is handled by onError callback
     } finally {
       setIsClaiming(false)
     }
@@ -301,6 +311,8 @@ export function BountyDetailContent() {
       })
       setShowReleaseModal(false)
       setReleaseReason('')
+    } catch {
+      // Error is handled by onError callback
     } finally {
       setIsClaiming(false)
     }
@@ -314,6 +326,8 @@ export function BountyDetailContent() {
         bountyId: bounty.id,
         content: newComment,
       })
+    } catch {
+      // Error is handled by onError callback
     } finally {
       setIsPostingComment(false)
     }
@@ -373,11 +387,10 @@ export function BountyDetailContent() {
   const statusLabel =
     bountyStatusLabels[bounty.status as BountyStatus] ?? 'Open'
 
-  // Show approved submission's user as assignee if completed, otherwise first claimant
+  // Find approved submission if any (used for determining assignees)
   const approvedSubmission = bounty.submissions.find(
     (s) => s.status === SubmissionStatus.APPROVED,
   )
-  const assignee = approvedSubmission?.user ?? bounty.claims[0]?.user ?? null
 
   return (
     <AppBackground>
@@ -890,6 +903,11 @@ export function BountyDetailContent() {
                 This bounty is in the backlog and can&apos;t be claimed yet.
                 Points will be assigned later.
               </div>
+            ) : isAtMaxClaims ? (
+              <div className="rounded-md bg-muted px-3 py-2 text-center text-xs text-muted-foreground">
+                This bounty has reached its maximum number of claimants (
+                {bounty.maxClaims}).
+              </div>
             ) : null}
 
             <Separator />
@@ -938,28 +956,139 @@ export function BountyDetailContent() {
                 </div>
               )}
 
-              {/* Assignee */}
-              <div className="flex items-center justify-between py-1">
-                <span className="text-xs text-muted-foreground">Assignee</span>
-                {assignee ? (
-                  <div className="flex items-center gap-1.5">
-                    <Avatar className="size-5">
-                      <AvatarImage src={assignee.image ?? undefined} />
-                      <AvatarFallback className="text-[9px]">
-                        {assignee.name.charAt(0)}
-                      </AvatarFallback>
-                    </Avatar>
-                    <span className="text-xs">{assignee.name}</span>
-                  </div>
-                ) : (
-                  <div className="flex items-center gap-1.5 text-muted-foreground">
-                    <div className="flex size-5 items-center justify-center rounded-full border border-dashed border-muted-foreground/30">
-                      <User01 className="size-2.5" />
+              {/* Assignees */}
+              {(() => {
+                // Show approved user if completed, otherwise all claimants
+                const claimants = approvedSubmission
+                  ? [approvedSubmission.user]
+                  : bounty.claims.map((c) => c.user).slice(0, 3)
+
+                // Single or zero assignees: show inline
+                if (claimants.length <= 1) {
+                  return (
+                    <div className="flex items-center justify-between py-1">
+                      <span className="text-xs text-muted-foreground">
+                        Assignee
+                      </span>
+                      {claimants.length === 0 ? (
+                        <div className="flex items-center gap-1.5 text-muted-foreground">
+                          <div className="flex size-5 items-center justify-center rounded-full border border-dashed border-muted-foreground/30">
+                            <User01 className="size-2.5" />
+                          </div>
+                          <span className="text-xs">Unassigned</span>
+                        </div>
+                      ) : (
+                        <Link
+                          href={routes.user.profile({
+                            username: claimants[0].username ?? claimants[0].id,
+                          })}
+                          className="flex items-center gap-1.5 rounded-md px-1.5 py-0.5 transition-colors hover:bg-muted"
+                        >
+                          <Avatar className="size-5">
+                            <AvatarImage
+                              src={claimants[0].image ?? undefined}
+                            />
+                            <AvatarFallback className="text-[9px]">
+                              {claimants[0].name.charAt(0)}
+                            </AvatarFallback>
+                          </Avatar>
+                          <span className="text-xs">{claimants[0].name}</span>
+                        </Link>
+                      )}
                     </div>
-                    <span className="text-xs">Unassigned</span>
+                  )
+                }
+
+                // Multiple assignees: show on separate line
+                return (
+                  <div className="space-y-2 py-1">
+                    <div className="flex items-center justify-between">
+                      <span className="text-xs text-muted-foreground">
+                        Assignees
+                      </span>
+                      {bounty.claims.length > 3 && (
+                        <Popover>
+                          <PopoverTrigger asChild>
+                            <button
+                              type="button"
+                              className="cursor-pointer text-xs text-muted-foreground hover:text-foreground"
+                            >
+                              View all ({bounty.claims.length})
+                            </button>
+                          </PopoverTrigger>
+                          <PopoverContent className="w-64 p-2" align="end">
+                            <div className="space-y-1">
+                              <div className="mb-2 text-xs font-medium text-muted-foreground">
+                                All Claimants
+                              </div>
+                              <div className="max-h-64 space-y-1 overflow-y-auto">
+                                {bounty.claims.map((claim) => (
+                                  <Link
+                                    key={claim.id}
+                                    href={routes.user.profile({
+                                      username:
+                                        claim.user.username ?? claim.user.id,
+                                    })}
+                                    className="flex items-center gap-2 rounded-md px-2 py-1.5 transition-colors hover:bg-muted"
+                                  >
+                                    <Avatar className="size-6">
+                                      <AvatarImage
+                                        src={claim.user.image ?? undefined}
+                                      />
+                                      <AvatarFallback className="text-[10px]">
+                                        {claim.user.name.charAt(0)}
+                                      </AvatarFallback>
+                                    </Avatar>
+                                    <div className="min-w-0 flex-1">
+                                      <div className="truncate text-xs font-medium">
+                                        {claim.user.name}
+                                      </div>
+                                      {claim.user.username && (
+                                        <div className="truncate text-[10px] text-muted-foreground">
+                                          @{claim.user.username}
+                                        </div>
+                                      )}
+                                    </div>
+                                    {claim.status === ClaimStatus.ACTIVE && (
+                                      <span className="shrink-0 rounded-full bg-primary/10 px-1.5 py-0.5 text-[10px] font-medium text-primary">
+                                        Active
+                                      </span>
+                                    )}
+                                  </Link>
+                                ))}
+                              </div>
+                            </div>
+                          </PopoverContent>
+                        </Popover>
+                      )}
+                    </div>
+                    <div className="flex flex-wrap gap-2">
+                      {claimants.map((user) => (
+                        <Link
+                          key={user.id}
+                          href={routes.user.profile({
+                            username: user.username ?? user.id,
+                          })}
+                          className="flex items-center gap-1.5 rounded-md px-1.5 py-0.5 transition-colors hover:bg-muted"
+                        >
+                          <Avatar className="size-5">
+                            <AvatarImage src={user.image ?? undefined} />
+                            <AvatarFallback className="text-[9px]">
+                              {user.name.charAt(0)}
+                            </AvatarFallback>
+                          </Avatar>
+                          <span className="text-xs">{user.name}</span>
+                        </Link>
+                      ))}
+                      {bounty.claims.length > 3 && !approvedSubmission && (
+                        <span className="flex items-center text-xs text-muted-foreground">
+                          +{bounty.claims.length - 3} more
+                        </span>
+                      )}
+                    </div>
                   </div>
-                )}
-              </div>
+                )
+              })()}
 
               {/* Labels */}
               <div className="space-y-2 py-1">

@@ -16,8 +16,12 @@ import {
   isProjectSlugAvailable,
   validateProjectSlug,
 } from '@/lib/project-slug/server'
-import { protectedProcedure, publicProcedure, router } from '@/server/trpc'
-import { TRPCError } from '@trpc/server'
+import {
+  protectedProcedure,
+  publicProcedure,
+  router,
+  userError,
+} from '@/server/trpc'
 import { z } from 'zod/v4'
 
 // Validation schemas
@@ -208,12 +212,12 @@ export const projectRouter = router({
       })
 
       if (!project) {
-        throw new TRPCError({ code: 'NOT_FOUND', message: 'Project not found' })
+        throw userError('NOT_FOUND', 'Project not found')
       }
 
       // Only return public projects or projects owned by the current user
       if (!project.isPublic && project.founderId !== ctx.user?.id) {
-        throw new TRPCError({ code: 'NOT_FOUND', message: 'Project not found' })
+        throw userError('NOT_FOUND', 'Project not found')
       }
 
       // Check if reward pool can be edited (no claimed or completed bounties)
@@ -316,28 +320,22 @@ export const projectRouter = router({
       // Validate slug format (admins can use reserved slugs)
       const validation = validateProjectSlug(input.slug, userEmail)
       if (!validation.isValid) {
-        throw new TRPCError({
-          code: 'BAD_REQUEST',
-          message: validation.error || 'Invalid slug',
-        })
+        throw userError('BAD_REQUEST', validation.error || 'Invalid slug')
       }
 
       // Check if slug is available
       const available = await isProjectSlugAvailable(input.slug, { userEmail })
       if (!available) {
-        throw new TRPCError({
-          code: 'CONFLICT',
-          message: 'This slug is already taken',
-        })
+        throw userError('CONFLICT', 'This slug is already taken')
       }
 
       // Validate project key
       const keyValidation = validateProjectKey(input.projectKey)
       if (!keyValidation.isValid) {
-        throw new TRPCError({
-          code: 'BAD_REQUEST',
-          message: keyValidation.error || 'Invalid project key',
-        })
+        throw userError(
+          'BAD_REQUEST',
+          keyValidation.error || 'Invalid project key',
+        )
       }
 
       // Check key availability (unique per founder)
@@ -346,10 +344,10 @@ export const projectRouter = router({
         input.projectKey,
       )
       if (!keyAvailable) {
-        throw new TRPCError({
-          code: 'CONFLICT',
-          message: 'This project key is already used by one of your projects',
-        })
+        throw userError(
+          'CONFLICT',
+          'This project key is already used by one of your projects',
+        )
       }
 
       // Calculate commitment end date
@@ -415,32 +413,23 @@ export const projectRouter = router({
       })
 
       if (!project) {
-        throw new TRPCError({ code: 'NOT_FOUND', message: 'Project not found' })
+        throw userError('NOT_FOUND', 'Project not found')
       }
 
       if (project.founderId !== ctx.user.id) {
-        throw new TRPCError({
-          code: 'FORBIDDEN',
-          message: 'You do not own this project',
-        })
+        throw userError('FORBIDDEN', 'You do not own this project')
       }
 
       // If slug is being changed, validate it
       if (slug && slug !== project.slug) {
         const validation = validateProjectSlug(slug, userEmail)
         if (!validation.isValid) {
-          throw new TRPCError({
-            code: 'BAD_REQUEST',
-            message: validation.error || 'Invalid slug',
-          })
+          throw userError('BAD_REQUEST', validation.error || 'Invalid slug')
         }
 
         const available = await isProjectSlugAvailable(slug, { userEmail })
         if (!available) {
-          throw new TRPCError({
-            code: 'CONFLICT',
-            message: 'This slug is already taken',
-          })
+          throw userError('CONFLICT', 'This slug is already taken')
         }
       }
 
@@ -448,10 +437,10 @@ export const projectRouter = router({
       if (projectKey) {
         const keyValidation = validateProjectKey(projectKey)
         if (!keyValidation.isValid) {
-          throw new TRPCError({
-            code: 'BAD_REQUEST',
-            message: keyValidation.error || 'Invalid project key',
-          })
+          throw userError(
+            'BAD_REQUEST',
+            keyValidation.error || 'Invalid project key',
+          )
         }
 
         const keyAvailable = await isProjectKeyAvailable(
@@ -462,10 +451,10 @@ export const projectRouter = router({
           },
         )
         if (!keyAvailable) {
-          throw new TRPCError({
-            code: 'CONFLICT',
-            message: 'This project key is already used by one of your projects',
-          })
+          throw userError(
+            'CONFLICT',
+            'This project key is already used by one of your projects',
+          )
         }
       }
 
@@ -487,11 +476,10 @@ export const projectRouter = router({
         })
 
         if (claimedOrCompletedCount > 0) {
-          throw new TRPCError({
-            code: 'FORBIDDEN',
-            message:
-              'Cannot update reward pool settings when bounties have been claimed or completed',
-          })
+          throw userError(
+            'FORBIDDEN',
+            'Cannot update reward pool settings when bounties have been claimed or completed',
+          )
         }
       }
 
@@ -560,10 +548,7 @@ export const projectRouter = router({
       })
 
       if (!project || !project.rewardPool) {
-        throw new TRPCError({
-          code: 'NOT_FOUND',
-          message: 'Project or reward pool not found',
-        })
+        throw userError('NOT_FOUND', 'Project or reward pool not found')
       }
 
       // Calculate allocated points (sum of all active bounty points)
@@ -611,30 +596,27 @@ export const projectRouter = router({
       })
 
       if (!project) {
-        throw new TRPCError({ code: 'NOT_FOUND', message: 'Project not found' })
+        throw userError('NOT_FOUND', 'Project not found')
       }
 
       if (project.founderId !== ctx.user.id) {
-        throw new TRPCError({
-          code: 'FORBIDDEN',
-          message: 'Only the founder can expand pool capacity',
-        })
+        throw userError(
+          'FORBIDDEN',
+          'Only the founder can expand pool capacity',
+        )
       }
 
       if (!project.rewardPool) {
-        throw new TRPCError({
-          code: 'BAD_REQUEST',
-          message: 'Project has no reward pool',
-        })
+        throw userError('BAD_REQUEST', 'Project has no reward pool')
       }
 
       const previousCapacity = project.rewardPool.poolCapacity
 
       if (input.newCapacity <= previousCapacity) {
-        throw new TRPCError({
-          code: 'BAD_REQUEST',
-          message: 'New capacity must be greater than current capacity',
-        })
+        throw userError(
+          'BAD_REQUEST',
+          'New capacity must be greater than current capacity',
+        )
       }
 
       // Calculate dilution percentage

@@ -249,6 +249,8 @@ export function SubmissionDetailContent() {
         submissionId: submission.id,
         content: messageContent,
       })
+    } catch {
+      // Error is handled by onError callback
     } finally {
       setIsSending(false)
     }
@@ -271,6 +273,8 @@ export function SubmissionDetailContent() {
         })
         setShowReviewPopover(false)
         setReviewNote('')
+      } catch {
+        // Error is handled by onError callback
       } finally {
         setIsSending(false)
       }
@@ -288,6 +292,8 @@ export function SubmissionDetailContent() {
             ? (submission.bounty.points ?? undefined)
             : undefined,
       })
+    } catch {
+      // Error is handled by onError callback
     } finally {
       setIsSending(false)
     }
@@ -302,6 +308,8 @@ export function SubmissionDetailContent() {
         action: 'reject',
         note: reviewNote || undefined,
       })
+    } catch {
+      // Error is handled by onError callback
     } finally {
       setIsSending(false)
     }

@@ -22,13 +22,6 @@ type OpenGraphImageProps = {
   badge?: string | null
 }
 
-// Base URL for assets - use environment variable or fallback
-const getBaseUrl = () => {
-  if (process.env.VERCEL_URL) return `https://${process.env.VERCEL_URL}`
-  if (process.env.NEXT_PUBLIC_APP_URL) return process.env.NEXT_PUBLIC_APP_URL
-  return 'http://localhost:3050'
-}
-
 // Generate static particle positions for consistent output
 function generateParticles(
   width: number,
@@ -57,7 +50,6 @@ export async function OpenGraphImage({
   description,
   badge,
 }: OpenGraphImageProps): Promise<ImageResponse> {
-  const baseUrl = getBaseUrl()
   const particles = generateParticles(size.width, size.height, 50)
 
   // Fetch Geist fonts
@@ -131,10 +123,15 @@ export async function OpenGraphImage({
         {/* Logo - using correct aspect ratios: mark=48x36, text=94x45 */}
         <div style={{ display: 'flex', alignItems: 'center', gap: '16px' }}>
           {/* eslint-disable-next-line @next/next/no-img-element */}
-          <img src={`${baseUrl}/logo-mark.svg`} alt="" width={80} height={60} />
+          <img
+            src="https://assets.shippy.sh/logos/logo-mark.svg"
+            alt=""
+            width={80}
+            height={60}
+          />
           {/* eslint-disable-next-line @next/next/no-img-element */}
           <img
-            src={`${baseUrl}/logo-text.svg`}
+            src="https://assets.shippy.sh/logos/logo-text.svg"
             alt="Shippy"
             width={160}
             height={77}

@@ -389,9 +389,10 @@ model Payout {
   periodLabel String // e.g., "December 2024", "Q4 2024"
 
   // Financials (all in cents to avoid floating point issues)
-  reportedProfitCents  Int // Profit/revenue reported by founder
-  poolAmountCents      Int // Pool amount (profit * pool %)
-  platformFeeCents     Int // Platform fee (pool * platform %)
+  // Using BigInt for cents to support amounts up to ~$92 quadrillion
+  reportedProfitCents  BigInt // Profit/revenue reported by founder
+  poolAmountCents      BigInt // Pool amount (profit * pool %)
+  platformFeeCents     BigInt // Platform fee (pool * platform %)
   totalPointsAtPayout  Int // Total earned points at time of payout (for calculating shares)
   poolCapacityAtPayout Int // Pool capacity at time of payout (for calculating utilization)
 
@@ -422,7 +423,7 @@ model PayoutRecipient {
   // Share calculation
   pointsAtPayout Int // Points this user had at payout time
   sharePercent   Decimal  @db.Decimal(5, 2) // Percentage of pool (e.g., 25.50)
-  amountCents    Int // Amount in cents
+  amountCents    BigInt // Amount in cents (BigInt to handle large payouts)
 
   // Payment tracking (founder marks as paid)
   paidAt   DateTime? @db.Timestamptz(3) // When founder marked this recipient as paid

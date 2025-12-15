@@ -125,8 +125,10 @@ async function getProject(slug: string) {
   const contributorCount = uniqueContributorIds.size
 
   // Total paid out = sum of actual amounts distributed to contributors
+  // Note: amountCents is BigInt from DB, convert to Number for arithmetic
   const totalPaidOutCents = project.payouts.reduce(
-    (sum, p) => sum + p.recipients.reduce((rSum, r) => rSum + r.amountCents, 0),
+    (sum, p) =>
+      sum + p.recipients.reduce((rSum, r) => rSum + Number(r.amountCents), 0),
     0,
   )
 

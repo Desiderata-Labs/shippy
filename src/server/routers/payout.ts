@@ -6,14 +6,74 @@ import {
   SubmissionStatus,
 } from '@/lib/db/types'
 import { nanoId } from '@/lib/nanoid/zod'
+import { createNotifications } from './notification'
 import {
   protectedProcedure,
   publicProcedure,
   router,
   userError,
 } from '@/server/trpc'
-import { createNotifications } from './notification'
 import { z } from 'zod/v4'
+
+// Helper to convert BigInt cents fields to numbers for client-side arithmetic
+// BigInt is used in DB to support large amounts, but JS arithmetic needs Number
+type SerializeRecipient<T> = T extends { amountCents: bigint }
+  ? Omit<T, 'amountCents'> & { amountCents: number }
+  : T
+
+type SerializePayout<T> = T extends {
+  reportedProfitCents: bigint
+  poolAmountCents: bigint
+  platformFeeCents: bigint
+}
+  ? Omit<
+      T,
+      | 'reportedProfitCents'
+      | 'poolAmountCents'
+      | 'platformFeeCents'
+      | 'recipients'
+    > & {
+      reportedProfitCents: number
+      poolAmountCents: number
+      platformFeeCents: number
+    } & (T extends { recipients: Array<infer R> }
+        ? { recipients: Array<SerializeRecipient<R>> }
+        : object)
+  : T
+
+function serializePayout<
+  T extends {
+    reportedProfitCents: bigint
+    poolAmountCents: bigint
+    platformFeeCents: bigint
+    recipients?: Array<{ amountCents: bigint }>
+  },
+>(payout: T): SerializePayout<T> {
+  const result = {
+    ...payout,
+    reportedProfitCents: Number(payout.reportedProfitCents),
+    poolAmountCents: Number(payout.poolAmountCents),
+    platformFeeCents: Number(payout.platformFeeCents),
+  }
+  if ('recipients' in payout && Array.isArray(payout.recipients)) {
+    ;(result as { recipients: unknown[] }).recipients = payout.recipients.map(
+      (r) => ({
+        ...r,
+        amountCents: Number(r.amountCents),
+      }),
+    )
+  }
+  return result as SerializePayout<T>
+}
+
+function serializeRecipient<T extends { amountCents: bigint }>(
+  recipient: T,
+): Omit<T, 'amountCents'> & { amountCents: number } {
+  return {
+    ...recipient,
+    amountCents: Number(recipient.amountCents),
+  }
+}
 
 // Validation schemas
 const createPayoutSchema = z.object({
@@ -85,7 +145,7 @@ export const payoutRouter = router({
         throw userError('NOT_FOUND', 'Payout not found')
       }
 
-      return payout
+      return serializePayout(payout)
     }),
 
   /**
@@ -108,7 +168,7 @@ export const payoutRouter = router({
 
       // Return payouts with recipient info
       // Note: In the future, we may want to filter amounts based on user role
-      return payouts
+      return payouts.map(serializePayout)
     }),
 
   /**
@@ -126,7 +186,8 @@ export const payoutRouter = router({
 
       const totalPaidOutCents = payouts.reduce(
         (sum, p) =>
-          sum + p.recipients.reduce((rSum, r) => rSum + r.amountCents, 0),
+          sum +
+          p.recipients.reduce((rSum, r) => rSum + Number(r.amountCents), 0),
         0,
       )
       const totalPayouts = payouts.length
@@ -149,7 +210,7 @@ export const payoutRouter = router({
         latestPayout: latestPayout
           ? {
               periodLabel: latestPayout.periodLabel,
-              poolAmountCents: latestPayout.poolAmountCents,
+              poolAmountCents: Number(latestPayout.poolAmountCents),
               status: latestPayout.status,
             }
           : null,
@@ -355,7 +416,7 @@ export const payoutRouter = router({
         console.error('Failed to create payout announced notifications:', err)
       })
 
-      return payout
+      return serializePayout(payout)
     }),
 
   /**
@@ -377,7 +438,7 @@ export const payoutRouter = router({
         throw userError('FORBIDDEN', 'Access denied')
       }
 
-      return ctx.prisma.payout.update({
+      const updated = await ctx.prisma.payout.update({
         where: { id: input.payoutId },
         data: {
           status: PayoutStatus.SENT,
@@ -385,6 +446,7 @@ export const payoutRouter = router({
           sentNote: input.note,
         },
       })
+      return serializePayout(updated)
     }),
 
   /**
@@ -451,7 +513,7 @@ export const payoutRouter = router({
         })
       }
 
-      return updated
+      return serializeRecipient(updated)
     }),
 
   /**
@@ -512,7 +574,7 @@ export const payoutRouter = router({
       }
 
       // Update payout status
-      return ctx.prisma.payout.update({
+      const updatedPayout = await ctx.prisma.payout.update({
         where: { id: input.payoutId },
         data: {
           status: PayoutStatus.SENT,
@@ -520,6 +582,7 @@ export const payoutRouter = router({
           sentNote: input.note,
         },
       })
+      return serializePayout(updatedPayout)
     }),
 
   /**
@@ -575,14 +638,14 @@ export const payoutRouter = router({
         console.error('Failed to create payout confirmation notification:', err)
       })
 
-      return updated
+      return serializeRecipient(updated)
     }),
 
   /**
    * Get payouts where current user is a recipient
    */
   myPayouts: protectedProcedure.query(async ({ ctx }) => {
-    return ctx.prisma.payoutRecipient.findMany({
+    const recipients = await ctx.prisma.payoutRecipient.findMany({
       where: { userId: ctx.user.id },
       orderBy: { payout: { periodEnd: 'desc' } },
       include: {
@@ -593,6 +656,11 @@ export const payoutRouter = router({
         },
       },
     })
+    // Serialize BigInt fields for client consumption
+    return recipients.map((r) => ({
+      ...serializeRecipient(r),
+      payout: serializePayout(r.payout),
+    }))
   }),
 })
 

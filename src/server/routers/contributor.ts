@@ -67,7 +67,7 @@ export const contributorRouter = router({
       for (const recipient of payoutRecipients) {
         const contributor = contributorMap.get(recipient.userId)
         if (contributor) {
-          contributor.lifetimeEarningsCents += recipient.amountCents
+          contributor.lifetimeEarningsCents += Number(recipient.amountCents)
         }
       }
 
@@ -161,7 +161,7 @@ export const contributorRouter = router({
       const existing = projectMap.get(projectId)
       if (existing) {
         if (recipient.status === PayoutRecipientStatus.CONFIRMED) {
-          existing.lifetimeEarningsCents += recipient.amountCents
+          existing.lifetimeEarningsCents += Number(recipient.amountCents)
         } else if (recipient.status === PayoutRecipientStatus.PENDING) {
           existing.pendingPayouts += 1
         }
@@ -183,8 +183,17 @@ export const contributorRouter = router({
       0,
     )
 
-    // Recent payouts
-    const recentPayouts = payoutRecipients.slice(0, 5)
+    // Recent payouts - serialize BigInt fields for client consumption
+    const recentPayouts = payoutRecipients.slice(0, 5).map((r) => ({
+      ...r,
+      amountCents: Number(r.amountCents),
+      payout: {
+        ...r.payout,
+        reportedProfitCents: Number(r.payout.reportedProfitCents),
+        poolAmountCents: Number(r.payout.poolAmountCents),
+        platformFeeCents: Number(r.payout.platformFeeCents),
+      },
+    }))
 
     return {
       projects,

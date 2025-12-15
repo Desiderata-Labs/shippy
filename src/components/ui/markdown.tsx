@@ -4,6 +4,7 @@ import React, { memo, useState } from 'react'
 import ReactMarkdown, { type Components } from 'react-markdown'
 import Image from 'next/image'
 import { cn } from '@/lib/utils'
+import { Checkbox } from '@/components/ui/checkbox'
 import { AppButton } from '../app/app-button'
 import rehypeRaw from 'rehype-raw'
 import remarkGfm from 'remark-gfm'
@@ -51,16 +52,110 @@ const components: Partial<Components> = {
       {children}
     </ol>
   ),
-  ul: ({ children, ...props }) => (
-    <ul className="ml-4 list-outside list-disc" {...props}>
-      {children}
-    </ul>
-  ),
-  li: ({ children, ...props }) => (
-    <li className="py-1" {...props}>
-      {children}
-    </li>
-  ),
+  ul: ({ children, className, ...props }) => {
+    // Check if this is a task list (contains checkboxes)
+    const isTaskList = className?.includes('contains-task-list')
+
+    return (
+      <ul
+        className={cn(
+          'ml-4 list-outside',
+          isTaskList ? 'list-none' : 'list-disc',
+        )}
+        {...props}
+      >
+        {children}
+      </ul>
+    )
+  },
+  li: ({ children, className, node, ...props }) => {
+    // Check if this is a task list item (contains checkbox input)
+    const isTaskItem = className?.includes('task-list-item')
+
+    if (isTaskItem) {
+      // Check if the checkbox is checked by looking at the input node
+      // eslint-disable-next-line @typescript-eslint/no-explicit-any
+      const nodeChildren = (node as any)?.children as any[] | undefined
+      const inputNode = nodeChildren?.find((child) => child.tagName === 'input')
+      const isChecked = inputNode?.properties?.checked === true
+
+      // Separate checkbox from text content
+      const childArray = React.Children.toArray(children)
+      const checkbox = childArray[0] // The Checkbox component
+      const textContent = childArray.slice(1) // Everything after checkbox
+
+      return (
+        <li
+          className={cn(
+            'my-0! flex list-none items-center gap-2 py-0!',
+            className,
+          )}
+          {...props}
+        >
+          {checkbox}
+          <span
+            className={isChecked ? 'text-muted-foreground line-through' : ''}
+          >
+            {textContent}
+          </span>
+        </li>
+      )
+    }
+
+    // Also check for literal [ ] or [x] text patterns that weren't parsed as task items
+    // This can happen when markdown export doesn't include the - prefix
+    const childArray = React.Children.toArray(children)
+    const firstChild = childArray[0]
+    if (
+      typeof firstChild === 'string' &&
+      (firstChild.startsWith('[ ]') || firstChild.startsWith('[x]'))
+    ) {
+      const isChecked = firstChild.startsWith('[x]')
+      const textContent = firstChild.slice(3).trim() // Remove [ ] or [x] prefix
+      const restChildren = childArray.slice(1)
+
+      return (
+        <li
+          className={cn(
+            '!my-0 !flex !list-none !items-center !gap-2 !py-0',
+            className,
+          )}
+          {...props}
+        >
+          <Checkbox
+            checked={isChecked}
+            disabled
+            className="shrink-0 cursor-default disabled:opacity-100"
+          />
+          <span
+            className={isChecked ? 'text-muted-foreground line-through' : ''}
+          >
+            {textContent}
+            {restChildren}
+          </span>
+        </li>
+      )
+    }
+
+    return (
+      <li className={cn('my-0! py-0!', className)} {...props}>
+        {children}
+      </li>
+    )
+  },
+  // Style task list checkbox inputs using shadcn Checkbox
+  input: ({ type, checked }) => {
+    if (type === 'checkbox') {
+      return (
+        <Checkbox
+          checked={checked}
+          disabled
+          className="shrink-0 cursor-default disabled:opacity-100"
+        />
+      )
+    }
+    return <input type={type} />
+  },
   strong: ({ children, ...props }) => (
     <span className="font-semibold" {...props}>
       {children}

@@ -1,0 +1,94 @@
+/**
+ * Lexical Editor Styles
+ * Checklist styles matching shadcn/ui checkbox component
+ * @see https://github.com/facebook/lexical/blob/main/packages/lexical-playground/src/themes/PlaygroundEditorTheme.css
+ */
+
+/* Checklist items */
+.lexical-listitem-checked,
+.lexical-listitem-unchecked {
+  position: relative;
+  margin-left: 0.5em;
+  margin-right: 0.5em;
+  padding-left: 1.75em;
+  padding-right: 0.5em;
+  list-style-type: none;
+  outline: none;
+  display: block;
+  min-height: 1.5em;
+}
+
+.lexical-listitem-checked > *,
+.lexical-listitem-unchecked > * {
+  margin-left: 0.01em;
+}
+
+/* Checkbox base - matches shadcn size-4 (16px) with rounded-[4px] */
+.lexical-listitem-unchecked:before,
+.lexical-listitem-checked:before {
+  content: '';
+  width: 1rem;
+  height: 1rem;
+  top: 50%;
+  left: 0;
+  cursor: pointer;
+  display: block;
+  position: absolute;
+  transform: translateY(-50%);
+  border-radius: 4px;
+  border: 1px solid var(--input);
+  background-color: transparent;
+  box-shadow: 0 1px 2px 0 rgb(0 0 0 / 0.05);
+  transition: box-shadow 0.15s ease;
+}
+
+/* Dark mode unchecked background */
+.dark .lexical-listitem-unchecked:before {
+  background-color: color-mix(in oklch, var(--input) 30%, transparent);
+}
+
+/* Checked item text style */
+.lexical-listitem-checked {
+  text-decoration: line-through;
+  color: var(--muted-foreground);
+}
+
+/* Focus state - matches shadcn focus-visible:ring-[3px] */
+.lexical-listitem-unchecked:focus:before,
+.lexical-listitem-checked:focus:before {
+  border-color: var(--ring);
+  box-shadow: 0 0 0 3px color-mix(in oklch, var(--ring) 50%, transparent);
+}
+
+/* Checked checkbox - matches shadcn data-[state=checked] styles */
+.lexical-listitem-checked:before {
+  border-color: var(--primary);
+  background-color: var(--primary);
+}
+
+/* Checkmark icon using CSS - centered in 1rem (16px) box */
+.lexical-listitem-checked:after {
+  content: '';
+  cursor: pointer;
+  position: absolute;
+  display: block;
+  /* Position checkmark in center of checkbox */
+  top: 50%;
+  left: 0.5rem; /* Half of 1rem to center */
+  width: 0.3rem;
+  height: 0.5rem;
+  transform: translate(-50%, -60%) rotate(45deg);
+  border-style: solid;
+  border-color: var(--primary-foreground);
+  border-width: 0 2px 2px 0;
+}
+
+/* Nested list items in checklists */
+.lexical-nested-listitem {
+  list-style-type: none;
+}
+
+.lexical-nested-listitem:before,
+.lexical-nested-listitem:after {
+  display: none;
+}

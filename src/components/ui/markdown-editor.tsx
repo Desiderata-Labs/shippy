@@ -5,6 +5,7 @@ import {
   AutoLinkPlugin,
   createLinkMatcherWithRegExp,
 } from '@lexical/react/LexicalAutoLinkPlugin'
+import { CheckListPlugin } from '@lexical/react/LexicalCheckListPlugin'
 import { LexicalComposer } from '@lexical/react/LexicalComposer'
 import { useLexicalComposerContext } from '@lexical/react/LexicalComposerContext'
 import { ContentEditable } from '@lexical/react/LexicalContentEditable'
@@ -15,8 +16,10 @@ import { ListPlugin } from '@lexical/react/LexicalListPlugin'
 import { MarkdownShortcutPlugin } from '@lexical/react/LexicalMarkdownShortcutPlugin'
 import { OnChangePlugin } from '@lexical/react/LexicalOnChangePlugin'
 import { RichTextPlugin } from '@lexical/react/LexicalRichTextPlugin'
+import { TabIndentationPlugin } from '@lexical/react/LexicalTabIndentationPlugin'
 import { useCallback, useEffect, useRef } from 'react'
 import { cn } from '@/lib/utils'
+import { FloatingToolbar } from '@/components/ui/floating-toolbar'
 import { CodeHighlightNode, CodeNode } from '@lexical/code'
 import {
   $createHorizontalRuleNode,
@@ -28,6 +31,7 @@ import { ListItemNode, ListNode } from '@lexical/list'
 import {
   $convertFromMarkdownString,
   $convertToMarkdownString,
+  CHECK_LIST,
   ELEMENT_TRANSFORMERS,
   type ElementTransformer,
   MULTILINE_ELEMENT_TRANSFORMERS,
@@ -74,13 +78,13 @@ const editorTheme = {
   },
   list: {
     nested: {
-      listitem: 'list-none',
+      listitem: 'lexical-nested-listitem',
     },
     ol: 'pl-5 my-2 list-decimal',
     ul: 'pl-5 my-2 list-disc',
     listitem: 'my-1',
-    listitemChecked: 'line-through',
-    listitemUnchecked: '',
+    listitemChecked: 'lexical-listitem-checked',
+    listitemUnchecked: 'lexical-listitem-unchecked',
   },
   link: 'text-primary underline hover:text-primary/80 cursor-pointer',
   quote: 'border-l-4 border-muted px-4 py-2 my-2 text-muted-foreground',
@@ -111,6 +115,7 @@ const HR: ElementTransformer = {
 
 const markdownTransformers: Array<Transformer> = [
   HR,
+  CHECK_LIST,
   ...ELEMENT_TRANSFORMERS,
   ...MULTILINE_ELEMENT_TRANSFORMERS,
   ...TEXT_FORMAT_TRANSFORMERS,
@@ -384,9 +389,12 @@ export function MarkdownEditor({
         <HistoryPlugin />
         {autoFocus && <AutoFocusPlugin />}
         <ListPlugin />
+        <CheckListPlugin />
+        <TabIndentationPlugin />
         <LinkPlugin />
         <AutoLinkPlugin matchers={LINK_MATCHERS} />
         <ClickableLinkPlugin />
+        <FloatingToolbar />
         <MarkdownShortcutPlugin transformers={markdownTransformers} />
         <OnChangePlugin onChange={handleChange} ignoreSelectionChange />
         <SyncPlugin value={value} initialValueRef={initialValueRef} />

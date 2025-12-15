@@ -1,6 +1,7 @@
 import { bountyRouter } from './bounty'
 import { contributorRouter } from './contributor'
 import { labelRouter } from './label'
+import { mcpTokenRouter } from './mcp-token'
 import { notificationRouter } from './notification'
 import { payoutRouter } from './payout'
 import { projectRouter } from './project'
@@ -17,6 +18,7 @@ export const appRouter = router({
   contributor: contributorRouter,
   user: userRouter,
   notification: notificationRouter,
+  mcpToken: mcpTokenRouter,
 })
 
 export type AppRouter = typeof appRouter

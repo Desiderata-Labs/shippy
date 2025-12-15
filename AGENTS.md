@@ -21,6 +21,10 @@ See `prds/shippy.md` for the complete product specification, including:
 - MVP vs Later phases (Section 10)
 - Risks, Legal & Trust considerations (Section 12)
 
+## Domain
+
+https://shippy.sh
+
 ## Team
 
 - CEO / CTO: Rob Phillips

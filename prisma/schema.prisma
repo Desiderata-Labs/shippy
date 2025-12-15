@@ -36,6 +36,7 @@ model User {
   notifications       Notification[]       @relation("NotificationRecipient")
   actedNotifications  Notification[]       @relation("NotificationActor")
   threadSubscriptions ThreadSubscription[]
+  mcpAccessTokens     McpAccessToken[]
 
   @@index([username])
   @@map("user")
@@ -497,4 +498,30 @@ model ThreadSubscription {
   @@unique([userId, referenceType, referenceId])
   @@index([userId])
   @@map("thread_subscription")
+}
+
+// ================================
+// MCP Access Tokens
+// ================================
+
+/// Personal access tokens for MCP (Model Context Protocol) clients like Cursor
+model McpAccessToken {
+  id     String @id @default(dbgenerated("nanoid()"))
+  userId String
+  user   User   @relation(fields: [userId], references: [id], onDelete: Cascade)
+
+  // Token details (stored hashed, prefixed with "shp_" in raw form)
+  tokenHash String @unique // SHA-256 hash of the token
+  name      String // User-provided label (e.g., "Cursor on MacBook")
+
+  // Usage tracking
+  lastUsedAt DateTime? @db.Timestamptz(3)
+
+  // Optional expiration
+  expiresAt DateTime? @db.Timestamptz(3)
+
+  createdAt DateTime @default(now()) @db.Timestamptz(3)
+
+  @@index([userId])
+  @@map("mcp_access_token")
 }

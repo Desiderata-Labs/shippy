@@ -235,6 +235,20 @@ export const submissionRouter = router({
         data: { status: ClaimStatus.SUBMITTED },
       })
 
+      // Notify founder about new submission (if not draft)
+      if (!input.isDraft) {
+        createNotifications({
+          prisma: ctx.prisma,
+          type: NotificationType.SUBMISSION_CREATED,
+          referenceType: NotificationReferenceType.SUBMISSION,
+          referenceId: submission.id,
+          actorId: ctx.user.id,
+          recipientIds: [bounty.project.founderId],
+        }).catch((err) => {
+          console.error('Failed to create submission notification:', err)
+        })
+      }
+
       return submission
     }),
 
@@ -469,6 +483,18 @@ export const submissionRouter = router({
             })
           }
 
+          // Notify contributor about approval
+          createNotifications({
+            prisma: ctx.prisma,
+            type: NotificationType.SUBMISSION_APPROVED,
+            referenceType: NotificationReferenceType.SUBMISSION,
+            referenceId: submission.id,
+            actorId: ctx.user.id,
+            recipientIds: [submission.userId],
+          }).catch((err) => {
+            console.error('Failed to create approval notification:', err)
+          })
+
           break
         }
 
@@ -494,6 +520,18 @@ export const submissionRouter = router({
             },
           })
 
+          // Notify contributor about rejection
+          createNotifications({
+            prisma: ctx.prisma,
+            type: NotificationType.SUBMISSION_REJECTED,
+            referenceType: NotificationReferenceType.SUBMISSION,
+            referenceId: submission.id,
+            actorId: ctx.user.id,
+            recipientIds: [submission.userId],
+          }).catch((err) => {
+            console.error('Failed to create rejection notification:', err)
+          })
+
           break
         }
 
@@ -513,6 +551,18 @@ export const submissionRouter = router({
               toStatus: SubmissionStatus.NEEDS_INFO,
               note: input.note,
             },
+          })
+
+          // Notify contributor about info request
+          createNotifications({
+            prisma: ctx.prisma,
+            type: NotificationType.SUBMISSION_NEEDS_INFO,
+            referenceType: NotificationReferenceType.SUBMISSION,
+            referenceId: submission.id,
+            actorId: ctx.user.id,
+            recipientIds: [submission.userId],
+          }).catch((err) => {
+            console.error('Failed to create needs info notification:', err)
           })
 
           break

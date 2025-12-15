@@ -514,6 +514,18 @@ export const bountyRouter = router({
         })
       }
 
+      // Notify founder about the claim
+      createNotifications({
+        prisma: ctx.prisma,
+        type: NotificationType.BOUNTY_CLAIMED,
+        referenceType: NotificationReferenceType.BOUNTY,
+        referenceId: input.bountyId,
+        actorId: ctx.user.id,
+        recipientIds: [bounty.project.founderId],
+      }).catch((err) => {
+        console.error('Failed to create claim notification:', err)
+      })
+
       return claim
     }),
 

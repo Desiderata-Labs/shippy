@@ -1,4 +1,6 @@
 import {
+  NotificationReferenceType,
+  NotificationType,
   PayoutRecipientStatus,
   PayoutStatus,
   SubmissionStatus,
@@ -10,6 +12,7 @@ import {
   router,
   userError,
 } from '@/server/trpc'
+import { createNotifications } from './notification'
 import { z } from 'zod/v4'
 
 // Validation schemas
@@ -339,6 +342,19 @@ export const payoutRouter = router({
         },
       })
 
+      // Notify all recipients about the payout announcement
+      const recipientIds = payout.recipients.map((r) => r.userId)
+      createNotifications({
+        prisma: ctx.prisma,
+        type: NotificationType.PAYOUT_ANNOUNCED,
+        referenceType: NotificationReferenceType.PAYOUT,
+        referenceId: payout.id,
+        actorId: ctx.user.id,
+        recipientIds,
+      }).catch((err) => {
+        console.error('Failed to create payout announced notifications:', err)
+      })
+
       return payout
     }),
 
@@ -405,6 +421,18 @@ export const payoutRouter = router({
         },
       })
 
+      // Notify recipient that their payout has been sent
+      createNotifications({
+        prisma: ctx.prisma,
+        type: NotificationType.PAYOUT_SENT,
+        referenceType: NotificationReferenceType.PAYOUT,
+        referenceId: recipient.payoutId,
+        actorId: ctx.user.id,
+        recipientIds: [recipient.userId],
+      }).catch((err) => {
+        console.error('Failed to create payout sent notification:', err)
+      })
+
       // Check if all recipients are now paid, update payout status if so
       const unpaidCount = await ctx.prisma.payoutRecipient.count({
         where: {
@@ -447,6 +475,15 @@ export const payoutRouter = router({
 
       const now = new Date()
 
+      // Get recipient IDs before updating (for notifications)
+      const unpaidRecipients = await ctx.prisma.payoutRecipient.findMany({
+        where: {
+          payoutId: input.payoutId,
+          paidAt: null,
+        },
+        select: { userId: true },
+      })
+
       // Update all unpaid recipients
       await ctx.prisma.payoutRecipient.updateMany({
         where: {
@@ -458,6 +495,21 @@ export const payoutRouter = router({
           paidNote: input.note,
         },
       })
+
+      // Notify all recipients that their payout has been sent
+      const recipientIds = unpaidRecipients.map((r) => r.userId)
+      if (recipientIds.length > 0) {
+        createNotifications({
+          prisma: ctx.prisma,
+          type: NotificationType.PAYOUT_SENT,
+          referenceType: NotificationReferenceType.PAYOUT,
+          referenceId: input.payoutId,
+          actorId: ctx.user.id,
+          recipientIds,
+        }).catch((err) => {
+          console.error('Failed to create payout sent notifications:', err)
+        })
+      }
 
       // Update payout status
       return ctx.prisma.payout.update({
@@ -481,6 +533,11 @@ export const payoutRouter = router({
           payoutId: input.payoutId,
           userId: ctx.user.id,
         },
+        include: {
+          payout: {
+            include: { project: { select: { founderId: true } } },
+          },
+        },
       })
 
       if (!recipient) {
@@ -489,7 +546,7 @@ export const payoutRouter = router({
 
       const now = new Date()
 
-      return ctx.prisma.payoutRecipient.update({
+      const updated = await ctx.prisma.payoutRecipient.update({
         where: { id: recipient.id },
         data: input.confirmed
           ? {
@@ -503,6 +560,22 @@ export const payoutRouter = router({
               disputeReason: input.disputeReason,
             },
       })
+
+      // Notify founder about confirmation or dispute
+      createNotifications({
+        prisma: ctx.prisma,
+        type: input.confirmed
+          ? NotificationType.PAYOUT_CONFIRMED
+          : NotificationType.PAYOUT_DISPUTED,
+        referenceType: NotificationReferenceType.PAYOUT,
+        referenceId: input.payoutId,
+        actorId: ctx.user.id,
+        recipientIds: [recipient.payout.project.founderId],
+      }).catch((err) => {
+        console.error('Failed to create payout confirmation notification:', err)
+      })
+
+      return updated
     }),
 
   /**

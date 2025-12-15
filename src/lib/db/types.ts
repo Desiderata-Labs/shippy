@@ -138,15 +138,32 @@ export enum PayoutVisibility {
 // ================================
 
 export enum NotificationType {
+  // Comments
   BOUNTY_COMMENT = 'BOUNTY_COMMENT',
   SUBMISSION_COMMENT = 'SUBMISSION_COMMENT',
-  // Future: SUBMISSION_APPROVED, SUBMISSION_REJECTED, PAYOUT_SENT, etc.
+
+  // Submissions
+  SUBMISSION_CREATED = 'SUBMISSION_CREATED',
+  SUBMISSION_APPROVED = 'SUBMISSION_APPROVED',
+  SUBMISSION_REJECTED = 'SUBMISSION_REJECTED',
+  SUBMISSION_NEEDS_INFO = 'SUBMISSION_NEEDS_INFO',
+
+  // Claims
+  BOUNTY_CLAIMED = 'BOUNTY_CLAIMED',
+  CLAIM_EXPIRING = 'CLAIM_EXPIRING', // Requires scheduled job
+  CLAIM_EXPIRED = 'CLAIM_EXPIRED',
+
+  // Payouts
+  PAYOUT_ANNOUNCED = 'PAYOUT_ANNOUNCED',
+  PAYOUT_SENT = 'PAYOUT_SENT',
+  PAYOUT_CONFIRMED = 'PAYOUT_CONFIRMED',
+  PAYOUT_DISPUTED = 'PAYOUT_DISPUTED',
 }
 
 export enum NotificationReferenceType {
   BOUNTY = 'BOUNTY',
   SUBMISSION = 'SUBMISSION',
-  // Future: PROJECT, PAYOUT, etc.
+  PAYOUT = 'PAYOUT',
 }
 
 // ================================

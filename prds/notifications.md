@@ -8,12 +8,27 @@ A simple in-app notification system for Shippy that notifies users about activit
 
 ## MVP Scope
 
-### What Gets Notified
+### Notification Types
 
-| Event                   | Recipients                                                |
-| ----------------------- | --------------------------------------------------------- |
-| Comment on a bounty     | Project founder + previous commenters on that bounty      |
-| Comment on a submission | Project founder + submission author + previous commenters |
+| Event                   | Recipients                                | Status        |
+| ----------------------- | ----------------------------------------- | ------------- |
+| **Comments**            |                                           |               |
+| Comment on a bounty     | Founder + previous commenters             | ✅ Done       |
+| Comment on a submission | Founder + submitter + previous commenters | ✅ Done       |
+| **Submissions**         |                                           |               |
+| Submission created      | Founder                                   | ✅ Done       |
+| Submission approved     | Contributor                               | ✅ Done       |
+| Submission rejected     | Contributor                               | ✅ Done       |
+| Submission needs info   | Contributor                               | ✅ Done       |
+| **Claims**              |                                           |               |
+| Bounty claimed          | Founder                                   | ✅ Done       |
+| Claim expiring (24h)    | Contributor                               | ⏳ Needs cron |
+| Claim expired           | Contributor                               | ⏳ Needs cron |
+| **Payouts**             |                                           |               |
+| Payout announced        | All recipients                            | ✅ Done       |
+| Payout sent             | Individual recipient                      | ✅ Done       |
+| Payout confirmed        | Founder                                   | ✅ Done       |
+| Payout disputed         | Founder                                   | ✅ Done       |
 
 ### UI
 
@@ -112,15 +127,32 @@ model ThreadSubscription {
 
 ```typescript
 enum NotificationType {
+  // Comments ✅
   BOUNTY_COMMENT = 'BOUNTY_COMMENT',
   SUBMISSION_COMMENT = 'SUBMISSION_COMMENT',
-  // Future: SUBMISSION_APPROVED, SUBMISSION_REJECTED, PAYOUT_SENT, etc.
+
+  // Submissions ✅
+  SUBMISSION_CREATED = 'SUBMISSION_CREATED',
+  SUBMISSION_APPROVED = 'SUBMISSION_APPROVED',
+  SUBMISSION_REJECTED = 'SUBMISSION_REJECTED',
+  SUBMISSION_NEEDS_INFO = 'SUBMISSION_NEEDS_INFO',
+
+  // Claims (partial - expiring/expired need cron)
+  BOUNTY_CLAIMED = 'BOUNTY_CLAIMED', // ✅
+  CLAIM_EXPIRING = 'CLAIM_EXPIRING', // ⏳ needs cron
+  CLAIM_EXPIRED = 'CLAIM_EXPIRED', // ⏳ needs cron
+
+  // Payouts ✅
+  PAYOUT_ANNOUNCED = 'PAYOUT_ANNOUNCED',
+  PAYOUT_SENT = 'PAYOUT_SENT',
+  PAYOUT_CONFIRMED = 'PAYOUT_CONFIRMED',
+  PAYOUT_DISPUTED = 'PAYOUT_DISPUTED',
 }
 
 enum NotificationReferenceType {
   BOUNTY = 'BOUNTY',
   SUBMISSION = 'SUBMISSION',
-  // Future: PROJECT, PAYOUT, etc.
+  PAYOUT = 'PAYOUT',
 }
 ```
 
@@ -317,7 +349,7 @@ The badge shows unread count. Clicking opens a popover.
 3. [x] Create migration (`20251215183233_notifications`)
 4. [x] Add notification enums to `src/lib/db/types.ts`
 
-### Backend
+### Backend - Comments
 
 5. [x] Create `src/server/routers/notification.ts` with list/unreadCount/markAllRead
 6. [x] Register router in `_app.ts`
@@ -325,8 +357,19 @@ The badge shows unread count. Clicking opens a popover.
 8. [x] Update `bounty.addComment` to create notifications
 9. [x] Update `submission.addComment` to create notifications
 
+### Backend - Submissions & Claims & Payouts
+
+10. [x] Update `submission.create` to notify founder
+11. [x] Update `submission.review` to notify contributor (approve/reject/needsInfo)
+12. [x] Update `bounty.claim` to notify founder
+13. [x] Update `payout.create` to notify all recipients
+14. [x] Update `payout.markRecipientPaid` and `markAllPaid` to notify recipients
+15. [x] Update `payout.confirmReceipt` to notify founder (confirmed/disputed)
+16. [ ] Add cron job for claim expiring/expired notifications
+
 ### Frontend
 
-10. [x] Create `NotificationPopover` component
-11. [x] Add notification bell to `Header` component
-12. [x] Style and test
+17. [x] Create `NotificationPopover` component
+18. [x] Add notification bell to `Header` component
+19. [x] Update notification descriptions for all types
+20. [x] Style and test

@@ -22,11 +22,41 @@ function getNotificationDescription(
   actorName: string,
   referenceTitle: string | null,
 ): string {
+  const title = referenceTitle ?? 'a bounty'
+
   switch (type) {
+    // Comments
     case NotificationType.BOUNTY_COMMENT:
-      return `${actorName} commented on "${referenceTitle ?? 'a bounty'}"`
+      return `${actorName} commented on "${title}"`
     case NotificationType.SUBMISSION_COMMENT:
-      return `${actorName} commented on your submission for "${referenceTitle ?? 'a bounty'}"`
+      return `${actorName} commented on a submission for "${title}"`
+
+    // Submissions
+    case NotificationType.SUBMISSION_CREATED:
+      return `${actorName} submitted work for "${title}"`
+    case NotificationType.SUBMISSION_APPROVED:
+      return `Your submission for "${title}" was approved`
+    case NotificationType.SUBMISSION_REJECTED:
+      return `Your submission for "${title}" was not accepted`
+    case NotificationType.SUBMISSION_NEEDS_INFO:
+      return `${actorName} requested more info on your submission`
+
+    // Claims
+    case NotificationType.BOUNTY_CLAIMED:
+      return `${actorName} claimed "${title}"`
+    case NotificationType.CLAIM_EXPIRED:
+      return `Your claim on "${title}" has expired`
+
+    // Payouts
+    case NotificationType.PAYOUT_ANNOUNCED:
+      return `A payout has been announced`
+    case NotificationType.PAYOUT_SENT:
+      return `Your payout has been marked as sent`
+    case NotificationType.PAYOUT_CONFIRMED:
+      return `${actorName} confirmed receipt of payout`
+    case NotificationType.PAYOUT_DISPUTED:
+      return `${actorName} disputed a payout`
+
     default:
       return `${actorName} did something`
   }

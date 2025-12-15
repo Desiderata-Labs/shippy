@@ -74,6 +74,23 @@ export const notificationRouter = router({
               title: submission.bounty.title,
             })
           }
+        } else if (
+          notification.referenceType === NotificationReferenceType.PAYOUT
+        ) {
+          const payout = await ctx.prisma.payout.findUnique({
+            where: { id: notification.referenceId },
+            select: {
+              periodLabel: true,
+              project: { select: { slug: true } },
+            },
+          })
+          if (payout) {
+            referenceTitle = payout.periodLabel
+            referenceUrl = routes.project.payoutDetail({
+              slug: payout.project.slug,
+              payoutId: notification.referenceId,
+            })
+          }
         }
 
         return {

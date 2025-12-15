@@ -814,7 +814,7 @@ export function BountyDetailContent() {
           <Separator orientation="vertical" className="hidden lg:block" />
 
           {/* Sidebar - Linear style properties panel */}
-          <div className="space-y-4">
+          <div className="sticky top-4 space-y-4 self-start">
             {/* Properties header */}
             <div className="flex items-center justify-between">
               <span className="text-sm text-muted-foreground">Properties</span>

@@ -129,7 +129,7 @@ export function BountyEditor({ mode, slug, bountyId }: BountyEditorProps) {
   const [claimMode, setClaimMode] = useState<BountyClaimMode>(
     BountyClaimMode.SINGLE,
   )
-  const [claimExpiryDays, setClaimExpiryDays] = useState(
+  const [claimExpiryDays, setClaimExpiryDays] = useState<number | ''>(
     DEFAULT_CLAIM_EXPIRY_DAYS,
   )
   const [maxClaims, setMaxClaims] = useState<number | undefined>(undefined)
@@ -423,7 +423,7 @@ export function BountyEditor({ mode, slug, bountyId }: BountyEditorProps) {
           points,
           labelIds: selectedLabelIds,
           claimMode,
-          claimExpiryDays,
+          claimExpiryDays: claimExpiryDays || DEFAULT_CLAIM_EXPIRY_DAYS,
           maxClaims:
             claimMode === BountyClaimMode.MULTIPLE ? maxClaims : undefined,
           evidenceDescription: evidenceDescription || undefined,
@@ -437,7 +437,7 @@ export function BountyEditor({ mode, slug, bountyId }: BountyEditorProps) {
           labelIds: selectedLabelIds,
           status: bounty!.status as BountyStatus,
           claimMode,
-          claimExpiryDays,
+          claimExpiryDays: claimExpiryDays || DEFAULT_CLAIM_EXPIRY_DAYS,
           maxClaims:
             claimMode === BountyClaimMode.MULTIPLE ? maxClaims : undefined,
           evidenceDescription: evidenceDescription || null,
@@ -820,7 +820,7 @@ export function BountyEditor({ mode, slug, bountyId }: BountyEditorProps) {
                   </div>
 
                   {/* Pool share info */}
-                  <div className="space-y-0.5 rounded-md bg-primary/5 px-3 py-2 text-xs">
+                  <div className="space-y-0.5 rounded-md bg-primary/5 px-3 py-2 text-right text-xs">
                     {project.rewardPool && (
                       <div className="text-muted-foreground/70">
                         Roughly $
@@ -853,7 +853,8 @@ export function BountyEditor({ mode, slug, bountyId }: BountyEditorProps) {
                         </span>
                       </TooltipTrigger>
                       <TooltipContent className="max-w-xs">
-                        Single: one person at a time. Multiple: competitive.
+                        Exclusive: one person at a time. Competitive: first
+                        approved wins.
                       </TooltipContent>
                     </Tooltip>
                     <Select
@@ -861,18 +862,25 @@ export function BountyEditor({ mode, slug, bountyId }: BountyEditorProps) {
                       onValueChange={(v: BountyClaimMode) => setClaimMode(v)}
                       disabled={isLoading}
                     >
-                      <SelectTrigger className="h-7 w-24 rounded-md border-border text-xs">
+                      <SelectTrigger className="h-7 w-28 rounded-md border-border text-xs">
                         <SelectValue />
                       </SelectTrigger>
                       <SelectContent>
                         <SelectItem value={BountyClaimMode.SINGLE}>
-                          Single
+                          Exclusive
                         </SelectItem>
                         <SelectItem value={BountyClaimMode.MULTIPLE}>
-                          Multiple
+                          Competitive
                         </SelectItem>
                       </SelectContent>
                     </Select>
+                  </div>
+
+                  {/* Claim type info */}
+                  <div className="rounded-md bg-primary/5 px-3 py-2 text-right text-xs text-muted-foreground/70">
+                    {claimMode === BountyClaimMode.SINGLE
+                      ? 'One contributor can claim and work on this. Others must wait until they submit or their claim expires.'
+                      : 'Anyone can claim and work on this. First approved submission wins the points.'}
                   </div>
 
                   {/* Claim expiry */}
@@ -893,16 +901,29 @@ export function BountyEditor({ mode, slug, bountyId }: BountyEditorProps) {
                         min="1"
                         max="90"
                         value={claimExpiryDays}
-                        onChange={(e) =>
-                          setClaimExpiryDays(
-                            parseInt(e.target.value) ||
-                              DEFAULT_CLAIM_EXPIRY_DAYS,
-                          )
-                        }
+                        onChange={(e) => {
+                          const val = e.target.value
+                          setClaimExpiryDays(val === '' ? '' : parseInt(val))
+                        }}
+                        onBlur={() => {
+                          if (
+                            claimExpiryDays === '' ||
+                            isNaN(claimExpiryDays)
+                          ) {
+                            setClaimExpiryDays(DEFAULT_CLAIM_EXPIRY_DAYS)
+                          }
+                        }}
                         disabled={isLoading}
                         className="h-7 w-20 rounded-md text-center text-xs"
                       />
                     </div>
+                  </div>
+
+                  {/* Claim expiry info */}
+                  <div className="rounded-md bg-primary/5 px-3 py-2 text-right text-xs text-muted-foreground/70">
+                    Contributors have{' '}
+                    {claimExpiryDays || DEFAULT_CLAIM_EXPIRY_DAYS} days to
+                    submit their work after claiming.
                   </div>
 
                   {/* Max claims (only for multiple) */}

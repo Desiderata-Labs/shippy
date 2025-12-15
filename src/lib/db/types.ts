@@ -31,8 +31,8 @@ export enum BountyStatus {
 }
 
 export enum BountyClaimMode {
-  SINGLE = 'SINGLE', // One contributor at a time
-  MULTIPLE = 'MULTIPLE', // Multiple contributors can work on it
+  SINGLE = 'SINGLE', // Exclusive: One contributor claims, others locked out
+  MULTIPLE = 'MULTIPLE', // Competitive: Anyone can claim, first approved wins
 }
 
 /**

@@ -1123,10 +1123,10 @@ Bounty claiming determines who can work on a task and how conflicts are resolved
 
 Founders can configure each bounty as:
 
-| Mode                | How it works                                                                   | Best for                                                                     |
-| ------------------- | ------------------------------------------------------------------------------ | ---------------------------------------------------------------------------- |
-| **Single claim**    | One contributor claims -> others locked out until they submit or claim expires | Tasks requiring coordination, exclusive relationships, sensitive work        |
-| **Multiple claims** | Anyone can work on it -> first approved submission wins                        | Competitive tasks, leads/referrals, content where multiple attempts are fine |
+| Mode            | How it works                                                                   | Best for                                                                     |
+| --------------- | ------------------------------------------------------------------------------ | ---------------------------------------------------------------------------- |
+| **Exclusive**   | One contributor claims -> others locked out until they submit or claim expires | Tasks requiring coordination, exclusive relationships, sensitive work        |
+| **Competitive** | Anyone can claim -> first approved submission wins                             | Competitive tasks, leads/referrals, content where multiple attempts are fine |
 
 ### Claim Expiry
 

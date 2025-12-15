@@ -206,7 +206,7 @@ model Bounty {
   status      String @default("OPEN") // "OPEN" | "CLAIMED" | "COMPLETED" | "CLOSED"
 
   // Claim configuration
-  claimMode       String   @default("SINGLE") // "SINGLE" | "MULTIPLE"
+  claimMode       String   @default("SINGLE") // "SINGLE" (Exclusive) | "MULTIPLE" (Competitive)
   claimExpiryDays Int      @default(14) // Days before a claim expires
   maxClaims       Int? // Max number of claims (null = unlimited for MULTIPLE mode)
 

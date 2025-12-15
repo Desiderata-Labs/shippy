@@ -799,6 +799,24 @@ export function BountyDetailContent() {
                 </span>
               </div>
 
+              {/* Points earnings estimate */}
+              {bounty.project.rewardPool && (
+                <div className="rounded-md bg-primary/5 px-3 py-2 text-right text-xs text-muted-foreground/70">
+                  (e.g. $
+                  {(
+                    (10000 *
+                      bounty.project.rewardPool.poolPercentage *
+                      (bounty.points /
+                        bounty.project.rewardPool.poolCapacity)) /
+                    100
+                  ).toLocaleString(undefined, {
+                    minimumFractionDigits: 0,
+                    maximumFractionDigits: 0,
+                  })}{' '}
+                  paid per $10k profit)
+                </div>
+              )}
+
               {/* Assignee */}
               <div className="flex items-center justify-between py-1">
                 <span className="text-xs text-muted-foreground">Assignee</span>
@@ -1033,24 +1051,22 @@ export function BountyDetailContent() {
 
               {/* Claim mode */}
               <div className="flex items-center justify-between py-1">
-                <Tooltip>
-                  <TooltipTrigger asChild>
-                    <span className="flex cursor-help items-center gap-1 text-xs text-muted-foreground">
-                      <Users01 className="size-3 text-foreground opacity-50" />
-                      Claim Type
-                    </span>
-                  </TooltipTrigger>
-                  <TooltipContent className="max-w-xs">
-                    {bounty.claimMode === BountyClaimMode.SINGLE
-                      ? 'Only one person can work on this bounty at a time.'
-                      : 'Multiple people can work on this bounty simultaneously.'}
-                  </TooltipContent>
-                </Tooltip>
+                <span className="flex items-center gap-1 text-xs text-muted-foreground">
+                  <Users01 className="size-3 text-foreground opacity-50" />
+                  Claim Type
+                </span>
                 <span className="text-xs">
                   {bounty.claimMode === BountyClaimMode.SINGLE
-                    ? 'Single'
-                    : 'Multiple'}
+                    ? 'Exclusive'
+                    : 'Competitive'}
                 </span>
+              </div>
+
+              {/* Claim type info */}
+              <div className="rounded-md bg-primary/5 px-3 py-2 text-right text-xs text-muted-foreground/70">
+                {bounty.claimMode === BountyClaimMode.SINGLE
+                  ? 'One contributor can claim and work on this. Others must wait until they submit or their claim expires.'
+                  : 'Anyone can claim and work on this. First approved submission wins the points.'}
               </div>
 
               {/* Claim expiry */}
@@ -1068,8 +1084,14 @@ export function BountyDetailContent() {
                   </TooltipContent>
                 </Tooltip>
                 <span className="text-xs">
-                  {bounty.claimExpiryDays} day
-                  {bounty.claimExpiryDays !== 1 ? 's' : ''}
+                  {userClaim && new Date(userClaim.expiresAt) < new Date() ? (
+                    <span className="text-destructive">Expired</span>
+                  ) : (
+                    <>
+                      {bounty.claimExpiryDays} day
+                      {bounty.claimExpiryDays !== 1 ? 's' : ''}
+                    </>
+                  )}
                 </span>
               </div>
 
@@ -1090,13 +1112,17 @@ export function BountyDetailContent() {
                     </TooltipContent>
                   </Tooltip>
                   <span className="text-xs">
-                    {isForeverCommitment
-                      ? 'Never'
-                      : new Date(commitmentDate).toLocaleDateString('en-US', {
-                          month: 'short',
-                          day: 'numeric',
-                          year: 'numeric',
-                        })}
+                    {isForeverCommitment ? (
+                      'Never'
+                    ) : new Date(commitmentDate) < new Date() ? (
+                      <span className="text-destructive">Expired</span>
+                    ) : (
+                      new Date(commitmentDate).toLocaleDateString('en-US', {
+                        month: 'short',
+                        day: 'numeric',
+                        year: 'numeric',
+                      })
+                    )}
                   </span>
                 </div>
               )}

@@ -381,6 +381,16 @@ export const submissionRouter = router({
       switch (input.action) {
         case 'approve': {
           const pointsAwarded = input.pointsAwarded ?? submission.bounty.points
+
+          // Can't approve without points
+          if (pointsAwarded === null || pointsAwarded === undefined) {
+            throw new TRPCError({
+              code: 'BAD_REQUEST',
+              message:
+                'Cannot approve submission: bounty has no points assigned. Please assign points first.',
+            })
+          }
+
           const project = submission.bounty.project
           const rewardPool = project.rewardPool
 

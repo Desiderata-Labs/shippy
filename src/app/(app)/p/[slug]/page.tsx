@@ -168,7 +168,10 @@ async function getProject(slug: string) {
     const rankA = statusRank[a.status] ?? 99
     const rankB = statusRank[b.status] ?? 99
     if (rankA !== rankB) return rankA - rankB
-    if (a.points !== b.points) return b.points - a.points
+    // Null points (backlog) sort after bounties with points
+    const pointsA = a.points ?? -1
+    const pointsB = b.points ?? -1
+    if (pointsA !== pointsB) return pointsB - pointsA
     return new Date(b.createdAt).getTime() - new Date(a.createdAt).getTime()
   })
 

@@ -35,7 +35,7 @@ interface ProjectTabsProps {
       number: number
       title: string
       description: string
-      points: number
+      points: number | null
       labels: Array<{
         label: {
           id: string

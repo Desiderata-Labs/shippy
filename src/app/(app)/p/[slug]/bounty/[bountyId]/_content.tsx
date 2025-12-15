@@ -336,6 +336,9 @@ export function BountyDetailContent() {
     if (bounty.status === BountyStatus.CLAIMED) {
       return <Clock className={cn(sizeClass, colorClass)} />
     }
+    if (bounty.status === BountyStatus.BACKLOG) {
+      return <Circle className={cn(sizeClass, colorClass, 'opacity-50')} />
+    }
     return <Circle className={cn(sizeClass, colorClass)} />
   }
 
@@ -381,20 +384,43 @@ export function BountyDetailContent() {
           <h1 className="text-xl font-semibold tracking-tight sm:text-2xl">
             {bounty.title}
           </h1>
-          {isFounder && (
-            <AppButton variant="outline" size="sm" asChild className="shrink-0">
-              <Link
-                href={routes.project.bountyEdit({
-                  slug: params.slug,
-                  bountyId: bounty.id,
-                  title: bounty.title,
-                })}
+          {isFounder &&
+            (bounty.status === BountyStatus.COMPLETED ||
+            bounty.status === BountyStatus.CLOSED ? (
+              <Tooltip>
+                <TooltipTrigger asChild>
+                  <span className="shrink-0">
+                    <AppButton variant="outline" size="sm" disabled>
+                      <Pencil01 className="mr-1.5 size-3.5" />
+                      Edit
+                    </AppButton>
+                  </span>
+                </TooltipTrigger>
+                <TooltipContent>
+                  {bounty.status === BountyStatus.COMPLETED
+                    ? 'Completed bounties cannot be edited'
+                    : 'Closed bounties cannot be edited'}
+                </TooltipContent>
+              </Tooltip>
+            ) : (
+              <AppButton
+                variant="outline"
+                size="sm"
+                asChild
+                className="shrink-0"
               >
-                <Pencil01 className="mr-1.5 size-3.5" />
-                Edit
-              </Link>
-            </AppButton>
-          )}
+                <Link
+                  href={routes.project.bountyEdit({
+                    slug: params.slug,
+                    bountyId: bounty.id,
+                    title: bounty.title,
+                  })}
+                >
+                  <Pencil01 className="mr-1.5 size-3.5" />
+                  Edit
+                </Link>
+              </AppButton>
+            ))}
         </div>
 
         {/* Main layout */}
@@ -776,6 +802,11 @@ export function BountyDetailContent() {
                 <Target01 className="mr-1.5 size-3.5" />
                 Claim Bounty
               </AppButton>
+            ) : bounty.status === BountyStatus.BACKLOG ? (
+              <div className="rounded-md bg-muted px-3 py-2 text-center text-xs text-muted-foreground">
+                This bounty is in the backlog and can&apos;t be claimed yet.
+                Points will be assigned later.
+              </div>
             ) : null}
 
             <Separator />
@@ -794,13 +825,20 @@ export function BountyDetailContent() {
               {/* Points */}
               <div className="flex items-center justify-between py-1">
                 <span className="text-xs text-muted-foreground">Points</span>
-                <span className="rounded-sm bg-primary/10 px-2 py-0.5 text-xs font-semibold text-primary">
-                  +{bounty.points}
+                <span
+                  className={cn(
+                    'rounded-sm px-2 py-0.5 text-xs font-semibold',
+                    bounty.points !== null
+                      ? 'bg-primary/10 text-primary'
+                      : 'bg-muted text-muted-foreground',
+                  )}
+                >
+                  {bounty.points !== null ? `+${bounty.points}` : 'TBD'}
                 </span>
               </div>
 
               {/* Points earnings estimate */}
-              {bounty.project.rewardPool && (
+              {bounty.project.rewardPool && bounty.points !== null && (
                 <div className="rounded-md bg-primary/5 px-3 py-2 text-right text-xs text-muted-foreground/70">
                   (e.g. $
                   {(

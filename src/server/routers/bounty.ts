@@ -18,7 +18,7 @@ const createBountySchema = z.object({
   projectId: nanoId(),
   title: z.string().min(1).max(200),
   description: z.string().min(1),
-  points: z.number().int().min(1),
+  points: z.number().int().min(1).nullable(), // null = backlog (estimate later)
   labelIds: z.array(nanoId()).optional().default([]), // Labels are optional
   claimMode: z.nativeEnum(BountyClaimMode).default(BountyClaimMode.SINGLE),
   claimExpiryDays: z
@@ -35,7 +35,7 @@ const updateBountySchema = z.object({
   id: nanoId(),
   title: z.string().min(1).max(200).optional(),
   description: z.string().min(1).optional(),
-  points: z.number().int().min(1).optional(),
+  points: z.number().int().min(1).nullable().optional(), // null = backlog (estimate later)
   labelIds: z.array(nanoId()).optional(), // Labels are optional
   evidenceDescription: z.string().optional().nullable(),
   status: z.nativeEnum(BountyStatus).optional(),
@@ -197,6 +197,10 @@ export const bountyRouter = router({
         })
         const bountyNumber = updatedProject.nextBountyNumber - 1
 
+        // If no points provided, this is a backlog bounty
+        const status =
+          input.points === null ? BountyStatus.BACKLOG : BountyStatus.OPEN
+
         const bounty = await tx.bounty.create({
           data: {
             projectId: input.projectId,
@@ -204,6 +208,7 @@ export const bountyRouter = router({
             title: input.title,
             description: input.description,
             points: input.points,
+            status,
             claimMode: input.claimMode,
             claimExpiryDays: input.claimExpiryDays,
             maxClaims: input.maxClaims,
@@ -302,11 +307,54 @@ export const bountyRouter = router({
         changes.maxClaims = { from: bounty.maxClaims, to: data.maxClaims }
       }
 
+      // Prevent changing points on completed/closed bounties
+      if (data.points !== undefined && data.points !== bounty.points) {
+        if (
+          bounty.status === BountyStatus.COMPLETED ||
+          bounty.status === BountyStatus.CLOSED
+        ) {
+          throw new TRPCError({
+            code: 'BAD_REQUEST',
+            message: 'Cannot change points on a completed or closed bounty',
+          })
+        }
+
+        // Prevent removing points (backlog) on claimed bounties
+        if (bounty.status === BountyStatus.CLAIMED && data.points === null) {
+          throw new TRPCError({
+            code: 'BAD_REQUEST',
+            message:
+              'Cannot remove points from a bounty that is being worked on',
+          })
+        }
+      }
+
+      // Handle automatic status transitions based on points changes
+      // - BACKLOG -> OPEN: when points are assigned
+      // - OPEN -> BACKLOG: when points are removed (only if no claims/submissions)
+      const updateData = { ...data }
+      if (data.points !== undefined) {
+        const wasBacklog = bounty.status === BountyStatus.BACKLOG
+        const wasOpen = bounty.status === BountyStatus.OPEN
+        const nowHasPoints = data.points !== null
+        const nowNoPoints = data.points === null
+
+        if (wasBacklog && nowHasPoints && !data.status) {
+          // Auto-transition from BACKLOG to OPEN when points are assigned
+          updateData.status = BountyStatus.OPEN
+          changes.status = { from: BountyStatus.BACKLOG, to: BountyStatus.OPEN }
+        } else if (wasOpen && nowNoPoints && !data.status) {
+          // Auto-transition from OPEN to BACKLOG when points are removed
+          updateData.status = BountyStatus.BACKLOG
+          changes.status = { from: BountyStatus.OPEN, to: BountyStatus.BACKLOG }
+        }
+      }
+
       // Use transaction to update bounty and record the edit event
       return ctx.prisma.$transaction(async (tx) => {
         const updated = await tx.bounty.update({
           where: { id },
-          data,
+          data: updateData,
         })
 
         // Update labels if provided
@@ -386,7 +434,14 @@ export const bountyRouter = router({
         throw new TRPCError({ code: 'NOT_FOUND', message: 'Bounty not found' })
       }
 
-      // Check if bounty is open
+      // Check if bounty is open (not backlog, claimed, completed, or closed)
+      if (bounty.status === BountyStatus.BACKLOG) {
+        throw new TRPCError({
+          code: 'BAD_REQUEST',
+          message: 'This bounty is in the backlog and cannot be claimed yet',
+        })
+      }
+
       if (bounty.status !== BountyStatus.OPEN) {
         throw new TRPCError({
           code: 'BAD_REQUEST',

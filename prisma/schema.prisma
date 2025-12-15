@@ -202,8 +202,8 @@ model Bounty {
   number      Int
   title       String
   description String @db.Text // What's required, how success is verified
-  points      Int // Point reward for completing this bounty
-  status      String @default("OPEN") // "OPEN" | "CLAIMED" | "COMPLETED" | "CLOSED"
+  points      Int? // Point reward for completing this bounty (null = backlog, not yet estimated)
+  status      String @default("OPEN") // "BACKLOG" | "OPEN" | "CLAIMED" | "COMPLETED" | "CLOSED"
 
   // Claim configuration
   claimMode       String   @default("SINGLE") // "SINGLE" (Exclusive) | "MULTIPLE" (Competitive)

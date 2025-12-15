@@ -284,7 +284,9 @@ export function SubmissionDetailContent() {
         action: reviewAction === 'approve' ? 'approve' : 'requestInfo',
         note: reviewNote || undefined,
         pointsAwarded:
-          reviewAction === 'approve' ? submission.bounty.points : undefined,
+          reviewAction === 'approve'
+            ? (submission.bounty.points ?? undefined)
+            : undefined,
       })
     } finally {
       setIsSending(false)
@@ -422,11 +424,13 @@ export function SubmissionDetailContent() {
                         <div className="flex-1">
                           <div className="text-sm font-medium">Approve</div>
                           <div className="text-xs text-muted-foreground">
-                            Award {submission.bounty.points} points to the
-                            contributor.
+                            {submission.bounty.points !== null
+                              ? `Award ${submission.bounty.points} points to the contributor.`
+                              : 'Award points to the contributor.'}
                           </div>
                           {/* Pool expansion info */}
                           {poolStats &&
+                            submission.bounty.points !== null &&
                             poolStats.earnedPoints + submission.bounty.points >
                               poolStats.poolCapacity && (
                               <div className="mt-2 flex items-center rounded-md bg-primary/5 px-2 py-1.5">

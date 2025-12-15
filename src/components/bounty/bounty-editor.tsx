@@ -44,6 +44,7 @@ import {
 import { Separator } from '@/components/ui/separator'
 import { Skeleton } from '@/components/ui/skeleton'
 import { Slider } from '@/components/ui/slider'
+import { Switch } from '@/components/ui/switch'
 import {
   Tooltip,
   TooltipContent,
@@ -125,6 +126,7 @@ export function BountyEditor({ mode, slug, bountyId }: BountyEditorProps) {
   const [title, setTitle] = useState('')
   const [description, setDescription] = useState('')
   const [points, setPoints] = useState(25)
+  const [isBacklog, setIsBacklog] = useState(false) // Backlog = no points yet
   const [selectedLabelIds, setSelectedLabelIds] = useState<string[]>([])
   const [claimMode, setClaimMode] = useState<BountyClaimMode>(
     BountyClaimMode.SINGLE,
@@ -187,7 +189,10 @@ export function BountyEditor({ mode, slug, bountyId }: BountyEditorProps) {
     if (mode === 'edit' && bounty && !initialized) {
       setTitle(bounty.title)
       setDescription(bounty.description)
-      setPoints(bounty.points)
+      // If points is null, this is a backlog bounty
+      const bountyIsBacklog = bounty.points === null
+      setIsBacklog(bountyIsBacklog)
+      setPoints(bounty.points ?? 25) // Default to 25 if null for the slider
       setSelectedLabelIds(bounty.labels.map((l) => l.label.id))
       setClaimMode(bounty.claimMode as BountyClaimMode)
       setClaimExpiryDays(bounty.claimExpiryDays)
@@ -370,6 +375,42 @@ export function BountyEditor({ mode, slug, bountyId }: BountyEditorProps) {
     )
   }
 
+  // In edit mode, prevent editing completed/closed bounties
+  if (
+    mode === 'edit' &&
+    bounty &&
+    (bounty.status === BountyStatus.COMPLETED ||
+      bounty.status === BountyStatus.CLOSED)
+  ) {
+    const bountyHref = routes.project.bountyDetail({
+      slug,
+      bountyId: bountyId!,
+      title: bounty.title,
+    })
+    return (
+      <AppBackground>
+        <div className="mx-auto max-w-7xl p-6">
+          <div className="flex flex-col items-center justify-center py-16 text-center">
+            <div className="mb-4 rounded-full bg-muted p-4">
+              <PieChart01 className="size-8 text-muted-foreground" />
+            </div>
+            <h2 className="mb-2 text-lg font-semibold">
+              This bounty can&apos;t be edited
+            </h2>
+            <p className="mb-6 max-w-md text-sm text-muted-foreground">
+              {bounty.status === BountyStatus.COMPLETED
+                ? 'This bounty has been completed and points have been awarded. It can no longer be modified.'
+                : 'This bounty has been closed. Reopen it first if you need to make changes.'}
+            </p>
+            <AppButton asChild>
+              <Link href={bountyHref}>View Bounty</Link>
+            </AppButton>
+          </div>
+        </div>
+      </AppBackground>
+    )
+  }
+
   const projectLabels: ProjectLabel[] = labels ?? []
 
   const toggleLabel = (labelId: string) => {
@@ -415,12 +456,15 @@ export function BountyEditor({ mode, slug, bountyId }: BountyEditorProps) {
 
     setIsLoading(true)
     try {
+      // If backlog is enabled, send null for points
+      const pointsValue = isBacklog ? null : points
+
       if (mode === 'create') {
         await createBounty.mutateAsync({
           projectId: project.id,
           title,
           description,
-          points,
+          points: pointsValue,
           labelIds: selectedLabelIds,
           claimMode,
           claimExpiryDays: claimExpiryDays || DEFAULT_CLAIM_EXPIRY_DAYS,
@@ -433,9 +477,9 @@ export function BountyEditor({ mode, slug, bountyId }: BountyEditorProps) {
           id: bountyId!,
           title,
           description,
-          points,
+          points: pointsValue,
           labelIds: selectedLabelIds,
-          status: bounty!.status as BountyStatus,
+          // Don't pass status - let the backend handle status transitions
           claimMode,
           claimExpiryDays: claimExpiryDays || DEFAULT_CLAIM_EXPIRY_DAYS,
           maxClaims:
@@ -448,8 +492,9 @@ export function BountyEditor({ mode, slug, bountyId }: BountyEditorProps) {
     }
   }
 
-  // Labels are now optional
-  const isValid = title.trim() && description.trim() && points > 0
+  // Labels are now optional, points only required if not backlog
+  const isValid =
+    title.trim() && description.trim() && (isBacklog || points > 0)
 
   // Pool calculations
   const poolCapacity = poolStats?.poolCapacity ?? 1000
@@ -778,12 +823,13 @@ export function BountyEditor({ mode, slug, bountyId }: BountyEditorProps) {
                     <AppInput
                       type="number"
                       min="1"
-                      value={points || ''}
+                      value={isBacklog ? '' : points || ''}
                       onChange={(e) => setPoints(parseInt(e.target.value) || 0)}
                       onBlur={() => {
                         if (points < 1) setPoints(1)
                       }}
-                      disabled={isLoading}
+                      disabled={isLoading || isBacklog}
+                      placeholder={isBacklog ? 'TBD' : undefined}
                       className="h-7 w-24 text-center text-sm font-semibold"
                     />
                   </div>
@@ -795,8 +841,8 @@ export function BountyEditor({ mode, slug, bountyId }: BountyEditorProps) {
                     min={5}
                     max={Math.max(availablePoints, 200, points)}
                     step={5}
-                    disabled={isLoading}
-                    className="py-1"
+                    disabled={isLoading || isBacklog}
+                    className={cn('py-1', isBacklog && 'opacity-50')}
                   />
 
                   {/* Quick selects */}
@@ -806,12 +852,13 @@ export function BountyEditor({ mode, slug, bountyId }: BountyEditorProps) {
                         key={preset}
                         type="button"
                         onClick={() => setPoints(preset)}
-                        disabled={isLoading}
+                        disabled={isLoading || isBacklog}
                         className={cn(
                           'cursor-pointer rounded-md border px-2 py-0.5 text-xs font-medium transition-colors',
-                          points === preset
+                          points === preset && !isBacklog
                             ? 'border-primary bg-primary/10 text-primary'
                             : 'border-border bg-muted/50 text-muted-foreground hover:bg-muted',
+                          isBacklog && 'cursor-not-allowed opacity-50',
                         )}
                       >
                         {preset}
@@ -820,23 +867,62 @@ export function BountyEditor({ mode, slug, bountyId }: BountyEditorProps) {
                   </div>
 
                   {/* Pool share info */}
-                  <div className="space-y-0.5 rounded-md bg-primary/5 px-3 py-2 text-right text-xs">
-                    {project.rewardPool && (
-                      <div className="text-muted-foreground/70">
-                        Roughly $
-                        {(
-                          (10000 *
-                            project.rewardPool.poolPercentage *
-                            (points / poolCapacity)) /
-                          100
-                        ).toLocaleString(undefined, {
-                          minimumFractionDigits: 0,
-                          maximumFractionDigits: 0,
-                        })}{' '}
-                        per $10k profit for current reward pool size
+                  {!isBacklog && (
+                    <div className="space-y-0.5 rounded-md bg-primary/5 px-3 py-2 text-right text-xs">
+                      {project.rewardPool && (
+                        <div className="text-muted-foreground/70">
+                          Roughly $
+                          {(
+                            (10000 *
+                              project.rewardPool.poolPercentage *
+                              (points / poolCapacity)) /
+                            100
+                          ).toLocaleString(undefined, {
+                            minimumFractionDigits: 0,
+                            maximumFractionDigits: 0,
+                          })}{' '}
+                          per $10k profit for current reward pool size
+                        </div>
+                      )}
+                    </div>
+                  )}
+
+                  {/* Backlog toggle */}
+                  {(() => {
+                    // Can't put a claimed bounty into backlog (someone is working on it)
+                    const canToggleBacklog =
+                      mode === 'create' ||
+                      (bounty && bounty.status !== BountyStatus.CLAIMED)
+
+                    return (
+                      <div className="space-y-2 rounded-md border border-border bg-muted/30 px-3 py-2.5">
+                        <label
+                          className={cn(
+                            'flex items-center justify-between gap-3',
+                            canToggleBacklog
+                              ? 'cursor-pointer'
+                              : 'cursor-not-allowed opacity-60',
+                          )}
+                        >
+                          <div className="space-y-0.5">
+                            <div className="text-xs font-medium">
+                              Backlog (estimate later)
+                            </div>
+                            <div className="text-[11px] text-muted-foreground">
+                              {canToggleBacklog
+                                ? 'Add to backlog without assigning points yet. Contributors can see it but not claim it.'
+                                : 'Cannot remove points while someone is working on this bounty.'}
+                            </div>
+                          </div>
+                          <Switch
+                            checked={isBacklog}
+                            onCheckedChange={setIsBacklog}
+                            disabled={isLoading || !canToggleBacklog}
+                          />
+                        </label>
                       </div>
-                    )}
-                  </div>
+                    )
+                  })()}
                 </div>
 
                 <Separator />
@@ -862,7 +948,7 @@ export function BountyEditor({ mode, slug, bountyId }: BountyEditorProps) {
                       onValueChange={(v: BountyClaimMode) => setClaimMode(v)}
                       disabled={isLoading}
                     >
-                      <SelectTrigger className="h-7 w-28 rounded-md border-border text-xs">
+                      <SelectTrigger className="h-7 w-32 rounded-md border-border text-xs">
                         <SelectValue />
                       </SelectTrigger>
                       <SelectContent>

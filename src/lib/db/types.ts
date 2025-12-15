@@ -24,6 +24,7 @@ export enum ProfitBasis {
 // ================================
 
 export enum BountyStatus {
+  BACKLOG = 'BACKLOG', // No points assigned yet, not claimable
   OPEN = 'OPEN',
   CLAIMED = 'CLAIMED', // All claim slots filled (for SINGLE mode)
   COMPLETED = 'COMPLETED', // Bounty fully completed

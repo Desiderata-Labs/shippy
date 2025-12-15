@@ -567,8 +567,9 @@ export const projectRouter = router({
       }
 
       // Calculate allocated points (sum of all active bounty points)
+      // Backlog bounties (points = null) don't count toward allocation
       const allocatedPoints = project.bounties.reduce(
-        (sum, b) => sum + b.points,
+        (sum, b) => sum + (b.points ?? 0),
         0,
       )
 

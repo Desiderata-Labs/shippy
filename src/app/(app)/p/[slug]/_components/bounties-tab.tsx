@@ -22,6 +22,7 @@ import { Card } from '@/components/ui/card'
 enum BountyFilter {
   All = 'all',
   Open = 'open',
+  Backlog = 'backlog',
   InProgress = 'in_progress',
   NeedsReview = 'needs_review',
   Completed = 'completed',
@@ -44,7 +45,7 @@ interface BountiesTabProps {
     number: number
     title: string
     description: string
-    points: number
+    points: number | null
     labels: BountyLabel[]
     status: string
     claimMode: string
@@ -84,6 +85,7 @@ export function BountiesTab({
   const [filter, setFilter] = useState<BountyFilter>(BountyFilter.All)
 
   const openBounties = bounties.filter((b) => b.status === 'OPEN')
+  const backlogBounties = bounties.filter((b) => b.status === 'BACKLOG')
   const needsReviewBounties = bounties.filter(
     (b) => b._count.pendingSubmissions > 0,
   )
@@ -97,6 +99,8 @@ export function BountiesTab({
     switch (filter) {
       case BountyFilter.Open:
         return openBounties
+      case BountyFilter.Backlog:
+        return backlogBounties
       case BountyFilter.InProgress:
         return inProgressBounties
       case BountyFilter.NeedsReview:
@@ -199,6 +203,20 @@ export function BountiesTab({
           >
             Closed ({closedBounties.length})
           </FilterButton>
+          {backlogBounties.length > 0 && (
+            <FilterButton
+              active={filter === BountyFilter.Backlog}
+              onClick={() => setFilter(BountyFilter.Backlog)}
+            >
+              <span
+                className={cn(
+                  'mr-1.5 size-2 rounded-full',
+                  bountyStatusColors.BACKLOG.dot,
+                )}
+              />
+              Backlog ({backlogBounties.length})
+            </FilterButton>
+          )}
           {isFounder && needsReviewBounties.length > 0 && (
             <FilterButton
               active={filter === BountyFilter.NeedsReview}
@@ -371,8 +389,15 @@ function BountyRow({
       )}
 
       {/* Points (subtle, like a label) */}
-      <span className="hidden shrink-0 rounded-sm bg-primary/10 px-1.5 py-0.5 text-[10px] font-semibold text-primary sm:block">
-        {bounty.points} pts
+      <span
+        className={cn(
+          'hidden shrink-0 rounded-sm px-1.5 py-0.5 text-[10px] font-semibold sm:block',
+          bounty.points !== null
+            ? 'bg-primary/10 text-primary'
+            : 'bg-muted text-muted-foreground',
+        )}
+      >
+        {bounty.points !== null ? `${bounty.points} pts` : 'TBD'}
       </span>
 
       {/* Assignee avatar (or dashed circle if unclaimed) */}

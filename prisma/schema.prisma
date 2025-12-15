@@ -1,4 +1,4 @@
-// Earn A Slice - Prisma Schema
+// Shippy - Prisma Schema
 // Database: Supabase PostgreSQL
 
 generator client {
@@ -26,13 +26,16 @@ model User {
   sessions      Session[]
   accounts      Account[]
 
-  // Earn A Slice relations
-  ownedProjects    Project[]
-  bountyClaims     BountyClaim[]
-  submissions      Submission[]
-  submissionEvents SubmissionEvent[]
-  payoutRecipients PayoutRecipient[]
-  bountyEvents     BountyEvent[]
+  // Shippy relations
+  ownedProjects       Project[]
+  bountyClaims        BountyClaim[]
+  submissions         Submission[]
+  submissionEvents    SubmissionEvent[]
+  payoutRecipients    PayoutRecipient[]
+  bountyEvents        BountyEvent[]
+  notifications       Notification[]       @relation("NotificationRecipient")
+  actedNotifications  Notification[]       @relation("NotificationActor")
+  threadSubscriptions ThreadSubscription[]
 
   @@index([username])
   @@map("user")
@@ -85,7 +88,7 @@ model Verification {
 }
 
 // ================================
-// Earn A Slice - Core Models
+// Shippy - Core Models
 // ================================
 
 /// A project is a startup/product that can have bounties and contributors
@@ -141,7 +144,7 @@ model RewardPool {
   commitmentMonths Int      @default(12) // Commitment period in months
   commitmentEndsAt DateTime @db.Timestamptz(3) // When the pool commitment ends
 
-  // Platform fee (percentage of pool that goes to Earn A Slice)
+  // Platform fee (percentage of pool that goes to Shippy)
   platformFeePercentage Int @default(10) // 10% of the pool
 
   createdAt DateTime @default(now()) @db.Timestamptz(3)
@@ -371,7 +374,7 @@ model SubmissionAttachment {
 }
 
 // ================================
-// Earn A Slice - Payout Models
+// Shippy - Payout Models
 // ================================
 
 /// A payout represents a distribution of the reward pool for a period
@@ -440,4 +443,57 @@ model PayoutRecipient {
   @@index([userId])
   @@index([status])
   @@map("payout_recipient")
+}
+
+// ================================
+// Notifications
+// ================================
+
+/// A notification for a user about activity relevant to them
+model Notification {
+  id     String @id @default(dbgenerated("nanoid()"))
+  userId String
+  user   User   @relation("NotificationRecipient", fields: [userId], references: [id], onDelete: Cascade)
+
+  // Notification type (extensible for future notification kinds)
+  type String // NotificationType enum: "BOUNTY_COMMENT" | "SUBMISSION_COMMENT" | ...
+
+  // Reference to the entity - allows grouping and navigation
+  referenceType String // "BOUNTY" | "SUBMISSION"
+  referenceId   String // ID of the bounty/submission
+
+  // Who triggered this notification
+  actorId String
+  actor   User   @relation("NotificationActor", fields: [actorId], references: [id], onDelete: Cascade)
+
+  // Read state
+  readAt DateTime? @db.Timestamptz(3)
+
+  createdAt DateTime @default(now()) @db.Timestamptz(3)
+
+  @@index([userId, readAt]) // Fetch unread for a user
+  @@index([userId, createdAt]) // Fetch recent for a user
+  @@index([referenceType, referenceId]) // Group by entity
+  @@map("notification")
+}
+
+/// Tracks user preferences for specific threads (mute/watch)
+model ThreadSubscription {
+  id     String @id @default(dbgenerated("nanoid()"))
+  userId String
+  user   User   @relation(fields: [userId], references: [id], onDelete: Cascade)
+
+  referenceType String // "BOUNTY" | "SUBMISSION" | "PROJECT"
+  referenceId   String
+
+  // Subscription state (only muted used in MVP)
+  muted    Boolean @default(false) // Explicitly opted out
+  watching Boolean @default(false) // Explicitly opted in (future)
+
+  createdAt DateTime @default(now()) @db.Timestamptz(3)
+  updatedAt DateTime @updatedAt @db.Timestamptz(3)
+
+  @@unique([userId, referenceType, referenceId])
+  @@index([userId])
+  @@map("thread_subscription")
 }

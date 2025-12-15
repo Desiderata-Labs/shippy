@@ -134,6 +134,22 @@ export enum PayoutVisibility {
 }
 
 // ================================
+// Notification Enums
+// ================================
+
+export enum NotificationType {
+  BOUNTY_COMMENT = 'BOUNTY_COMMENT',
+  SUBMISSION_COMMENT = 'SUBMISSION_COMMENT',
+  // Future: SUBMISSION_APPROVED, SUBMISSION_REJECTED, PAYOUT_SENT, etc.
+}
+
+export enum NotificationReferenceType {
+  BOUNTY = 'BOUNTY',
+  SUBMISSION = 'SUBMISSION',
+  // Future: PROJECT, PAYOUT, etc.
+}
+
+// ================================
 // Helper Types
 // ================================
 

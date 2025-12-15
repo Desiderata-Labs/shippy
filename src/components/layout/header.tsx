@@ -7,6 +7,7 @@ import { useEffect, useState } from 'react'
 import Link from 'next/link'
 import { routes } from '@/lib/routes'
 import { cn } from '@/lib/utils'
+import { NotificationPopover } from '@/components/notifications'
 import { Avatar, AvatarFallback, AvatarImage } from '@/components/ui/avatar'
 import {
   DropdownMenu,
@@ -185,6 +186,7 @@ export function Header({ padded = false, variant = 'marketing' }: HeaderProps) {
                       </Link>
                     </AppButton>
                   )}
+                  <NotificationPopover />
                   <DropdownMenu>
                     <DropdownMenuTrigger asChild>
                       <AppButton

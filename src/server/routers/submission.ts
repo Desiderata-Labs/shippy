@@ -1,10 +1,16 @@
 import {
   BountyStatus,
   ClaimStatus,
+  NotificationReferenceType,
+  NotificationType,
   SubmissionEventType,
   SubmissionStatus,
 } from '@/lib/db/types'
 import { nanoId } from '@/lib/nanoid/zod'
+import {
+  createNotifications,
+  getSubmissionCommentRecipients,
+} from './notification'
 import { protectedProcedure, router, userError } from '@/server/trpc'
 import { Prisma } from '@prisma/client'
 import { z } from 'zod/v4'
@@ -541,7 +547,13 @@ export const submissionRouter = router({
         throw userError('FORBIDDEN', 'Access denied')
       }
 
-      return ctx.prisma.submissionEvent.create({
+      // Get recipients before creating the comment (so we don't include this comment's author twice)
+      const recipientIds = await getSubmissionCommentRecipients(
+        ctx.prisma,
+        input.submissionId,
+      )
+
+      const comment = await ctx.prisma.submissionEvent.create({
         data: {
           submissionId: input.submissionId,
           userId: ctx.user.id,
@@ -552,5 +564,19 @@ export const submissionRouter = router({
           user: { select: { id: true, name: true, image: true } },
         },
       })
+
+      // Create notifications for recipients (runs in background, don't await)
+      createNotifications({
+        prisma: ctx.prisma,
+        type: NotificationType.SUBMISSION_COMMENT,
+        referenceType: NotificationReferenceType.SUBMISSION,
+        referenceId: input.submissionId,
+        actorId: ctx.user.id,
+        recipientIds,
+      }).catch((err) => {
+        console.error('Failed to create submission comment notifications:', err)
+      })
+
+      return comment
     }),
 })

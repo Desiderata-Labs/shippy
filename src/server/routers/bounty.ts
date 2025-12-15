@@ -4,10 +4,13 @@ import {
   BountyStatus,
   ClaimStatus,
   DEFAULT_CLAIM_EXPIRY_DAYS,
+  NotificationReferenceType,
+  NotificationType,
   SubmissionEventType,
   SubmissionStatus,
 } from '@/lib/db/types'
 import { nanoId } from '@/lib/nanoid/zod'
+import { createNotifications, getBountyCommentRecipients } from './notification'
 import {
   protectedProcedure,
   publicProcedure,
@@ -640,7 +643,13 @@ export const bountyRouter = router({
         throw userError('FORBIDDEN', 'Access denied')
       }
 
-      return ctx.prisma.bountyEvent.create({
+      // Get recipients before creating the comment (so we don't include this comment's author twice)
+      const recipientIds = await getBountyCommentRecipients(
+        ctx.prisma,
+        input.bountyId,
+      )
+
+      const comment = await ctx.prisma.bountyEvent.create({
         data: {
           bountyId: input.bountyId,
           userId: ctx.user.id,
@@ -651,6 +660,20 @@ export const bountyRouter = router({
           user: { select: { id: true, name: true, image: true } },
         },
       })
+
+      // Create notifications for recipients (runs in background, don't await)
+      createNotifications({
+        prisma: ctx.prisma,
+        type: NotificationType.BOUNTY_COMMENT,
+        referenceType: NotificationReferenceType.BOUNTY,
+        referenceId: input.bountyId,
+        actorId: ctx.user.id,
+        recipientIds,
+      }).catch((err) => {
+        console.error('Failed to create bounty comment notifications:', err)
+      })
+
+      return comment
     }),
 
   /**

@@ -1075,7 +1075,7 @@ export function BountyDetailContent() {
                   <TooltipTrigger asChild>
                     <span className="flex cursor-help items-center gap-1 text-xs text-muted-foreground">
                       <Clock className="size-3 text-foreground opacity-50" />
-                      Claim Expires
+                      Deadline
                     </span>
                   </TooltipTrigger>
                   <TooltipContent className="max-w-xs">

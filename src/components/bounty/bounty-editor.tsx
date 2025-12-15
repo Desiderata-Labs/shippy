@@ -889,7 +889,7 @@ export function BountyEditor({ mode, slug, bountyId }: BountyEditorProps) {
                       <TooltipTrigger asChild>
                         <span className="flex cursor-help items-center gap-1 text-xs text-muted-foreground">
                           <Clock className="size-3" />
-                          Claim Expiry (days)
+                          Deadline (days)
                         </span>
                       </TooltipTrigger>
                       <TooltipContent className="max-w-xs">

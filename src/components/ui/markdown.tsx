@@ -117,7 +117,7 @@ const components: Partial<Components> = {
       return (
         <li
           className={cn(
-            '!my-0 !flex !list-none !items-center !gap-2 !py-0',
+            'my-0! flex list-none items-center gap-2 py-0!',
             className,
           )}
           {...props}

@@ -95,6 +95,11 @@ The platform's primary defense against gaming is transparency:
 - `pnpm lint` - Run ESLint on all files
 - `pnpm format` - Format all files using Prettier
 - `pnpm check-types` - Run TypeScript compiler to check for errors
+- `pnpm test` - Run all tests (node + dom)
+- `pnpm test:node` - Run node environment tests only
+- `pnpm test:dom` - Run jsdom environment tests only
+- `pnpm test:watch` - Run tests in watch mode
+- `pnpm test:ui` - Run tests with Vitest UI
 - `pnpm db:generate` - Regenerate Prisma client after schema changes
 - `pnpm db:migrate:create --name descriptive_name` - Create a new migration (dev)
 - `pnpm db:migrate:deploy` - Apply migrations in production

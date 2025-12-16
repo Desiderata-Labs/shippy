@@ -387,6 +387,7 @@ async function handlePROpened(
       points: bounty.points,
       status: BountyStatus.CLAIMED,
       url: `${APP_URL}${routes.project.bountyDetail({ slug: connection.project.slug, bountyId: bounty.id })}`,
+      submissionCreated: true,
     })
 
     console.log(

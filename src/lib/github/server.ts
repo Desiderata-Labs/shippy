@@ -1,3 +1,4 @@
+import { BountyStatus } from '@/lib/db/types'
 import { createAppAuth } from '@octokit/auth-app'
 import { Octokit } from '@octokit/rest'
 import { Webhooks } from '@octokit/webhooks'
@@ -149,6 +150,7 @@ export interface BountyInfo {
   points: number | null
   status: string
   url: string
+  submissionCreated?: boolean // Whether a submission was created for this bounty
 }
 
 /**
@@ -171,16 +173,38 @@ export function formatBountyLinkComment(
 
   lines.push('')
 
+  const submissionsCreated = bounties.filter((b) => b.submissionCreated)
+  const alreadyCompleted = bounties.filter(
+    (b) => !b.submissionCreated && b.status === BountyStatus.COMPLETED,
+  )
+  const alreadyClosed = bounties.filter(
+    (b) => !b.submissionCreated && b.status === BountyStatus.CLOSED,
+  )
+
   if (options?.unlinkedUserLogin) {
     lines.push(
       `@${options.unlinkedUserLogin} To link this PR to the bounty and earn points, ` +
         `[sign up on Shippy](${APP_URL}) and link your GitHub account in Settings, ` +
         `then use \`/claim\` to claim it.`,
     )
-  } else {
+  } else if (submissionsCreated.length > 0) {
     lines.push(
       '_A submission has been created for this PR. ' +
         'If auto-approve is enabled, it will be approved when the PR merges._',
+    )
+  }
+
+  // Add notes for bounties that couldn't have submissions created
+  if (alreadyCompleted.length > 0) {
+    const identifiers = alreadyCompleted.map((b) => b.identifier).join(', ')
+    lines.push(
+      `_Note: ${identifiers} ${alreadyCompleted.length === 1 ? 'is' : 'are'} already completed — no new submission created._`,
+    )
+  }
+  if (alreadyClosed.length > 0) {
+    const identifiers = alreadyClosed.map((b) => b.identifier).join(', ')
+    lines.push(
+      `_Note: ${identifiers} ${alreadyClosed.length === 1 ? 'is' : 'are'} closed — no new submission created._`,
     )
   }
 

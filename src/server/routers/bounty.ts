@@ -15,6 +15,7 @@ import {
   getBountyCommentRecipients,
   resolveMentionedUserIds,
 } from './notification'
+import { claimBounty, releaseClaim } from '@/server/services/bounty'
 import {
   protectedProcedure,
   publicProcedure,
@@ -429,110 +430,31 @@ export const bountyRouter = router({
   claim: protectedProcedure
     .input(z.object({ bountyId: nanoId() }))
     .mutation(async ({ ctx, input }) => {
-      const bounty = await ctx.prisma.bounty.findUnique({
-        where: { id: input.bountyId },
-        include: {
-          project: { select: { founderId: true } },
-          claims: { where: { status: ClaimStatus.ACTIVE } },
-        },
-      })
-
-      if (!bounty) {
-        throw userError('NOT_FOUND', 'Bounty not found')
-      }
-
-      // Check if bounty can be claimed
-      // - BACKLOG bounties cannot be claimed (no points assigned yet)
-      // - COMPLETED/CLOSED bounties cannot be claimed
-      // - OPEN bounties can always be claimed
-      // - CLAIMED bounties can be claimed if in MULTIPLE (competitive) mode
-      if (bounty.status === BountyStatus.BACKLOG) {
-        throw userError(
-          'BAD_REQUEST',
-          'This bounty is in the backlog and cannot be claimed yet',
-        )
-      }
-
-      if (bounty.status === BountyStatus.COMPLETED) {
-        throw userError('BAD_REQUEST', 'This bounty has already been completed')
-      }
-
-      if (bounty.status === BountyStatus.CLOSED) {
-        throw userError('BAD_REQUEST', 'This bounty is closed')
-      }
-
-      // For CLAIMED bounties, only allow if in MULTIPLE mode (competitive)
-      if (
-        bounty.status === BountyStatus.CLAIMED &&
-        bounty.claimMode !== BountyClaimMode.MULTIPLE
-      ) {
-        throw userError('BAD_REQUEST', 'This bounty has already been claimed')
-      }
-
-      // Check existing active claim
-      const existingActiveClaim = await ctx.prisma.bountyClaim.findFirst({
-        where: {
-          bountyId: input.bountyId,
-          userId: ctx.user.id,
-          status: ClaimStatus.ACTIVE,
-        },
-      })
-
-      if (existingActiveClaim) {
-        throw userError('CONFLICT', 'You have already claimed this bounty')
-      }
-
-      // For SINGLE mode, check if already claimed
-      if (
-        bounty.claimMode === BountyClaimMode.SINGLE &&
-        bounty.claims.length > 0
-      ) {
-        throw userError('CONFLICT', 'This bounty has already been claimed')
-      }
-
-      // For MULTIPLE mode with maxClaims, check limit
-      if (bounty.maxClaims && bounty.claims.length >= bounty.maxClaims) {
-        throw userError(
-          'CONFLICT',
-          'This bounty has reached its maximum number of claims',
-        )
-      }
-
-      // Calculate expiry date
-      const expiresAt = new Date()
-      expiresAt.setDate(expiresAt.getDate() + bounty.claimExpiryDays)
-
-      // Create new claim
-      const claim = await ctx.prisma.bountyClaim.create({
-        data: {
-          bountyId: input.bountyId,
-          userId: ctx.user.id,
-          expiresAt,
-        },
-      })
-
-      // Update bounty status to CLAIMED if this is the first claim
-      // For both SINGLE and MULTIPLE mode, status should reflect work is in progress
-      if (bounty.status === BountyStatus.OPEN) {
-        await ctx.prisma.bounty.update({
-          where: { id: input.bountyId },
-          data: { status: BountyStatus.CLAIMED },
-        })
-      }
-
-      // Notify founder about the claim
-      createNotifications({
+      // Use the shared claim service
+      const result = await claimBounty({
         prisma: ctx.prisma,
-        type: NotificationType.BOUNTY_CLAIMED,
-        referenceType: NotificationReferenceType.BOUNTY,
-        referenceId: input.bountyId,
-        actorId: ctx.user.id,
-        recipientIds: [bounty.project.founderId],
-      }).catch((err) => {
-        console.error('Failed to create claim notification:', err)
+        bountyId: input.bountyId,
+        userId: ctx.user.id,
       })
 
-      return claim
+      if (!result.success) {
+        // Map service errors to tRPC errors
+        const errorMap: Record<
+          string,
+          'NOT_FOUND' | 'BAD_REQUEST' | 'CONFLICT'
+        > = {
+          NOT_FOUND: 'NOT_FOUND',
+          BACKLOG: 'BAD_REQUEST',
+          COMPLETED: 'BAD_REQUEST',
+          CLOSED: 'BAD_REQUEST',
+          ALREADY_CLAIMED_SINGLE: 'CONFLICT',
+          ALREADY_CLAIMED_BY_USER: 'CONFLICT',
+          MAX_CLAIMS_REACHED: 'CONFLICT',
+        }
+        throw userError(errorMap[result.code] ?? 'BAD_REQUEST', result.message)
+      }
+
+      return result.claim
     }),
 
   /**
@@ -546,87 +468,20 @@ export const bountyRouter = router({
       }),
     )
     .mutation(async ({ ctx, input }) => {
-      const claim = await ctx.prisma.bountyClaim.findUnique({
-        where: { id: input.claimId },
-        include: {
-          bounty: {
-            include: { project: { select: { founderId: true } } },
-          },
-        },
+      // Use the shared release service
+      const result = await releaseClaim({
+        prisma: ctx.prisma,
+        claimId: input.claimId,
+        userId: ctx.user.id,
+        reason: input.reason,
       })
 
-      if (!claim) {
-        throw userError('NOT_FOUND', 'Claim not found')
-      }
-
-      // Only claimant or founder can release
-      const isClaimant = claim.userId === ctx.user.id
-      const isFounder = claim.bounty.project.founderId === ctx.user.id
-
-      if (!isClaimant && !isFounder) {
-        throw userError('FORBIDDEN', 'You cannot release this claim')
-      }
-
-      // Update claim status
-      await ctx.prisma.bountyClaim.update({
-        where: { id: input.claimId },
-        data: { status: ClaimStatus.RELEASED },
-      })
-
-      // Find and withdraw any pending submissions from this user for this bounty
-      const submissionsToWithdraw = await ctx.prisma.submission.findMany({
-        where: {
-          bountyId: claim.bountyId,
-          userId: claim.userId,
-          status: {
-            in: [
-              SubmissionStatus.DRAFT,
-              SubmissionStatus.PENDING,
-              SubmissionStatus.NEEDS_INFO,
-            ],
-          },
-        },
-        select: { id: true, status: true },
-      })
-
-      // Update submissions and create withdrawal events
-      for (const submission of submissionsToWithdraw) {
-        await ctx.prisma.submission.update({
-          where: { id: submission.id },
-          data: { status: SubmissionStatus.WITHDRAWN },
-        })
-
-        await ctx.prisma.submissionEvent.create({
-          data: {
-            submissionId: submission.id,
-            userId: claim.userId,
-            type: SubmissionEventType.STATUS_CHANGE,
-            fromStatus: submission.status,
-            toStatus: SubmissionStatus.WITHDRAWN,
-            note: input.reason || null,
-          },
-        })
-      }
-
-      // If SINGLE mode and bounty is still CLAIMED (not COMPLETED/CLOSED), reopen it
-      if (
-        claim.bounty.claimMode === BountyClaimMode.SINGLE &&
-        claim.bounty.status === BountyStatus.CLAIMED
-      ) {
-        // Check if there are any other active/submitted claims
-        const remainingClaims = await ctx.prisma.bountyClaim.count({
-          where: {
-            bountyId: claim.bountyId,
-            status: { in: [ClaimStatus.ACTIVE, ClaimStatus.SUBMITTED] },
-          },
-        })
-
-        if (remainingClaims === 0) {
-          await ctx.prisma.bounty.update({
-            where: { id: claim.bountyId },
-            data: { status: BountyStatus.OPEN },
-          })
+      if (!result.success) {
+        const errorMap: Record<string, 'NOT_FOUND' | 'FORBIDDEN'> = {
+          NOT_FOUND: 'NOT_FOUND',
+          FORBIDDEN: 'FORBIDDEN',
         }
+        throw userError(errorMap[result.code] ?? 'BAD_REQUEST', result.message)
       }
 
       return { success: true }

@@ -916,8 +916,16 @@ export function BountyDetailContent() {
             </div>
 
             {/* Actions */}
-            {/* Actions */}
-            {!session ? (
+            {bounty.status === BountyStatus.COMPLETED ? (
+              <div className="rounded-md bg-primary/10 px-3 py-2 text-center text-xs text-primary">
+                <CheckCircle className="mx-auto mb-1 size-4" />
+                This bounty has been completed
+              </div>
+            ) : bounty.status === BountyStatus.CLOSED ? (
+              <div className="rounded-md bg-muted px-3 py-2 text-center text-xs text-muted-foreground">
+                This bounty is closed and no longer accepting submissions.
+              </div>
+            ) : !session ? (
               <AppButton asChild className="w-full" size="sm">
                 <Link href={routes.auth.signIn()}>Sign In to Claim</Link>
               </AppButton>

@@ -1,27 +1,22 @@
 import {
-  BountyStatus,
-  ClaimStatus,
   NotificationReferenceType,
   NotificationType,
   SubmissionEventType,
   SubmissionStatus,
 } from '@/lib/db/types'
-import {
-  formatAutoApproveComment,
-  getInstallationOctokit,
-} from '@/lib/github/server'
 import { nanoId } from '@/lib/nanoid/zod'
-import { routes } from '@/lib/routes'
 import {
   createNotifications,
   getSubmissionCommentRecipients,
   resolveMentionedUserIds,
 } from './notification'
+import {
+  approveSubmission,
+  createSubmission,
+} from '@/server/services/submission'
 import { protectedProcedure, router, userError } from '@/server/trpc'
 import { Prisma } from '@prisma/client'
 import { z } from 'zod/v4'
-
-const APP_URL = process.env.NEXT_PUBLIC_APP_URL || 'https://shippy.sh'
 
 // Validation schemas
 const createSubmissionSchema = z.object({
@@ -201,83 +196,28 @@ export const submissionRouter = router({
   create: protectedProcedure
     .input(createSubmissionSchema)
     .mutation(async ({ ctx, input }) => {
-      // Verify bounty exists and is open/claimed
-      const bounty = await ctx.prisma.bounty.findUnique({
-        where: { id: input.bountyId },
-        include: {
-          project: { select: { founderId: true } },
-        },
+      // Use the shared submission creation service
+      const result = await createSubmission({
+        prisma: ctx.prisma,
+        bountyId: input.bountyId,
+        userId: ctx.user.id,
+        description: input.description,
+        isDraft: input.isDraft,
       })
 
-      if (!bounty) {
-        throw userError('NOT_FOUND', 'Bounty not found')
+      if (!result.success) {
+        const errorMap: Record<
+          string,
+          'NOT_FOUND' | 'BAD_REQUEST' | 'CONFLICT'
+        > = {
+          NOT_FOUND: 'NOT_FOUND',
+          NO_CLAIM: 'BAD_REQUEST',
+          ALREADY_SUBMITTED: 'CONFLICT',
+        }
+        throw userError(errorMap[result.code] ?? 'BAD_REQUEST', result.message)
       }
 
-      // Check if user has an active claim
-      const claim = await ctx.prisma.bountyClaim.findFirst({
-        where: {
-          bountyId: input.bountyId,
-          userId: ctx.user.id,
-          status: ClaimStatus.ACTIVE,
-        },
-      })
-
-      if (!claim) {
-        throw userError(
-          'BAD_REQUEST',
-          'You must claim this bounty before submitting',
-        )
-      }
-
-      // Check for existing submission
-      const existingSubmission = await ctx.prisma.submission.findFirst({
-        where: {
-          bountyId: input.bountyId,
-          userId: ctx.user.id,
-          status: { notIn: [SubmissionStatus.REJECTED] },
-        },
-      })
-
-      if (existingSubmission) {
-        throw userError(
-          'CONFLICT',
-          'You already have a submission for this bounty',
-        )
-      }
-
-      // Create submission
-      const submission = await ctx.prisma.submission.create({
-        data: {
-          bountyId: input.bountyId,
-          userId: ctx.user.id,
-          description: input.description,
-          status: input.isDraft
-            ? SubmissionStatus.DRAFT
-            : SubmissionStatus.PENDING,
-        },
-      })
-
-      // Update claim status
-      await ctx.prisma.bountyClaim.update({
-        where: { id: claim.id },
-        data: { status: ClaimStatus.SUBMITTED },
-      })
-
-      // Notify founder about new submission (if not draft)
-      if (!input.isDraft) {
-        createNotifications({
-          prisma: ctx.prisma,
-          type: NotificationType.SUBMISSION_CREATED,
-          referenceType: NotificationReferenceType.SUBMISSION,
-          referenceId: submission.id,
-          actorId: ctx.user.id,
-          recipientIds: [bounty.project.founderId],
-        }).catch((err) => {
-          console.error('Failed to create submission notification:', err)
-        })
-      }
-
-      return submission
+      return result.submission
     }),
 
   /**
@@ -419,120 +359,13 @@ export const submissionRouter = router({
             )
           }
 
-          const project = submission.bounty.project
-          const rewardPool = project.rewardPool
-          const bountyDisplayId = `${project.projectKey}-${submission.bounty.number}`
-
-          // Check if we need to auto-expand pool capacity
-          if (rewardPool) {
-            // Get current total earned points
-            const earnedResult = await ctx.prisma.submission.aggregate({
-              where: {
-                bounty: { projectId: project.id },
-                status: SubmissionStatus.APPROVED,
-                pointsAwarded: { not: null },
-              },
-              _sum: { pointsAwarded: true },
-            })
-            const currentEarned = earnedResult._sum.pointsAwarded ?? 0
-            const newTotalEarned = currentEarned + pointsAwarded
-
-            // Auto-expand if earned would exceed capacity
-            if (newTotalEarned > rewardPool.poolCapacity) {
-              const dilutionPercent =
-                ((newTotalEarned - rewardPool.poolCapacity) / newTotalEarned) *
-                100
-
-              // Expand pool capacity
-              await ctx.prisma.rewardPool.update({
-                where: { id: rewardPool.id },
-                data: { poolCapacity: newTotalEarned },
-              })
-
-              // Log the expansion event
-              await ctx.prisma.poolExpansionEvent.create({
-                data: {
-                  rewardPoolId: rewardPool.id,
-                  previousCapacity: rewardPool.poolCapacity,
-                  newCapacity: newTotalEarned,
-                  reason: `Auto-expanded when awarding ${pointsAwarded} pts for ${bountyDisplayId}`,
-                  dilutionPercent,
-                },
-              })
-            }
-          }
-
-          // Update submission (clear any previous rejection data)
-          await ctx.prisma.submission.update({
-            where: { id: input.id },
-            data: {
-              status: SubmissionStatus.APPROVED,
-              pointsAwarded,
-              approvedAt: now,
-              rejectedAt: null,
-              rejectionNote: null,
-            },
-          })
-
-          // Update claim status
-          await ctx.prisma.bountyClaim.updateMany({
-            where: {
-              bountyId: submission.bountyId,
-              userId: submission.userId,
-            },
-            data: { status: ClaimStatus.COMPLETED },
-          })
-
-          // Add approval event to timeline
-          await ctx.prisma.submissionEvent.create({
-            data: {
-              submissionId: input.id,
-              userId: ctx.user.id,
-              type: SubmissionEventType.STATUS_CHANGE,
-              fromStatus: previousStatus,
-              toStatus: SubmissionStatus.APPROVED,
-              note: input.note || null,
-            },
-          })
-
-          // Check if bounty should be marked as completed
-          // (For SINGLE mode or if all claims are completed)
-          const activeClaims = await ctx.prisma.bountyClaim.count({
-            where: {
-              bountyId: submission.bountyId,
-              status: { in: [ClaimStatus.ACTIVE, ClaimStatus.SUBMITTED] },
-            },
-          })
-
-          if (activeClaims === 0) {
-            await ctx.prisma.bounty.update({
-              where: { id: submission.bountyId },
-              data: { status: BountyStatus.COMPLETED },
-            })
-          }
-
-          // Notify contributor about approval
-          createNotifications({
+          // Use shared approval service
+          await approveSubmission({
             prisma: ctx.prisma,
-            type: NotificationType.SUBMISSION_APPROVED,
-            referenceType: NotificationReferenceType.SUBMISSION,
-            referenceId: submission.id,
-            actorId: ctx.user.id,
-            recipientIds: [submission.userId],
-          }).catch((err) => {
-            console.error('Failed to create approval notification:', err)
-          })
-
-          // Post GitHub comment if this submission is linked to a PR
-          notifyGitHubPR({
-            prisma: ctx.prisma,
-            submissionId: submission.id,
-            bountyIdentifier: bountyDisplayId,
-            bountyTitle: submission.bounty.title,
-            bountyUrl: `${APP_URL}${routes.project.bountyDetail({ slug: project.slug, bountyId: submission.bountyId })}`,
+            submissionId: input.id,
             pointsAwarded,
-          }).catch((err) => {
-            console.error('Failed to notify GitHub PR:', err)
+            actorId: ctx.user.id,
+            note: input.note,
           })
 
           break
@@ -775,60 +608,3 @@ export const submissionRouter = router({
       return updatedEvent
     }),
 })
-
-/**
- * Post a comment to GitHub PR when a submission is approved
- */
-async function notifyGitHubPR({
-  prisma,
-  submissionId,
-  bountyIdentifier,
-  bountyTitle,
-  bountyUrl,
-  pointsAwarded,
-}: {
-  prisma:
-    | Prisma.TransactionClient
-    | typeof import('@prisma/client').PrismaClient.prototype
-  submissionId: string
-  bountyIdentifier: string
-  bountyTitle: string
-  bountyUrl: string
-  pointsAwarded: number
-}) {
-  // Check if this submission has a linked GitHub PR
-  const prLink = await prisma.gitHubPRLink.findUnique({
-    where: { submissionId },
-  })
-
-  if (!prLink) return
-
-  // Get the GitHub connection to find installation ID
-  const connection = await prisma.gitHubConnection.findFirst({
-    where: { repoId: prLink.repoId },
-  })
-
-  if (!connection) return
-
-  try {
-    const octokit = await getInstallationOctokit(connection.installationId)
-    const [owner, repo] = connection.repoFullName.split('/')
-
-    const comment = formatAutoApproveComment({
-      identifier: bountyIdentifier,
-      title: bountyTitle,
-      points: pointsAwarded,
-      status: BountyStatus.COMPLETED,
-      url: bountyUrl,
-    })
-
-    await octokit.issues.createComment({
-      owner,
-      repo,
-      issue_number: prLink.prNumber,
-      body: comment,
-    })
-  } catch (err) {
-    console.error('Failed to post GitHub comment:', err)
-  }
-}

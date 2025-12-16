@@ -9,7 +9,6 @@ import {
 } from '@/lib/db/types'
 import {
   BountyInfo,
-  formatAutoApproveComment,
   formatBountyLinkComment,
   getInstallationOctokit,
   parseBountyReferences,
@@ -17,6 +16,15 @@ import {
 } from '@/lib/github/server'
 import { routes } from '@/lib/routes'
 import { createNotifications } from '@/server/routers/notification'
+import {
+  claimBounty,
+  createBounty,
+  releaseClaim,
+} from '@/server/services/bounty'
+import {
+  approveSubmission,
+  createSubmission,
+} from '@/server/services/submission'
 import { Octokit } from '@octokit/rest'
 
 const APP_URL = process.env.NEXT_PUBLIC_APP_URL || 'https://shippy.sh'
@@ -278,7 +286,7 @@ async function handlePullRequest(payload: PullRequestPayload) {
   } else if (action === 'closed' && pr.merged) {
     // For merges, check both text references AND existing PR links
     // (PRs can be linked via /bounty command without text refs)
-    await handlePRMergedWithLinks(connection, pr, matchingRefs, installation.id)
+    await handlePRMergedWithLinks(connection, pr, matchingRefs)
   }
 }
 
@@ -325,55 +333,52 @@ async function handlePROpened(
       continue
     }
 
-    // Create a claim if user doesn't already have one
-    const existingClaim = await prisma.bountyClaim.findFirst({
-      where: {
-        bountyId: bounty.id,
-        userId: account.userId,
-        status: ClaimStatus.ACTIVE,
-      },
+    // Try to claim the bounty using shared service (handles validation + notifications)
+    const claimResult = await claimBounty({
+      prisma,
+      bountyId: bounty.id,
+      userId: account.userId,
     })
 
-    if (!existingClaim) {
-      const expiresAt = new Date()
-      expiresAt.setDate(expiresAt.getDate() + bounty.claimExpiryDays)
-
-      await prisma.bountyClaim.create({
-        data: {
-          bountyId: bounty.id,
-          userId: account.userId,
-          expiresAt,
-        },
+    // If claim failed for reasons other than "already claimed by user", skip this bounty
+    if (
+      !claimResult.success &&
+      claimResult.code !== 'ALREADY_CLAIMED_BY_USER'
+    ) {
+      console.log(
+        `Cannot claim bounty ${ref.fullMatch}: ${claimResult.message}`,
+      )
+      // Still add to bounty info with current status so user sees the link
+      bountyInfos.push({
+        identifier: ref.fullMatch,
+        title: bounty.title,
+        points: bounty.points,
+        status: bounty.status,
+        url: `${APP_URL}${routes.project.bountyDetail({ slug: connection.project.slug, bountyId: bounty.id })}`,
       })
+      continue
     }
 
-    // Create the submission
-    const submission = await prisma.submission.create({
-      data: {
-        bountyId: bounty.id,
-        userId: account.userId,
-        description: `Submitted via GitHub PR: ${pr.html_url}`,
-        status: SubmissionStatus.PENDING,
-        githubPRLink: {
-          create: {
-            repoId: connection.repoId,
-            prNumber: pr.number,
-            prNodeId: pr.node_id,
-            prUrl: pr.html_url,
-          },
-        },
+    // Create the submission using shared service
+    const submissionResult = await createSubmission({
+      prisma,
+      bountyId: bounty.id,
+      userId: account.userId,
+      description: `Submitted via GitHub PR: ${pr.html_url}`,
+      githubPRLink: {
+        repoId: connection.repoId,
+        prNumber: pr.number,
+        prNodeId: pr.node_id,
+        prUrl: pr.html_url,
       },
+      skipClaimCheck: true, // Claim was just created or already exists
     })
 
-    // Update bounty status if needed
-    if (
-      bounty.status === BountyStatus.OPEN ||
-      bounty.status === BountyStatus.CLAIMED
-    ) {
-      await prisma.bounty.update({
-        where: { id: bounty.id },
-        data: { status: BountyStatus.CLAIMED },
-      })
+    if (!submissionResult.success) {
+      console.log(
+        `Failed to create submission for ${ref.fullMatch}: ${submissionResult.message}`,
+      )
+      continue
     }
 
     bountyInfos.push({
@@ -385,7 +390,7 @@ async function handlePROpened(
     })
 
     console.log(
-      `Created submission ${submission.id} for bounty ${ref.fullMatch}`,
+      `Created submission ${submissionResult.submission.id} for bounty ${ref.fullMatch}`,
     )
   }
 
@@ -415,7 +420,6 @@ async function handlePRMergedWithLinks(
   connection: GitHubConnectionWithProject,
   pr: PullRequestPayload['pull_request'],
   textRefs: ReturnType<typeof parseBountyReferences>,
-  installationId: number,
 ) {
   // Find ALL PR links for this PR (handles /bounty command cases)
   const allPRLinks = await prisma.gitHubPRLink.findMany({
@@ -433,9 +437,6 @@ async function handlePRMergedWithLinks(
   if (allPRLinks.length === 0 && textRefs.length === 0) {
     return // No submissions linked and no text references
   }
-
-  const octokit = await getInstallationOctokit(installationId)
-  const [owner, repo] = connection.repoFullName.split('/')
 
   // Process all linked submissions (from /bounty command or earlier PR open)
   for (const prLink of allPRLinks) {
@@ -460,15 +461,7 @@ async function handlePRMergedWithLinks(
 
     if (connection.autoApproveOnMerge) {
       // Auto-approve the submission
-      await autoApproveSubmission(
-        prLink,
-        bounty,
-        pr,
-        connection,
-        octokit,
-        owner,
-        repo,
-      )
+      await autoApproveSubmission(prLink, bounty, connection)
     } else {
       // Notify founder that submission needs manual review
       await createNotifications({
@@ -523,15 +516,7 @@ async function handlePRMergedWithLinks(
       })
 
       if (connection.autoApproveOnMerge) {
-        await autoApproveSubmission(
-          submission.githubPRLink,
-          bounty,
-          pr,
-          connection,
-          octokit,
-          owner,
-          repo,
-        )
+        await autoApproveSubmission(submission.githubPRLink, bounty, connection)
       } else {
         // Notify founder that submission needs manual review
         await createNotifications({
@@ -550,44 +535,39 @@ async function handlePRMergedWithLinks(
 /**
  * Auto-approve a single submission linked to a merged PR
  * Note: prMergedAt is already set by the caller (handlePRMergedWithLinks)
+ *
+ * Uses the shared approveSubmission service which handles:
+ * - Updating submission status
+ * - Updating claim status to COMPLETED
+ * - Creating audit trail event
+ * - Auto-expanding pool capacity if needed
+ * - Marking bounty as COMPLETED if appropriate
+ * - Creating notification for contributor
+ * - Posting GitHub comment
  */
 async function autoApproveSubmission(
   prLink: { id: string; submissionId: string },
   bounty: { id: string; number: number; title: string; points: number | null },
-  pr: PullRequestPayload['pull_request'],
   connection: GitHubConnectionWithProject,
-  octokit: Awaited<ReturnType<typeof getInstallationOctokit>>,
-  owner: string,
-  repo: string,
 ) {
-  // Approve the submission
-  await prisma.submission.update({
-    where: { id: prLink.submissionId },
-    data: {
-      status: SubmissionStatus.APPROVED,
-      pointsAwarded: bounty.points,
-      approvedAt: new Date(),
-    },
-  })
-
-  // Update bounty status
-  await prisma.bounty.update({
-    where: { id: bounty.id },
-    data: { status: BountyStatus.COMPLETED },
-  })
-
-  // Post approval comment
-  const identifier = `${connection.project.projectKey}-${bounty.number}`
-  const bountyInfo: BountyInfo = {
-    identifier,
-    title: bounty.title,
-    points: bounty.points,
-    status: BountyStatus.COMPLETED,
-    url: `${APP_URL}${routes.project.bountyDetail({ slug: connection.project.slug, bountyId: bounty.id })}`,
+  // Can't auto-approve without points
+  if (bounty.points === null) {
+    console.log(
+      `Skipping auto-approve for bounty ${connection.project.projectKey}-${bounty.number}: no points assigned`,
+    )
+    return
   }
-  const comment = formatAutoApproveComment(bountyInfo)
-  await postComment(octokit, owner, repo, pr.number, comment)
 
+  // Use the shared approval service
+  await approveSubmission({
+    prisma,
+    submissionId: prLink.submissionId,
+    pointsAwarded: bounty.points,
+    actorId: connection.project.founderId, // Attribute to founder
+    note: 'Auto-approved on PR merge',
+  })
+
+  const identifier = `${connection.project.projectKey}-${bounty.number}`
   console.log(`Auto-approved submission for bounty ${identifier} on PR merge`)
 }
 
@@ -747,55 +727,35 @@ async function handleClaimCommand(payload: IssueCommentPayload) {
 
   const { bounty, identifier } = resolved
 
-  // Check if bounty is claimable
-  if (bounty.status !== BountyStatus.OPEN) {
+  // Use the shared claim service
+  const result = await claimBounty({
+    prisma,
+    bountyId: bounty.id,
+    userId: account.userId,
+  })
+
+  if (!result.success) {
+    // Map error codes to user-friendly messages
+    const errorMessages: Record<string, string> = {
+      BACKLOG: `Bounty **${identifier}** is in the backlog and cannot be claimed yet.`,
+      COMPLETED: `Bounty **${identifier}** has already been completed.`,
+      CLOSED: `Bounty **${identifier}** is closed.`,
+      ALREADY_CLAIMED_SINGLE: `Bounty **${identifier}** has already been claimed.`,
+      ALREADY_CLAIMED_BY_USER: `You already have an active claim on **${identifier}**.`,
+      MAX_CLAIMS_REACHED: `Bounty **${identifier}** has reached its maximum number of claims.`,
+    }
+    const message =
+      errorMessages[result.code] ||
+      `Cannot claim **${identifier}**: ${result.message}`
     await postComment(
       octokit,
       owner,
       repo,
       issueNumber,
-      `@${commentUserLogin} Bounty **${identifier}** is not open for claims (status: ${bounty.status}).`,
+      `@${commentUserLogin} ${message}`,
     )
     return
   }
-
-  // Check for existing claim
-  const existingClaim = await prisma.bountyClaim.findFirst({
-    where: {
-      bountyId: bounty.id,
-      userId: account.userId,
-      status: ClaimStatus.ACTIVE,
-    },
-  })
-
-  if (existingClaim) {
-    await postComment(
-      octokit,
-      owner,
-      repo,
-      issueNumber,
-      `@${commentUserLogin} You already have an active claim on **${identifier}**.`,
-    )
-    return
-  }
-
-  // Create the claim
-  const expiresAt = new Date()
-  expiresAt.setDate(expiresAt.getDate() + bounty.claimExpiryDays)
-
-  await prisma.bountyClaim.create({
-    data: {
-      bountyId: bounty.id,
-      userId: account.userId,
-      expiresAt,
-    },
-  })
-
-  // Update bounty status
-  await prisma.bounty.update({
-    where: { id: bounty.id },
-    data: { status: BountyStatus.CLAIMED },
-  })
 
   await postComment(
     octokit,
@@ -875,28 +835,22 @@ async function handleReleaseCommand(payload: IssueCommentPayload) {
     return
   }
 
-  // Release the claim
-  await prisma.bountyClaim.update({
-    where: { id: claim.id },
-    data: { status: ClaimStatus.RELEASED },
+  // Use the shared release service
+  const result = await releaseClaim({
+    prisma,
+    claimId: claim.id,
+    userId: account.userId,
   })
 
-  // Only set bounty back to OPEN if it's currently CLAIMED (not COMPLETED/CLOSED)
-  if (bounty.status === BountyStatus.CLAIMED) {
-    const otherActiveClaims = await prisma.bountyClaim.count({
-      where: {
-        bountyId: bounty.id,
-        status: ClaimStatus.ACTIVE,
-      },
-    })
-
-    // If no other claims, set bounty back to OPEN
-    if (otherActiveClaims === 0) {
-      await prisma.bounty.update({
-        where: { id: bounty.id },
-        data: { status: BountyStatus.OPEN },
-      })
-    }
+  if (!result.success) {
+    await postComment(
+      octokit,
+      owner,
+      repo,
+      issueNumber,
+      `@${commentUserLogin} Failed to release claim: ${result.message}`,
+    )
+    return
   }
 
   await postComment(
@@ -1003,34 +957,34 @@ async function handleBountyCommandOnIssue(
     return
   }
 
-  // Create the bounty with GitHub issue link
-  const bountyNumber = project.nextBountyNumber
-
-  const bounty = await prisma.bounty.create({
-    data: {
+  // Use the shared bounty creation service (in a transaction for atomic number reservation)
+  const result = await prisma.$transaction(async (tx) => {
+    return createBounty({
+      prisma: tx,
       projectId: project.id,
-      number: bountyNumber,
       title: issue.title,
       description: issue.body || 'Created from GitHub issue.',
       points,
-      status: BountyStatus.OPEN,
       githubIssueLink: {
-        create: {
-          repoId: repository.id,
-          issueNumber: issue.number,
-          issueNodeId: issue.node_id,
-        },
+        repoId: repository.id,
+        issueNumber: issue.number,
+        issueNodeId: issue.node_id,
       },
-    },
+    })
   })
 
-  // Increment the project's bounty counter
-  await prisma.project.update({
-    where: { id: project.id },
-    data: { nextBountyNumber: bountyNumber + 1 },
-  })
+  if (!result.success) {
+    await postComment(
+      octokit,
+      owner,
+      repo,
+      issueNumber,
+      `@${commentUserLogin} Failed to create bounty: ${result.message}`,
+    )
+    return
+  }
 
-  const identifier = `${project.projectKey}-${bountyNumber}`
+  const identifier = `${project.projectKey}-${result.bounty.number}`
   const pointsStr = points !== null ? `${points} pts` : 'TBD'
 
   await postComment(
@@ -1038,7 +992,7 @@ async function handleBountyCommandOnIssue(
     owner,
     repo,
     issueNumber,
-    `🚀 Bounty created: **[${identifier}](${APP_URL}${routes.project.bountyDetail({ slug: project.slug, bountyId: bounty.id })})** (${pointsStr})\n\nContributors can claim this bounty on Shippy or with \`/claim ${identifier}\``,
+    `🚀 Bounty created: **[${identifier}](${APP_URL}${routes.project.bountyDetail({ slug: project.slug, bountyId: result.bounty.id })})** (${pointsStr})\n\nContributors can claim this bounty on Shippy or with \`/claim ${identifier}\``,
   )
 }
 
@@ -1106,67 +1060,89 @@ async function handleBountyCommandOnPR(
   // Find the PR author's Shippy account
   const prAuthorAccount = await findShippyAccountByGitHubId(prData.user.id)
 
-  // Create the bounty
-  const bountyNumber = project.nextBountyNumber
-
-  const bounty = await prisma.bounty.create({
-    data: {
+  // Use transaction to create bounty + optional claim/submission atomically
+  const txResult = await prisma.$transaction(async (tx) => {
+    // Create the bounty using shared service
+    const result = await createBounty({
+      prisma: tx,
       projectId: project.id,
-      number: bountyNumber,
       title: issue.title,
       description: issue.body || 'Created from GitHub PR.',
       points,
-      status: prAuthorAccount ? BountyStatus.CLAIMED : BountyStatus.OPEN,
-    },
-  })
-
-  // Increment the project's bounty counter
-  await prisma.project.update({
-    where: { id: project.id },
-    data: { nextBountyNumber: bountyNumber + 1 },
-  })
-
-  const identifier = `${project.projectKey}-${bountyNumber}`
-  const pointsStr = points !== null ? `${points} pts` : 'TBD'
-
-  // If PR author has a Shippy account, create a claim and submission linked to this PR
-  if (prAuthorAccount) {
-    // Create the claim
-    const expiresAt = new Date()
-    expiresAt.setDate(expiresAt.getDate() + bounty.claimExpiryDays)
-
-    await prisma.bountyClaim.create({
-      data: {
-        bountyId: bounty.id,
-        userId: prAuthorAccount.userId,
-        expiresAt,
-      },
     })
 
-    // Create the submission
-    await prisma.submission.create({
-      data: {
-        bountyId: bounty.id,
+    if (!result.success) {
+      return result
+    }
+
+    const bountyId = result.bounty.id
+    const bountyNumber = result.bounty.number
+
+    // If PR author has a Shippy account, create claim and submission
+    if (prAuthorAccount) {
+      // Use shared claim service (handles validation, status update, notifications)
+      const claimResult = await claimBounty({
+        prisma: tx,
+        bountyId,
         userId: prAuthorAccount.userId,
-        description: `Submitted via GitHub PR: ${prData.html_url}`,
-        status: SubmissionStatus.PENDING,
-        githubPRLink: {
-          create: {
+      })
+
+      if (!claimResult.success) {
+        console.error(`Failed to create claim: ${claimResult.message}`)
+        // Continue anyway - bounty was created, just won't have submission
+      } else {
+        // Create the submission with PR link using shared service
+        const submissionResult = await createSubmission({
+          prisma: tx,
+          bountyId,
+          userId: prAuthorAccount.userId,
+          description: `Submitted via GitHub PR: ${prData.html_url}`,
+          githubPRLink: {
             repoId: repository.id,
             prNumber: issue.number,
             prNodeId: prData.node_id,
             prUrl: prData.html_url,
           },
-        },
-      },
-    })
+          skipClaimCheck: true, // Claim was just created
+        })
 
+        if (!submissionResult.success) {
+          console.error(
+            `Failed to create submission: ${submissionResult.message}`,
+          )
+        }
+      }
+    }
+
+    return {
+      success: true as const,
+      bountyId,
+      bountyNumber,
+      hasSubmission: !!prAuthorAccount,
+    }
+  })
+
+  if (!txResult.success) {
     await postComment(
       octokit,
       owner,
       repo,
       issueNumber,
-      `🚀 Bounty created: **[${identifier}](${APP_URL}${routes.project.bountyDetail({ slug: project.slug, bountyId: bounty.id })})** (${pointsStr})\n\n` +
+      `@${commentUserLogin} Failed to create bounty: ${txResult.message}`,
+    )
+    return
+  }
+
+  const identifier = `${project.projectKey}-${txResult.bountyNumber}`
+  const pointsStr = points !== null ? `${points} pts` : 'TBD'
+
+  if (txResult.hasSubmission) {
+    await postComment(
+      octokit,
+      owner,
+      repo,
+      issueNumber,
+      `🚀 Bounty created: **[${identifier}](${APP_URL}${routes.project.bountyDetail({ slug: project.slug, bountyId: txResult.bountyId })})** (${pointsStr})\n\n` +
         `This PR by @${prData.user.login} has been automatically claimed and linked as a submission.`,
     )
   } else {
@@ -1175,7 +1151,7 @@ async function handleBountyCommandOnPR(
       owner,
       repo,
       issueNumber,
-      `🚀 Bounty created: **[${identifier}](${APP_URL}${routes.project.bountyDetail({ slug: project.slug, bountyId: bounty.id })})** (${pointsStr})\n\n` +
+      `🚀 Bounty created: **[${identifier}](${APP_URL}${routes.project.bountyDetail({ slug: project.slug, bountyId: txResult.bountyId })})** (${pointsStr})\n\n` +
         `@${prData.user.login} To link this PR to the bounty, [sign up on Shippy](${APP_URL}) and link your GitHub account, then reference the bounty in your PR description or use \`/claim ${identifier}\`.`,
     )
   }

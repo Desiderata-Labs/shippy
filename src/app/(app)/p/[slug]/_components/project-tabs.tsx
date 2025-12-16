@@ -8,6 +8,7 @@ import {
 } from '@untitled-ui/icons-react'
 import Link from 'next/link'
 import { useSearchParams } from 'next/navigation'
+import { BountyStatus } from '@/lib/db/types'
 import { DEFAULT_PROJECT_TAB, ProjectTab, routes } from '@/lib/routes'
 import { cn } from '@/lib/utils'
 import { BountiesTab } from './bounties-tab'
@@ -94,7 +95,7 @@ export function ProjectTabs({ project, isFounder }: ProjectTabsProps) {
 
   // Count active bounties (not COMPLETED or CLOSED)
   const activeBounties = project.bounties.filter(
-    (b) => b.status === 'OPEN' || b.status === 'CLAIMED',
+    (b) => b.status === BountyStatus.OPEN || b.status === BountyStatus.CLAIMED,
   )
 
   const tabs: TabItem[] = [

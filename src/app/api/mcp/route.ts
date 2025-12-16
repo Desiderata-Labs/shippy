@@ -1,5 +1,5 @@
 import { prisma } from '@/lib/db/server'
-import { BountyStatus } from '@/lib/db/types'
+import { BountyStatus, ClaimStatus } from '@/lib/db/types'
 import { extractBearerToken, verifyMcpToken } from '@/lib/mcp-token/server'
 import { toMarkdown } from '@/lib/mcp/to-markdown'
 import { routes } from '@/lib/routes'
@@ -8,6 +8,8 @@ import { WebStandardStreamableHTTPServerTransport } from '@modelcontextprotocol/
 import { z } from 'zod'
 
 export const maxDuration = 60
+
+const APP_URL = process.env.NEXT_PUBLIC_APP_URL || 'https://shippy.sh'
 
 // Single stateless transport instance
 const transport = new WebStandardStreamableHTTPServerTransport({
@@ -47,7 +49,7 @@ server.registerTool(
           labels: { include: { label: true } },
           _count: {
             select: {
-              claims: { where: { status: 'ACTIVE' } },
+              claims: { where: { status: ClaimStatus.ACTIVE } },
               submissions: true,
             },
           },
@@ -61,7 +63,7 @@ server.registerTool(
           labels: { include: { label: true } },
           _count: {
             select: {
-              claims: { where: { status: 'ACTIVE' } },
+              claims: { where: { status: ClaimStatus.ACTIVE } },
               submissions: true,
             },
           },
@@ -104,14 +106,14 @@ server.registerTool(
         content: [
           {
             type: 'text' as const,
-            text: 'Authentication required. Generate a token at https://shippy.sh/settings',
+            text: `Authentication required. Generate a token in your Shippy user profile settings`,
           },
         ],
       }
     }
 
     const claims = await prisma.bountyClaim.findMany({
-      where: { userId: authInfo.clientId, status: 'ACTIVE' },
+      where: { userId: authInfo.clientId, status: ClaimStatus.ACTIVE },
       include: {
         bounty: {
           include: {
@@ -346,7 +348,7 @@ function formatBounty(bounty: {
   labels?: Array<{ label: { name: string; color: string } }>
   _count?: { claims: number; submissions: number }
 }) {
-  const baseUrl = process.env.NEXT_PUBLIC_APP_URL || 'https://shippy.sh'
+  const baseUrl = APP_URL
   return {
     identifier: `${bounty.project.projectKey}-${bounty.number}`,
     title: bounty.title,
@@ -380,7 +382,7 @@ function formatProject(project: {
   rewardPool?: { poolPercentage: number; payoutFrequency: string } | null
   _count?: { bounties: number }
 }) {
-  const baseUrl = process.env.NEXT_PUBLIC_APP_URL || 'https://shippy.sh'
+  const baseUrl = APP_URL
   return {
     name: project.name,
     slug: project.slug,

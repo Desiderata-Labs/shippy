@@ -14,4 +14,5 @@ export type Session = typeof authClient.$Infer.Session & {
 }
 
 // Export commonly used methods for convenience
-export const { signIn, signUp, signOut, useSession } = authClient
+export const { signIn, signUp, signOut, useSession, linkSocial, listAccounts } =
+  authClient

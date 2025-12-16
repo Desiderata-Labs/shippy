@@ -1,12 +1,24 @@
 'use client'
 
-import { CheckCircle, Settings01, Share07 } from '@untitled-ui/icons-react'
+import {
+  CheckCircle,
+  DotsVertical,
+  Edit01,
+  Grid01,
+  Share07,
+} from '@untitled-ui/icons-react'
 import { useState } from 'react'
 import Image from 'next/image'
 import Link from 'next/link'
 import { routes } from '@/lib/routes'
 import { AppButton } from '@/components/app'
 import { Avatar, AvatarFallback, AvatarImage } from '@/components/ui/avatar'
+import {
+  DropdownMenu,
+  DropdownMenuContent,
+  DropdownMenuItem,
+  DropdownMenuTrigger,
+} from '@/components/ui/dropdown-menu'
 import {
   Tooltip,
   TooltipContent,
@@ -34,7 +46,7 @@ export function ProjectHeader({ project, isFounder }: ProjectHeaderProps) {
   const [copied, setCopied] = useState(false)
 
   const handleShare = async () => {
-    const url = `${window.location.origin}/p/${project.slug}`
+    const url = `${window.location.origin}${routes.project.detail({ slug: project.slug })}`
     await navigator.clipboard.writeText(url)
     setCopied(true)
     setTimeout(() => setCopied(false), 2000)
@@ -123,17 +135,33 @@ export function ProjectHeader({ project, isFounder }: ProjectHeaderProps) {
           </TooltipProvider>
 
           {isFounder && (
-            <AppButton
-              variant="outline"
-              size="sm"
-              className="cursor-pointer border-border bg-secondary hover:bg-accent"
-              asChild
-            >
-              <Link href={routes.project.settings({ slug: project.slug })}>
-                <Settings01 className="mr-1.5 size-3.5" />
-                Edit
-              </Link>
-            </AppButton>
+            <DropdownMenu>
+              <DropdownMenuTrigger asChild>
+                <AppButton
+                  variant="outline"
+                  size="sm"
+                  className="size-8 cursor-pointer border-border bg-secondary p-0 hover:bg-accent"
+                >
+                  <DotsVertical className="size-4" />
+                </AppButton>
+              </DropdownMenuTrigger>
+              <DropdownMenuContent align="end">
+                <DropdownMenuItem asChild className="cursor-pointer">
+                  <Link href={routes.project.settings({ slug: project.slug })}>
+                    <Edit01 className="mr-2 size-4" />
+                    Edit project
+                  </Link>
+                </DropdownMenuItem>
+                <DropdownMenuItem asChild className="cursor-pointer">
+                  <Link
+                    href={routes.project.integrations({ slug: project.slug })}
+                  >
+                    <Grid01 className="mr-2 size-4" />
+                    Integrations
+                  </Link>
+                </DropdownMenuItem>
+              </DropdownMenuContent>
+            </DropdownMenu>
           )}
         </div>
       </div>

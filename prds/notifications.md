@@ -20,6 +20,7 @@ A simple in-app notification system for Shippy that notifies users about activit
 | Submission approved     | Contributor                               | ✅ Done       |
 | Submission rejected     | Contributor                               | ✅ Done       |
 | Submission needs info   | Contributor                               | ✅ Done       |
+| Submission PR merged    | Founder (when auto-approve OFF)           | ✅ Done       |
 | **Claims**              |                                           |               |
 | Bounty claimed          | Founder                                   | ✅ Done       |
 | Claim expiring (24h)    | Contributor                               | ⏳ Needs cron |
@@ -136,6 +137,7 @@ enum NotificationType {
   SUBMISSION_APPROVED = 'SUBMISSION_APPROVED',
   SUBMISSION_REJECTED = 'SUBMISSION_REJECTED',
   SUBMISSION_NEEDS_INFO = 'SUBMISSION_NEEDS_INFO',
+  SUBMISSION_PR_MERGED = 'SUBMISSION_PR_MERGED', // PR merged, needs manual review
 
   // Claims (partial - expiring/expired need cron)
   BOUNTY_CLAIMED = 'BOUNTY_CLAIMED', // ✅

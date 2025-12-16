@@ -14,6 +14,7 @@ import {
 import { useState } from 'react'
 import Link from 'next/link'
 import { getLabelColor } from '@/lib/bounty/tag-colors'
+import { BountyStatus } from '@/lib/db/types'
 import { routes } from '@/lib/routes'
 import { bountyStatusColors, needsReviewColor } from '@/lib/status-colors'
 import { cn } from '@/lib/utils'
@@ -101,16 +102,23 @@ export function BountiesTab({
         new Date(b.createdAt).getTime() - new Date(a.createdAt).getTime(),
     )
 
-  const openBounties = bounties.filter((b) => b.status === 'OPEN')
-  const backlogBounties = bounties.filter((b) => b.status === 'BACKLOG')
+  const openBounties = bounties.filter((b) => b.status === BountyStatus.OPEN)
+  const backlogBounties = bounties.filter(
+    (b) => b.status === BountyStatus.BACKLOG,
+  )
   const needsReviewBounties = bounties.filter(
     (b) => b._count.pendingSubmissions > 0,
   )
   const inProgressBounties = bounties.filter(
-    (b) => b.status === 'CLAIMED' && b._count.pendingSubmissions === 0,
+    (b) =>
+      b.status === BountyStatus.CLAIMED && b._count.pendingSubmissions === 0,
   )
-  const completedBounties = bounties.filter((b) => b.status === 'COMPLETED')
-  const closedBounties = bounties.filter((b) => b.status === 'CLOSED')
+  const completedBounties = bounties.filter(
+    (b) => b.status === BountyStatus.COMPLETED,
+  )
+  const closedBounties = bounties.filter(
+    (b) => b.status === BountyStatus.CLOSED,
+  )
 
   // Build sections for grouped display (when filter is "All")
   const sectionIconClass = 'size-4 text-muted-foreground/50'
@@ -421,11 +429,11 @@ function BountyRow({
   projectKey,
   showNeedsReview,
 }: BountyRowProps) {
-  const isBacklog = bounty.status === 'BACKLOG'
-  const isOpen = bounty.status === 'OPEN'
-  const isClaimed = bounty.status === 'CLAIMED'
-  const isCompleted = bounty.status === 'COMPLETED'
-  const isClosed = bounty.status === 'CLOSED'
+  const isBacklog = bounty.status === BountyStatus.BACKLOG
+  const isOpen = bounty.status === BountyStatus.OPEN
+  const isClaimed = bounty.status === BountyStatus.CLAIMED
+  const isCompleted = bounty.status === BountyStatus.COMPLETED
+  const isClosed = bounty.status === BountyStatus.CLOSED
 
   // Show approved submission's user if completed
   const approvedUser = bounty.approvedSubmission?.[0]?.user ?? null

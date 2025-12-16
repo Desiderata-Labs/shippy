@@ -6,7 +6,12 @@ import {
   SubmissionEventType,
   SubmissionStatus,
 } from '@/lib/db/types'
+import {
+  formatAutoApproveComment,
+  getInstallationOctokit,
+} from '@/lib/github/server'
 import { nanoId } from '@/lib/nanoid/zod'
+import { routes } from '@/lib/routes'
 import {
   createNotifications,
   getSubmissionCommentRecipients,
@@ -15,6 +20,8 @@ import {
 import { protectedProcedure, router, userError } from '@/server/trpc'
 import { Prisma } from '@prisma/client'
 import { z } from 'zod/v4'
+
+const APP_URL = process.env.NEXT_PUBLIC_APP_URL || 'https://shippy.sh'
 
 // Validation schemas
 const createSubmissionSchema = z.object({
@@ -414,6 +421,7 @@ export const submissionRouter = router({
 
           const project = submission.bounty.project
           const rewardPool = project.rewardPool
+          const bountyDisplayId = `${project.projectKey}-${submission.bounty.number}`
 
           // Check if we need to auto-expand pool capacity
           if (rewardPool) {
@@ -442,7 +450,6 @@ export const submissionRouter = router({
               })
 
               // Log the expansion event
-              const bountyDisplayId = `${project.projectKey}-${submission.bounty.number}`
               await ctx.prisma.poolExpansionEvent.create({
                 data: {
                   rewardPoolId: rewardPool.id,
@@ -514,6 +521,18 @@ export const submissionRouter = router({
             recipientIds: [submission.userId],
           }).catch((err) => {
             console.error('Failed to create approval notification:', err)
+          })
+
+          // Post GitHub comment if this submission is linked to a PR
+          notifyGitHubPR({
+            prisma: ctx.prisma,
+            submissionId: submission.id,
+            bountyIdentifier: bountyDisplayId,
+            bountyTitle: submission.bounty.title,
+            bountyUrl: `${APP_URL}${routes.project.bountyDetail({ slug: project.slug, bountyId: submission.bountyId })}`,
+            pointsAwarded,
+          }).catch((err) => {
+            console.error('Failed to notify GitHub PR:', err)
           })
 
           break
@@ -756,3 +775,60 @@ export const submissionRouter = router({
       return updatedEvent
     }),
 })
+
+/**
+ * Post a comment to GitHub PR when a submission is approved
+ */
+async function notifyGitHubPR({
+  prisma,
+  submissionId,
+  bountyIdentifier,
+  bountyTitle,
+  bountyUrl,
+  pointsAwarded,
+}: {
+  prisma:
+    | Prisma.TransactionClient
+    | typeof import('@prisma/client').PrismaClient.prototype
+  submissionId: string
+  bountyIdentifier: string
+  bountyTitle: string
+  bountyUrl: string
+  pointsAwarded: number
+}) {
+  // Check if this submission has a linked GitHub PR
+  const prLink = await prisma.gitHubPRLink.findUnique({
+    where: { submissionId },
+  })
+
+  if (!prLink) return
+
+  // Get the GitHub connection to find installation ID
+  const connection = await prisma.gitHubConnection.findFirst({
+    where: { repoId: prLink.repoId },
+  })
+
+  if (!connection) return
+
+  try {
+    const octokit = await getInstallationOctokit(connection.installationId)
+    const [owner, repo] = connection.repoFullName.split('/')
+
+    const comment = formatAutoApproveComment({
+      identifier: bountyIdentifier,
+      title: bountyTitle,
+      points: pointsAwarded,
+      status: BountyStatus.COMPLETED,
+      url: bountyUrl,
+    })
+
+    await octokit.issues.createComment({
+      owner,
+      repo,
+      issue_number: prLink.prNumber,
+      body: comment,
+    })
+  } catch (err) {
+    console.error('Failed to post GitHub comment:', err)
+  }
+}

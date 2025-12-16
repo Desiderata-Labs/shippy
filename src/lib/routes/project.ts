@@ -54,6 +54,7 @@ function createIdSlug(id: string, name?: string): string {
 export const projectPaths = {
   detail: '/p/[slug]',
   settings: '/p/[slug]/settings',
+  integrations: '/p/[slug]/integrations',
   newBounty: '/p/[slug]/bounties/new',
   bountyDetail: '/p/[slug]/bounty/[bountyId]',
   bountyEdit: '/p/[slug]/bounty/[bountyId]/edit',
@@ -74,6 +75,7 @@ export const projectRoutes = {
     return `${base}?tab=${params.tab}`
   },
   settings: (params: ProjectParams) => `/p/${params.slug}/settings`,
+  integrations: (params: ProjectParams) => `/p/${params.slug}/integrations`,
   newBounty: (params: ProjectParams) => `/p/${params.slug}/bounties/new`,
   bountyDetail: (params: BountyParams) =>
     `/p/${params.slug}/bounty/${createIdSlug(params.bountyId, params.title)}`,

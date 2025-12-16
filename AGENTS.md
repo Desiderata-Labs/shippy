@@ -176,27 +176,71 @@ import { getUser } from "@/lib/auth";
 - Use Prisma-generated types for database models
 - Use Zod for input validation in tRPC procedures
 
+### Status Enums (IMPORTANT)
+
+**ALWAYS use status enums from `@/lib/db/types`** instead of string literals for database status / enum fields:
+
+```tsx
+// ✅ Correct - use enums
+import { BountyStatus, ClaimStatus, SubmissionStatus } from '@/lib/db/types'
+
+if (bounty.status === BountyStatus.OPEN) { ... }
+if (claim.status === ClaimStatus.ACTIVE) { ... }
+if (submission.status === SubmissionStatus.PENDING) { ... }
+
+await prisma.bounty.update({
+  where: { id },
+  data: { status: BountyStatus.CLAIMED },
+})
+
+// ❌ Wrong - string literals
+if (bounty.status === 'OPEN') { ... }
+if (claim.status === 'ACTIVE') { ... }
+await prisma.bounty.update({
+  where: { id },
+  data: { status: 'CLAIMED' },
+})
+```
+
+Available enums:
+
+- **`BountyStatus`**
+- **`ClaimStatus`**
+- **`SubmissionStatus`**
+- **`PayoutStatus`**
+- **`PayoutRecipientStatus`**
+- **`NotificationType`**
+- etc. (see `@/lib/db/types.ts`)
+
 ### Routes
 
 - **NEVER use string literals for internal navigation URLs** (e.g., `/p/${slug}`, `/u/${username}`)
-- **ALWAYS use the `routes` helper** from `@/lib/routes` for all internal links and navigation
+- **ALWAYS use the `routes` helper** from `@/lib/routes` for all internal links, navigation, and URL generation
+- This applies to **both client and server code** (components, API routes, webhooks, notifications, etc.)
 - This ensures type-safe routing and makes refactoring easier
 
 ```tsx
 // ✅ Correct - type-safe routes
 import { routes } from '@/lib/routes'
 
+// Client-side navigation
 <Link href={routes.project.detail({ slug: 'my-project' })}>View Project</Link>
 <Link href={routes.user.profile({ username: 'rob' })}>View Profile</Link>
 <Link href={routes.project.bountyDetail({ slug: 'my-project', bountyId: '123' })}>View Bounty</Link>
 
+// Server-side URL generation (API routes, webhooks, notifications)
+const bountyUrl = `${APP_URL}${routes.project.bountyDetail({ slug: project.slug, bountyId: bounty.id })}`
+const projectUrl = `${APP_URL}${routes.project.detail({ slug: project.slug })}`
+
 // ❌ Wrong - stringly typed URLs
 <Link href={`/p/${slug}`}>View Project</Link>
 <Link href={`/u/${username}`}>View Profile</Link>
+const url = `${APP_URL}/p/${slug}/bounty/${id}` // Don't do this!
 ```
 
 - When adding new routes, update the appropriate file in `src/lib/routes/` (e.g., `project.ts`, `user.ts`)
 - Export both `paths` (for Next.js app router matching) and `routes` (for navigation)
+- For absolute URLs, combine `NEXT_PUBLIC_APP_URL` with the route helper: `${APP_URL}${routes.project.detail({ slug })}`
 
 ### UI Components (shadcn/ui)
 

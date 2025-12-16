@@ -471,7 +471,8 @@ export function ProjectEditor({ mode, username, slug }: ProjectEditorProps) {
                 <div className="space-y-3 px-4 py-3">
                   <div className="flex items-center gap-3">
                     <span className="shrink-0 text-sm text-muted-foreground">
-                      https://shippy.sh/p/
+                      {process.env.NEXT_PUBLIC_APP_URL || 'https://shippy.sh'}
+                      /p/
                     </span>
                     <div className="flex items-center gap-2">
                       <input

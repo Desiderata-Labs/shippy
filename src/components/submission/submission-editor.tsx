@@ -8,6 +8,7 @@ import { useState } from 'react'
 import Link from 'next/link'
 import { useRouter } from 'next/navigation'
 import { redirect } from 'next/navigation'
+import { ClaimStatus } from '@/lib/db/types'
 import { routes } from '@/lib/routes'
 import { AppButton } from '@/components/app'
 import { AppBackground } from '@/components/layout/app-background'
@@ -175,7 +176,7 @@ export function SubmissionEditor({
     }
     // Check if user has an active claim on this bounty
     const userClaim = bounty.claims.find(
-      (c) => c.userId === session.user.id && c.status === 'ACTIVE',
+      (c) => c.userId === session.user.id && c.status === ClaimStatus.ACTIVE,
     )
     if (!userClaim) {
       // User doesn't have an active claim - redirect to bounty

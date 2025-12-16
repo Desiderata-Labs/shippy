@@ -89,6 +89,17 @@ const authConfig = {
     expiresIn: 60 * 60 * 24 * 14, // 14 days
     updateAge: 60 * 60 * 24, // Update session every 24 hours
   },
+  account: {
+    accountLinking: {
+      enabled: true,
+      trustedProviders: ['google', 'github'],
+    },
+    // Skip state cookie check in development to avoid state_mismatch errors
+    // when using ngrok or other tunneling tools
+    ...(process.env.NODE_ENV !== 'production' && {
+      skipStateCookieCheck: true,
+    }),
+  },
   databaseHooks: {
     user: {
       create: {

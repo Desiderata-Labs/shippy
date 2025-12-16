@@ -5,6 +5,7 @@ import {
   PayoutFrequency,
   PayoutVisibility,
   ProfitBasis,
+  SubmissionStatus,
 } from '@/lib/db/types'
 import { nanoId } from '@/lib/nanoid/zod'
 import { isProjectKeyAvailable } from '@/lib/project-key/server'
@@ -562,7 +563,7 @@ export const projectRouter = router({
       const earnedResult = await ctx.prisma.submission.aggregate({
         where: {
           bounty: { projectId: input.projectId },
-          status: 'APPROVED',
+          status: SubmissionStatus.APPROVED,
           pointsAwarded: { not: null },
         },
         _sum: { pointsAwarded: true },
@@ -576,6 +577,190 @@ export const projectRouter = router({
         availablePoints: project.rewardPool.poolCapacity - allocatedPoints,
         expansionEvents: project.rewardPool.expansionEvents,
       }
+    }),
+
+  /**
+   * Get GitHub integration status for a project
+   */
+  getGitHubConnection: protectedProcedure
+    .input(z.object({ slug: z.string() }))
+    .query(async ({ ctx, input }) => {
+      const project = await ctx.prisma.project.findUnique({
+        where: { slug: input.slug },
+        select: {
+          id: true,
+          founderId: true,
+          githubConnection: true,
+        },
+      })
+
+      if (!project) {
+        throw userError('NOT_FOUND', 'Project not found')
+      }
+
+      if (project.founderId !== ctx.user.id) {
+        throw userError('FORBIDDEN', 'You do not own this project')
+      }
+
+      return {
+        projectId: project.id,
+        connection: project.githubConnection,
+      }
+    }),
+
+  /**
+   * Disconnect GitHub from a project
+   * If no other projects use the same installation, also uninstalls from GitHub
+   */
+  disconnectGitHub: protectedProcedure
+    .input(z.object({ projectId: nanoId() }))
+    .mutation(async ({ ctx, input }) => {
+      const project = await ctx.prisma.project.findUnique({
+        where: { id: input.projectId },
+        select: { founderId: true, githubConnection: true },
+      })
+
+      if (!project) {
+        throw userError('NOT_FOUND', 'Project not found')
+      }
+
+      if (project.founderId !== ctx.user.id) {
+        throw userError('FORBIDDEN', 'You do not own this project')
+      }
+
+      if (!project.githubConnection) {
+        throw userError(
+          'BAD_REQUEST',
+          'GitHub is not connected to this project',
+        )
+      }
+
+      const { installationId } = project.githubConnection
+
+      // Delete the database record first
+      await ctx.prisma.gitHubConnection.delete({
+        where: { projectId: input.projectId },
+      })
+
+      // Check if any other projects still use this installation
+      const otherConnections = await ctx.prisma.gitHubConnection.count({
+        where: { installationId },
+      })
+
+      // If no other projects use this installation, uninstall from GitHub
+      if (otherConnections === 0) {
+        try {
+          const { getAppOctokit } = await import('@/lib/github/server')
+          const octokit = getAppOctokit()
+          await octokit.apps.deleteInstallation({
+            installation_id: installationId,
+          })
+        } catch (error) {
+          // Log but don't fail - the local disconnect succeeded
+          // The installation may have already been removed from GitHub
+          console.error('Failed to uninstall GitHub App:', error)
+        }
+      }
+
+      return { success: true }
+    }),
+
+  /**
+   * List repos accessible to a GitHub installation (for repo picker)
+   */
+  listGitHubRepos: protectedProcedure
+    .input(z.object({ installationId: z.number() }))
+    .query(async ({ input }) => {
+      // Dynamic import to avoid loading GitHub deps on every request
+      const { getInstallationOctokit } = await import('@/lib/github/server')
+      const octokit = await getInstallationOctokit(input.installationId)
+      const { data } = await octokit.apps.listReposAccessibleToInstallation({
+        per_page: 100,
+      })
+      return data.repositories.map((repo) => ({
+        id: repo.id,
+        fullName: repo.full_name,
+        private: repo.private,
+      }))
+    }),
+
+  /**
+   * Link a specific repo to a project
+   */
+  linkGitHubRepo: protectedProcedure
+    .input(
+      z.object({
+        projectId: nanoId(),
+        installationId: z.number(),
+        repoId: z.number(),
+        repoFullName: z.string(),
+      }),
+    )
+    .mutation(async ({ ctx, input }) => {
+      const project = await ctx.prisma.project.findUnique({
+        where: { id: input.projectId },
+        select: { founderId: true },
+      })
+
+      if (!project) {
+        throw userError('NOT_FOUND', 'Project not found')
+      }
+
+      if (project.founderId !== ctx.user.id) {
+        throw userError('FORBIDDEN', 'You do not own this project')
+      }
+
+      return ctx.prisma.gitHubConnection.upsert({
+        where: { projectId: input.projectId },
+        create: {
+          projectId: input.projectId,
+          installationId: input.installationId,
+          repoId: input.repoId,
+          repoFullName: input.repoFullName,
+        },
+        update: {
+          installationId: input.installationId,
+          repoId: input.repoId,
+          repoFullName: input.repoFullName,
+        },
+      })
+    }),
+
+  /**
+   * Update GitHub connection settings (e.g., auto-approve)
+   */
+  updateGitHubSettings: protectedProcedure
+    .input(
+      z.object({
+        projectId: nanoId(),
+        autoApproveOnMerge: z.boolean(),
+      }),
+    )
+    .mutation(async ({ ctx, input }) => {
+      const project = await ctx.prisma.project.findUnique({
+        where: { id: input.projectId },
+        select: { founderId: true, githubConnection: true },
+      })
+
+      if (!project) {
+        throw userError('NOT_FOUND', 'Project not found')
+      }
+
+      if (project.founderId !== ctx.user.id) {
+        throw userError('FORBIDDEN', 'You do not own this project')
+      }
+
+      if (!project.githubConnection) {
+        throw userError(
+          'BAD_REQUEST',
+          'GitHub is not connected to this project',
+        )
+      }
+
+      return ctx.prisma.gitHubConnection.update({
+        where: { projectId: input.projectId },
+        data: { autoApproveOnMerge: input.autoApproveOnMerge },
+      })
     }),
 
   /**

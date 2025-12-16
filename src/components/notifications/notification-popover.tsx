@@ -46,6 +46,8 @@ function getNotificationDescription(
       return `Your submission for "${title}" was not accepted`
     case NotificationType.SUBMISSION_NEEDS_INFO:
       return `${actorName} requested more info on your submission`
+    case NotificationType.SUBMISSION_PR_MERGED:
+      return `${actorName}'s PR was merged for "${title}" — review needed`
 
     // Claims
     case NotificationType.BOUNTY_CLAIMED:

@@ -120,10 +120,11 @@ model Project {
   nextBountyNumber Int @default(1)
 
   // Relations
-  rewardPool RewardPool?
-  bounties   Bounty[]
-  payouts    Payout[]
-  labels     Label[]
+  rewardPool       RewardPool?
+  bounties         Bounty[]
+  payouts          Payout[]
+  labels           Label[]
+  githubConnection GitHubConnection?
 
   @@index([founderId])
   @@index([isPublic])
@@ -221,10 +222,11 @@ model Bounty {
   updatedAt DateTime @updatedAt @db.Timestamptz(3)
 
   // Relations
-  labels      BountyLabel[]
-  claims      BountyClaim[]
-  submissions Submission[]
-  events      BountyEvent[]
+  labels          BountyLabel[]
+  claims          BountyClaim[]
+  submissions     Submission[]
+  events          BountyEvent[]
+  githubIssueLink GitHubIssueLink?
 
   @@index([projectId])
   @@index([status])
@@ -285,7 +287,7 @@ model BountyClaim {
   userId   String
   user     User   @relation(fields: [userId], references: [id], onDelete: Cascade)
 
-  status    String   @default("ACTIVE") // "ACTIVE" | "EXPIRED" | "SUBMITTED" | "COMPLETED"
+  status    String   @default("ACTIVE") // "ACTIVE" | "EXPIRED" | "RELEASED" | "SUBMITTED" | "COMPLETED"
   expiresAt DateTime @db.Timestamptz(3) // When this claim expires if no submission
   createdAt DateTime @default(now()) @db.Timestamptz(3)
   updatedAt DateTime @updatedAt @db.Timestamptz(3)
@@ -318,8 +320,9 @@ model Submission {
   updatedAt DateTime @updatedAt @db.Timestamptz(3)
 
   // Relations
-  events      SubmissionEvent[]
-  attachments SubmissionAttachment[]
+  events       SubmissionEvent[]
+  attachments  SubmissionAttachment[]
+  githubPRLink GitHubPRLink?
 
   @@index([bountyId])
   @@index([userId])
@@ -498,6 +501,70 @@ model ThreadSubscription {
   @@unique([userId, referenceType, referenceId])
   @@index([userId])
   @@map("thread_subscription")
+}
+
+// ================================
+// GitHub App Integration
+// ================================
+
+/// Links a Shippy project to a GitHub repository via the GitHub App
+model GitHubConnection {
+  id        String  @id @default(dbgenerated("nanoid()"))
+  projectId String  @unique
+  project   Project @relation(fields: [projectId], references: [id], onDelete: Cascade)
+
+  // GitHub identifiers
+  installationId Int    // GitHub App installation ID
+  repoId         Int    // GitHub repository ID
+  repoFullName   String // e.g., "shippy-sh/shippy"
+
+  // Settings
+  autoApproveOnMerge Boolean @default(false) // Auto-approve submissions when linked PR merges
+
+  createdAt DateTime @default(now()) @db.Timestamptz(3)
+  updatedAt DateTime @updatedAt @db.Timestamptz(3)
+
+  @@index([installationId])
+  @@index([repoId])
+  @@map("github_connection")
+}
+
+/// Links a Shippy bounty to a GitHub issue (created via /bounty command)
+model GitHubIssueLink {
+  id       String @id @default(dbgenerated("nanoid()"))
+  bountyId String @unique
+  bounty   Bounty @relation(fields: [bountyId], references: [id], onDelete: Cascade)
+
+  // GitHub issue identifiers
+  repoId      Int    // GitHub repository ID
+  issueNumber Int    // Issue number in the repo
+  issueNodeId String // GitHub's global node ID for the issue
+
+  createdAt DateTime @default(now()) @db.Timestamptz(3)
+
+  @@unique([repoId, issueNumber]) // One bounty per repo+issue
+  @@index([repoId])
+  @@map("github_issue_link")
+}
+
+/// Links a Shippy submission to a GitHub PR (for auto-approval tracking)
+model GitHubPRLink {
+  id           String     @id @default(dbgenerated("nanoid()"))
+  submissionId String     @unique
+  submission   Submission @relation(fields: [submissionId], references: [id], onDelete: Cascade)
+
+  // GitHub PR identifiers
+  repoId     Int       // GitHub repository ID
+  prNumber   Int       // PR number in the repo
+  prNodeId   String    // GitHub's global node ID for the PR
+  prUrl      String    // Full URL to the PR
+  prMergedAt DateTime? @db.Timestamptz(3) // When the PR was merged (null if not merged)
+
+  createdAt DateTime @default(now()) @db.Timestamptz(3)
+  updatedAt DateTime @updatedAt @db.Timestamptz(3)
+
+  @@index([repoId])
+  @@map("github_pr_link")
 }
 
 // ================================

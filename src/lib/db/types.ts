@@ -77,7 +77,8 @@ export function isValidHexColor(color: string): boolean {
 
 export enum ClaimStatus {
   ACTIVE = 'ACTIVE', // Currently working on it
-  EXPIRED = 'EXPIRED', // Claim expired without submission
+  EXPIRED = 'EXPIRED', // Claim expired due to time limit
+  RELEASED = 'RELEASED', // User voluntarily released their claim
   SUBMITTED = 'SUBMITTED', // Submission created
   COMPLETED = 'COMPLETED', // Submission approved
 }
@@ -151,6 +152,7 @@ export enum NotificationType {
   SUBMISSION_APPROVED = 'SUBMISSION_APPROVED',
   SUBMISSION_REJECTED = 'SUBMISSION_REJECTED',
   SUBMISSION_NEEDS_INFO = 'SUBMISSION_NEEDS_INFO',
+  SUBMISSION_PR_MERGED = 'SUBMISSION_PR_MERGED', // PR merged, needs manual review
 
   // Claims
   BOUNTY_CLAIMED = 'BOUNTY_CLAIMED',

@@ -570,7 +570,7 @@ export const bountyRouter = router({
       // Update claim status
       await ctx.prisma.bountyClaim.update({
         where: { id: input.claimId },
-        data: { status: ClaimStatus.EXPIRED },
+        data: { status: ClaimStatus.RELEASED },
       })
 
       // Find and withdraw any pending submissions from this user for this bounty

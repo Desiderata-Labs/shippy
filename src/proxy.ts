@@ -8,6 +8,14 @@ import { paths, routes } from '@/lib/routes'
 const protectedRoutes = [paths.dashboard.root]
 
 /**
+ * Route patterns that require authentication (regex patterns)
+ * Used for dynamic routes that can't be matched with simple prefix
+ */
+const protectedPatterns = [
+  /^\/p\/[^/]+\/integrations/, // Project integrations (founder only, checked in tRPC)
+]
+
+/**
  * Routes that should redirect to dashboard if already authenticated
  */
 const authRoutePaths = [paths.auth.signIn, paths.auth.signUp]
@@ -19,6 +27,13 @@ function matchesRoute(path: string, routesList: string[]): boolean {
   return routesList.some(
     (route) => path === route || path.startsWith(`${route}/`),
   )
+}
+
+/**
+ * Check if a path matches any of the regex patterns
+ */
+function matchesPattern(path: string, patterns: RegExp[]): boolean {
+  return patterns.some((pattern) => pattern.test(path))
 }
 
 export default function proxy(request: NextRequest) {
@@ -38,7 +53,11 @@ export default function proxy(request: NextRequest) {
   }
 
   // If user is on protected routes and is not authenticated, redirect to sign-in
-  if (!isAuthenticated && matchesRoute(pathname, protectedRoutes)) {
+  if (
+    !isAuthenticated &&
+    (matchesRoute(pathname, protectedRoutes) ||
+      matchesPattern(pathname, protectedPatterns))
+  ) {
     const signInUrl = new URL(routes.auth.signIn(), request.url)
     signInUrl.searchParams.set('callbackUrl', pathname)
     return NextResponse.redirect(signInUrl)

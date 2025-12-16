@@ -86,7 +86,7 @@ The platform's primary defense against gaming is transparency:
 
 - **Framework**: Next.js 16 + React 19 + TypeScript
 - **Styling**: Tailwind CSS 4 + shadcn/ui
-- **Database**: PostgreSQL (Supabase) + Prisma ORM
+- **Database**: PostgreSQL + Prisma ORM
 - **API Layer**: tRPC + TanStack Query v5
 - **Auth**: BetterAuth (with eventual organization-based auth controls for multi-founder projects)
 - **Asset Storage**: Cloudflare R2

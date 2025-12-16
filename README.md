@@ -18,7 +18,7 @@ A platform where contributors earn recurring royalties for helping startups ship
 
 - **Framework**: Next.js 16 + React 19 + TypeScript
 - **Styling**: Tailwind CSS 4 + shadcn/ui
-- **Database**: PostgreSQL (Supabase) + Prisma ORM
+- **Database**: PostgreSQL + Prisma ORM
 - **API**: tRPC + TanStack Query v5
 - **Auth**: BetterAuth
 

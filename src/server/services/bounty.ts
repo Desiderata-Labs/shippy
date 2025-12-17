@@ -88,19 +88,10 @@ export async function claimBounty({
     return { success: false, code: 'CLOSED', message: 'This bounty is closed' }
   }
 
-  // For CLAIMED bounties, only allow if in MULTIPLE mode (competitive)
-  if (
-    bounty.status === BountyStatus.CLAIMED &&
-    bounty.claimMode !== BountyClaimMode.MULTIPLE
-  ) {
-    return {
-      success: false,
-      code: 'ALREADY_CLAIMED_SINGLE',
-      message: 'This bounty has already been claimed',
-    }
-  }
-
-  // Check existing active claim by this user
+  // Check existing active claim by this user FIRST
+  // This is important for the GitHub webhook: if the user already claimed
+  // the bounty on the web and opens a PR, we return ALREADY_CLAIMED_BY_USER
+  // which the webhook treats as "proceed to create submission"
   const existingActiveClaim = await prisma.bountyClaim.findFirst({
     where: {
       bountyId,
@@ -117,7 +108,20 @@ export async function claimBounty({
     }
   }
 
-  // For SINGLE mode, check if already claimed
+  // For CLAIMED bounties, only allow if in MULTIPLE mode (competitive)
+  // This check comes AFTER the user's own claim check
+  if (
+    bounty.status === BountyStatus.CLAIMED &&
+    bounty.claimMode !== BountyClaimMode.MULTIPLE
+  ) {
+    return {
+      success: false,
+      code: 'ALREADY_CLAIMED_SINGLE',
+      message: 'This bounty has already been claimed',
+    }
+  }
+
+  // For SINGLE mode, check if already claimed (belt-and-suspenders with status check above)
   if (bounty.claimMode === BountyClaimMode.SINGLE && bounty.claims.length > 0) {
     return {
       success: false,

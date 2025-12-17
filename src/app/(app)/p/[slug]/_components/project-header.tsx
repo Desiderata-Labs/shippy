@@ -98,7 +98,7 @@ export function ProjectHeader({ project, isFounder }: ProjectHeaderProps) {
                   alt={project.name}
                   width={20}
                   height={20}
-                  className="size-5 rounded-sm object-cover ring-1 ring-border"
+                  className="size-5 shrink-0 rounded-sm object-cover"
                 />
               ) : (
                 <div className="flex size-5 items-center justify-center rounded-sm bg-muted text-xs font-bold">

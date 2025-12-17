@@ -118,7 +118,9 @@ export const contributorRouter = router({
       include: {
         payout: {
           include: {
-            project: { select: { id: true, name: true, slug: true } },
+            project: {
+              select: { id: true, name: true, slug: true, logoUrl: true },
+            },
           },
         },
       },
@@ -132,6 +134,7 @@ export const contributorRouter = router({
         projectId: string
         projectName: string
         projectSlug: string
+        projectLogoUrl: string | null
         points: number
         lifetimeEarningsCents: number
         pendingPayouts: number
@@ -148,6 +151,7 @@ export const contributorRouter = router({
           projectId,
           projectName: sub.bounty.project.name,
           projectSlug: sub.bounty.project.slug,
+          projectLogoUrl: sub.bounty.project.logoUrl,
           points: sub.pointsAwarded ?? 0,
           lifetimeEarningsCents: 0,
           pendingPayouts: 0,

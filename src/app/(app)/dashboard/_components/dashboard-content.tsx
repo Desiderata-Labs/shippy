@@ -15,6 +15,7 @@ import {
 } from '@untitled-ui/icons-react'
 import { Loader2 } from 'lucide-react'
 import { useEffect, useState } from 'react'
+import Image from 'next/image'
 import Link from 'next/link'
 import { redirect, useRouter } from 'next/navigation'
 import {
@@ -291,13 +292,28 @@ export function DashboardContent() {
                       })}
                       className="group ml-4 flex items-center justify-between gap-3 px-4 py-3 transition-colors hover:bg-muted/50"
                     >
-                      <div className="min-w-0 flex-1">
-                        <p className="truncate text-sm font-medium transition-colors group-hover:text-primary">
-                          {project.projectName}
-                        </p>
-                        <p className="mt-0.5 text-xs text-muted-foreground">
-                          {project.points.toLocaleString()} points
-                        </p>
+                      <div className="flex min-w-0 flex-1 items-center gap-3">
+                        {project.projectLogoUrl ? (
+                          <Image
+                            src={project.projectLogoUrl}
+                            alt={project.projectName}
+                            width={32}
+                            height={32}
+                            className="size-8 shrink-0 rounded-md object-cover"
+                          />
+                        ) : (
+                          <div className="flex size-8 shrink-0 items-center justify-center rounded-md bg-muted text-sm font-bold">
+                            {project.projectName.charAt(0).toUpperCase()}
+                          </div>
+                        )}
+                        <div className="min-w-0 flex-1">
+                          <p className="truncate text-sm font-medium transition-colors group-hover:text-primary">
+                            {project.projectName}
+                          </p>
+                          <p className="mt-0.5 text-xs text-muted-foreground">
+                            {project.points.toLocaleString()} points
+                          </p>
+                        </div>
                       </div>
                       <div className="flex shrink-0 items-center gap-2">
                         <span className="text-sm font-semibold text-primary">
@@ -398,13 +414,30 @@ export function DashboardContent() {
                       {index > 0 && <Separator className="ml-4" />}
                       <div className="ml-4 px-4 py-3">
                         <div className="flex items-center justify-between gap-3">
-                          <div className="min-w-0 flex-1">
-                            <p className="truncate text-sm font-medium">
-                              {recipient.payout.project.name}
-                            </p>
-                            <p className="mt-0.5 text-xs text-muted-foreground">
-                              {recipient.payout.periodLabel}
-                            </p>
+                          <div className="flex min-w-0 flex-1 items-center gap-3">
+                            {recipient.payout.project.logoUrl ? (
+                              <Image
+                                src={recipient.payout.project.logoUrl}
+                                alt={recipient.payout.project.name}
+                                width={32}
+                                height={32}
+                                className="size-8 shrink-0 rounded-md object-cover"
+                              />
+                            ) : (
+                              <div className="flex size-8 shrink-0 items-center justify-center rounded-md bg-muted text-sm font-bold">
+                                {recipient.payout.project.name
+                                  .charAt(0)
+                                  .toUpperCase()}
+                              </div>
+                            )}
+                            <div className="min-w-0 flex-1">
+                              <p className="truncate text-sm font-medium">
+                                {recipient.payout.project.name}
+                              </p>
+                              <p className="mt-0.5 text-xs text-muted-foreground">
+                                {recipient.payout.periodLabel}
+                              </p>
+                            </div>
                           </div>
                           <div className="flex shrink-0 items-center gap-2">
                             <span className="text-sm font-semibold text-primary">

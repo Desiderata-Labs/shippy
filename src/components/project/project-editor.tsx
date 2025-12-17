@@ -32,6 +32,7 @@ import { cn } from '@/lib/utils'
 import { useDebounce } from '@/hooks/use-debounce'
 import { AppButton, AppInput } from '@/components/app'
 import { AppBackground } from '@/components/layout/app-background'
+import { ProjectLogoUpload } from '@/components/project/project-logo-upload'
 import { ErrorState } from '@/components/ui/error-state'
 import { MarkdownEditor } from '@/components/ui/markdown-editor'
 import { NotFoundState } from '@/components/ui/not-found-state'
@@ -71,6 +72,7 @@ export function ProjectEditor({ mode, username, slug }: ProjectEditorProps) {
   const [projectKey, setProjectKey] = useState('')
   const [tagline, setTagline] = useState('')
   const [description, setDescription] = useState('')
+  const [logoUrl, setLogoUrl] = useState<string | null>(null)
   const [websiteUrl, setWebsiteUrl] = useState('')
   const [discordUrl, setDiscordUrl] = useState('')
   const [poolPercentage, setPoolPercentage] = useState(10)
@@ -110,6 +112,7 @@ export function ProjectEditor({ mode, username, slug }: ProjectEditorProps) {
       setProjectKey(project.projectKey)
       setTagline(project.tagline ?? '')
       setDescription(project.description ?? '')
+      setLogoUrl(project.logoUrl ?? null)
       setWebsiteUrl(project.websiteUrl ?? '')
       setDiscordUrl(project.discordUrl ?? '')
       if (project.rewardPool) {
@@ -361,6 +364,7 @@ export function ProjectEditor({ mode, username, slug }: ProjectEditorProps) {
           projectKey: normalizeProjectKey(projectKey),
           tagline: tagline || undefined,
           description: description || undefined,
+          logoUrl: logoUrl || undefined,
           websiteUrl: websiteUrl || undefined,
           discordUrl: discordUrl || undefined,
           poolPercentage,
@@ -380,6 +384,7 @@ export function ProjectEditor({ mode, username, slug }: ProjectEditorProps) {
             : {}),
           tagline: tagline || undefined,
           description: description || undefined,
+          logoUrl: logoUrl,
           websiteUrl: websiteUrl || null,
           discordUrl: discordUrl || null,
           // Visibility is always editable
@@ -452,6 +457,18 @@ export function ProjectEditor({ mode, username, slug }: ProjectEditorProps) {
             <div className="space-y-6">
               {/* Main input area - bordered container */}
               <div className="rounded-lg border border-border bg-accent">
+                {/* Logo upload */}
+                <div className="p-4">
+                  <ProjectLogoUpload
+                    projectId={mode === 'edit' ? project?.id : undefined}
+                    currentLogoUrl={logoUrl}
+                    onLogoChange={setLogoUrl}
+                    disabled={isLoading}
+                  />
+                </div>
+
+                <Separator />
+
                 {/* Project name input */}
                 <div className="px-4 py-3">
                   <input

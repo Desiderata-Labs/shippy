@@ -426,6 +426,37 @@ export const projectRouter = router({
     }),
 
   /**
+   * Update project logo (founder only) - used for auto-save on upload
+   */
+  updateLogo: protectedProcedure
+    .input(
+      z.object({
+        id: nanoId(),
+        logoUrl: z.string().url().nullable(),
+      }),
+    )
+    .mutation(async ({ ctx, input }) => {
+      const project = await ctx.prisma.project.findUnique({
+        where: { id: input.id },
+        select: { founderId: true },
+      })
+
+      if (!project) {
+        throw userError('NOT_FOUND', 'Project not found')
+      }
+
+      if (project.founderId !== ctx.user.id) {
+        throw userError('FORBIDDEN', 'You do not own this project')
+      }
+
+      return ctx.prisma.project.update({
+        where: { id: input.id },
+        data: { logoUrl: input.logoUrl },
+        select: { id: true, logoUrl: true },
+      })
+    }),
+
+  /**
    * Update a project (founder only)
    */
   update: protectedProcedure

@@ -17,6 +17,7 @@ import {
 } from './notification'
 import {
   claimBounty,
+  createBounty,
   releaseClaim,
   updateBounty,
 } from '@/server/services/bounty'
@@ -175,73 +176,42 @@ export const bountyRouter = router({
   create: protectedProcedure
     .input(createBountySchema)
     .mutation(async ({ ctx, input }) => {
-      // Verify project ownership and get pool info
-      const project = await ctx.prisma.project.findUnique({
-        where: { id: input.projectId },
-        include: {
-          rewardPool: true,
-          bounties: {
-            where: {
-              status: { in: [BountyStatus.OPEN, BountyStatus.CLAIMED] },
-            },
-            select: { points: true },
-          },
-        },
-      })
-
-      if (!project) {
-        throw userError('NOT_FOUND', 'Project not found')
-      }
-
-      if (project.founderId !== ctx.user.id) {
-        throw userError('FORBIDDEN', 'You do not own this project')
-      }
-
-      if (!project.rewardPool) {
-        throw userError('BAD_REQUEST', 'Project does not have a reward pool')
-      }
-
-      // Reserve number + create bounty in a transaction
-      // Note: Pool expansion only happens when submissions are approved (points earned),
-      // not when bounties are created (points allocated)
+      // Use the shared create service (wrapped in transaction for atomicity)
       return ctx.prisma.$transaction(async (tx) => {
-        const updatedProject = await tx.project.update({
-          where: { id: input.projectId },
-          data: { nextBountyNumber: { increment: 1 } },
-          select: { nextBountyNumber: true },
-        })
-        const bountyNumber = updatedProject.nextBountyNumber - 1
-
-        // If no points provided, this is a backlog bounty
-        const status =
-          input.points === null ? BountyStatus.BACKLOG : BountyStatus.OPEN
-
-        const bounty = await tx.bounty.create({
-          data: {
-            projectId: input.projectId,
-            number: bountyNumber,
-            title: input.title,
-            description: input.description,
-            points: input.points,
-            status,
-            claimMode: input.claimMode,
-            claimExpiryDays: input.claimExpiryDays,
-            maxClaims: input.maxClaims,
-            evidenceDescription: input.evidenceDescription,
-          },
+        const result = await createBounty({
+          prisma: tx,
+          projectId: input.projectId,
+          userId: ctx.user.id,
+          title: input.title,
+          description: input.description,
+          points: input.points,
+          labelIds: input.labelIds,
+          claimMode: input.claimMode,
+          claimExpiryDays: input.claimExpiryDays,
+          maxClaims: input.maxClaims,
+          evidenceDescription: input.evidenceDescription,
         })
 
-        // Add labels if provided
-        if (input.labelIds.length > 0) {
-          await tx.bountyLabel.createMany({
-            data: input.labelIds.map((labelId) => ({
-              bountyId: bounty.id,
-              labelId,
-            })),
-          })
+        if (!result.success) {
+          // Map service errors to tRPC errors
+          const errorMap: Record<
+            string,
+            'NOT_FOUND' | 'FORBIDDEN' | 'BAD_REQUEST'
+          > = {
+            NOT_FOUND: 'NOT_FOUND',
+            FORBIDDEN: 'FORBIDDEN',
+            NO_REWARD_POOL: 'BAD_REQUEST',
+          }
+          throw userError(
+            errorMap[result.code] ?? 'BAD_REQUEST',
+            result.message,
+          )
         }
 
-        return bounty
+        // Fetch the full bounty to return (matching previous behavior)
+        return tx.bounty.findUniqueOrThrow({
+          where: { id: result.bounty.id },
+        })
       })
     }),
 

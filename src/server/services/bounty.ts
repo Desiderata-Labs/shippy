@@ -312,9 +312,20 @@ export async function releaseClaim({
 export interface CreateBountyParams {
   prisma: PrismaClientOrTx
   projectId: string
+  userId: string // User attempting to create (for auth check)
   title: string
   description: string
   points: number | null
+  /** Optional label IDs to attach */
+  labelIds?: string[]
+  /** Claim mode: SINGLE (exclusive) or MULTIPLE (competitive) */
+  claimMode?: BountyClaimMode
+  /** Days before a claim expires if no submission */
+  claimExpiryDays?: number
+  /** Maximum number of claims allowed (only for MULTIPLE mode) */
+  maxClaims?: number | null
+  /** Description of evidence required for submission */
+  evidenceDescription?: string
   /** GitHub issue link data (optional) */
   githubIssueLink?: {
     repoId: number
@@ -329,32 +340,45 @@ export interface CreateBountyResult {
     id: string
     number: number
     status: string
+    title: string
+    description: string
+    points: number | null
+    claimMode: string
+    claimExpiryDays: number
+    maxClaims: number | null
+    evidenceDescription: string | null
   }
 }
 
 export type CreateBountyError =
   | { success: false; code: 'NOT_FOUND'; message: string }
+  | { success: false; code: 'FORBIDDEN'; message: string }
   | { success: false; code: 'NO_REWARD_POOL'; message: string }
 
 /**
- * Create a bounty - shared logic used by both tRPC and webhooks
+ * Create a bounty - shared logic used by tRPC, MCP, and webhooks
  *
  * This handles:
  * - Validating project exists
+ * - Validating ownership (founder check)
  * - Validating reward pool exists
  * - Reserving bounty number atomically
  * - Setting status based on points (BACKLOG vs OPEN)
- * - Creating the bounty with optional GitHub issue link
- *
- * Note: Caller is responsible for authorization (founder check)
- * Note: Labels are handled separately by tRPC if needed
+ * - Creating the bounty with all options
+ * - Creating label associations
  */
 export async function createBounty({
   prisma,
   projectId,
+  userId,
   title,
   description,
   points,
+  labelIds = [],
+  claimMode = BountyClaimMode.SINGLE,
+  claimExpiryDays = 14,
+  maxClaims,
+  evidenceDescription,
   githubIssueLink,
 }: CreateBountyParams): Promise<CreateBountyResult | CreateBountyError> {
   // Verify project exists and has a reward pool
@@ -365,6 +389,15 @@ export async function createBounty({
 
   if (!project) {
     return { success: false, code: 'NOT_FOUND', message: 'Project not found' }
+  }
+
+  // Authorization: only founder can create bounties
+  if (project.founderId !== userId) {
+    return {
+      success: false,
+      code: 'FORBIDDEN',
+      message: 'You do not own this project',
+    }
   }
 
   if (!project.rewardPool) {
@@ -380,7 +413,6 @@ export async function createBounty({
 
   // Reserve number + create bounty atomically
   // Note: If prisma is already a transaction, this will use it
-  // Otherwise, we need to handle the number reservation carefully
   const updatedProject = await prisma.project.update({
     where: { id: projectId },
     data: { nextBountyNumber: { increment: 1 } },
@@ -396,6 +428,10 @@ export async function createBounty({
       description,
       points,
       status,
+      claimMode,
+      claimExpiryDays,
+      maxClaims,
+      evidenceDescription,
       ...(githubIssueLink && {
         githubIssueLink: {
           create: {
@@ -408,12 +444,29 @@ export async function createBounty({
     },
   })
 
+  // Add labels if provided
+  if (labelIds.length > 0) {
+    await prisma.bountyLabel.createMany({
+      data: labelIds.map((labelId) => ({
+        bountyId: bounty.id,
+        labelId,
+      })),
+    })
+  }
+
   return {
     success: true,
     bounty: {
       id: bounty.id,
       number: bounty.number,
       status: bounty.status,
+      title: bounty.title,
+      description: bounty.description,
+      points: bounty.points,
+      claimMode: bounty.claimMode,
+      claimExpiryDays: bounty.claimExpiryDays,
+      maxClaims: bounty.maxClaims,
+      evidenceDescription: bounty.evidenceDescription,
     },
   }
 }

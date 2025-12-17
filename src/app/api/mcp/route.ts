@@ -3,7 +3,7 @@ import { BountyClaimMode, BountyStatus, ClaimStatus } from '@/lib/db/types'
 import { extractBearerToken, verifyMcpToken } from '@/lib/mcp-token/server'
 import { toMarkdown } from '@/lib/mcp/to-markdown'
 import { routes } from '@/lib/routes'
-import { updateBounty } from '@/server/services/bounty'
+import { createBounty, updateBounty } from '@/server/services/bounty'
 import {
   createLabel,
   getLabel,
@@ -482,6 +482,159 @@ server.registerTool(
         {
           type: 'text' as const,
           text: `Successfully updated bounty "${identifier}". Updated fields: ${updatedFields.join(', ')}.`,
+        },
+      ],
+    }
+  },
+)
+
+server.registerTool(
+  'create_bounty',
+  {
+    description:
+      'Create a new bounty for a project (requires authentication as project founder)',
+    inputSchema: {
+      projectSlug: z
+        .string()
+        .describe('Project slug (e.g., "shippy") to create the bounty in'),
+      title: z
+        .string()
+        .min(1)
+        .max(200)
+        .describe('Title for the bounty (plain text, max 200 chars)'),
+      description: z
+        .string()
+        .min(1)
+        .describe('Description of the bounty (markdown supported)'),
+      points: z
+        .number()
+        .int()
+        .min(1)
+        .optional()
+        .nullable()
+        .describe(
+          'Point reward for completing this bounty. Omit or set to null to create in BACKLOG status.',
+        ),
+      acceptance: z
+        .string()
+        .optional()
+        .describe(
+          'Acceptance criteria / evidence requirements (markdown supported)',
+        ),
+      claimMode: z
+        .enum(['SINGLE', 'MULTIPLE'])
+        .optional()
+        .describe(
+          'SINGLE = exclusive (one contributor), MULTIPLE = competitive (multiple contributors can work on it but only one gets rewarded). Default: SINGLE.',
+        ),
+      claimExpiryDays: z
+        .number()
+        .int()
+        .min(1)
+        .max(90)
+        .optional()
+        .describe(
+          'Days before a claim expires if no submission (1-90). Default: 14.',
+        ),
+      maxClaims: z
+        .number()
+        .int()
+        .min(1)
+        .optional()
+        .nullable()
+        .describe(
+          'Maximum number of claims allowed (only for MULTIPLE mode). Default: unlimited.',
+        ),
+      labelIds: z
+        .array(z.string())
+        .optional()
+        .describe('Array of label IDs to attach to the bounty.'),
+    },
+  },
+  async (
+    {
+      projectSlug,
+      title,
+      description,
+      points,
+      acceptance,
+      claimMode,
+      claimExpiryDays,
+      maxClaims,
+      labelIds,
+    },
+    extra,
+  ) => {
+    const authInfo = extra.authInfo
+    if (!authInfo?.clientId) {
+      return {
+        content: [
+          {
+            type: 'text' as const,
+            text: 'Authentication required. Generate a token in your Shippy user profile settings.',
+          },
+        ],
+      }
+    }
+
+    // Resolve project ID from slug
+    const project = await prisma.project.findFirst({
+      where: { slug: projectSlug },
+      select: { id: true, name: true, projectKey: true },
+    })
+
+    if (!project) {
+      return {
+        content: [
+          {
+            type: 'text' as const,
+            text: `Project "${projectSlug}" not found.`,
+          },
+        ],
+      }
+    }
+
+    // Call the shared create service
+    const result = await createBounty({
+      prisma,
+      projectId: project.id,
+      userId: authInfo.clientId,
+      title,
+      description,
+      points: points ?? null,
+      evidenceDescription: acceptance,
+      claimMode: claimMode as BountyClaimMode | undefined,
+      claimExpiryDays,
+      maxClaims,
+      labelIds,
+    })
+
+    if (!result.success) {
+      const errorMessages: Record<string, string> = {
+        NOT_FOUND: `Project "${projectSlug}" not found.`,
+        FORBIDDEN:
+          'You do not have permission to create bounties. Only the project founder can create bounties.',
+        NO_REWARD_POOL:
+          'This project does not have a reward pool configured. Set up a reward pool first.',
+      }
+      return {
+        content: [
+          {
+            type: 'text' as const,
+            text: errorMessages[result.code] ?? result.message,
+          },
+        ],
+      }
+    }
+
+    const identifier = `${project.projectKey}-${result.bounty.number}`
+    const bountyUrl = `${APP_URL}${routes.project.bountyDetail({ slug: projectSlug, bountyId: result.bounty.id })}`
+
+    return {
+      content: [
+        {
+          type: 'text' as const,
+          text: `Successfully created bounty "${identifier}": ${result.bounty.title}\n\nStatus: ${result.bounty.status}\nPoints: ${result.bounty.points ?? 'Not set (backlog)'}\nURL: ${bountyUrl}`,
         },
       ],
     }

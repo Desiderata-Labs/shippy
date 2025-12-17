@@ -963,6 +963,7 @@ async function handleBountyCommandOnIssue(
     return createBounty({
       prisma: tx,
       projectId: project.id,
+      userId: project.founderId,
       title: issue.title,
       description: issue.body || 'Created from GitHub issue.',
       points,
@@ -1067,6 +1068,7 @@ async function handleBountyCommandOnPR(
     const result = await createBounty({
       prisma: tx,
       projectId: project.id,
+      userId: project.founderId,
       title: issue.title,
       description: issue.body || 'Created from GitHub PR.',
       points,

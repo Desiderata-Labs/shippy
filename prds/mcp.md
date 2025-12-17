@@ -11,18 +11,69 @@ Contributors and founders can connect their IDE/agent to Shippy and:
 - Read bounty details
 - See their assigned bounties
 - Browse projects
-- (Future) Claim bounties, submit work, comment
+- Claim bounties, submit work
+- Manage bounties (founders)
 
-## MVP Scope
+## Current Tools
 
-### Tools (Read-Only)
+### Visibility Logic
 
-| Tool               | Description                                     | Auth Required        |
-| ------------------ | ----------------------------------------------- | -------------------- |
-| `read_bounty`      | Get bounty by identifier (e.g., "SHP-42") or ID | No (public projects) |
-| `list_my_bounties` | List bounties claimed by authenticated user     | Yes                  |
-| `read_project`     | Get project details by slug                     | No (public projects) |
-| `list_projects`    | Browse public projects                          | No                   |
+All tools respect project visibility:
+
+- **If authenticated**: Access public projects + private projects you own
+- **If not authenticated**: Access public projects only
+
+This means founders can use MCP tools to manage their private projects when authenticated.
+
+### Read Operations
+
+| Tool                  | Description                                     | Auth Required |
+| --------------------- | ----------------------------------------------- | ------------- |
+| `read_bounty`         | Get bounty by identifier (e.g., "SHP-42") or ID | Optional\*    |
+| `list_bounties`       | List bounties for a project                     | Optional\*    |
+| `list_my_bounties`    | List bounties claimed by authenticated user     | Yes           |
+| `read_project`        | Get project details by slug                     | Optional\*    |
+| `list_projects`       | Browse projects                                 | Optional\*    |
+| `list_labels`         | List all labels for a project                   | Optional\*    |
+| `read_label`          | Get label details by ID                         | Optional\*    |
+| `list_my_submissions` | List user's submissions                         | Yes           |
+
+\*Optional: Works without auth for public projects. With auth, also includes your private projects.
+
+### Bounty Write Operations (Founder)
+
+| Tool            | Description                                    | Auth Required |
+| --------------- | ---------------------------------------------- | ------------- |
+| `create_bounty` | Create a new bounty for a project              | Yes (founder) |
+| `update_bounty` | Update bounty title, description, points, etc. | Yes (founder) |
+| `close_bounty`  | Close a bounty (expires claims)                | Yes (founder) |
+| `reopen_bounty` | Reopen a closed bounty                         | Yes (founder) |
+
+### Bounty Write Operations (Contributor)
+
+| Tool                | Description                      | Auth Required |
+| ------------------- | -------------------------------- | ------------- |
+| `claim_bounty`      | Claim a bounty to work on it     | Yes + visible |
+| `release_claim`     | Release your claim on a bounty   | Yes           |
+| `create_submission` | Submit work for a claimed bounty | Yes + visible |
+
+Note: `claim_bounty` and `create_submission` also respect visibility - you can't claim or submit to a bounty you can't see.
+
+### Label Write Operations (Founder)
+
+| Tool           | Description                      | Auth Required |
+| -------------- | -------------------------------- | ------------- |
+| `create_label` | Create a new label for a project | Yes (founder) |
+| `update_label` | Update label name or color       | Yes (founder) |
+| `delete_label` | Delete a label from a project    | Yes (founder) |
+
+### Project Write Operations (Founder)
+
+| Tool                  | Description                             | Auth Required |
+| --------------------- | --------------------------------------- | ------------- |
+| `create_project`      | Create a new project with reward pool   | Yes (founder) |
+| `update_project`      | Update project settings and reward pool | Yes (founder) |
+| `update_project_logo` | Update or remove project logo           | Yes (founder) |
 
 ### Authentication
 
@@ -116,31 +167,36 @@ export async function POST(req: Request) {
 }
 ```
 
-## Out of Scope (Future)
+## Future Enhancements
 
-### Phase 2: Write Operations
+### Review Operations (Founder)
 
-- `claim_bounty`
-- `submit_work`
-- `comment_on_bounty`
+- `review_submission` - Approve, reject, or request info on submission
+- `add_bounty_comment` - Comment on a bounty thread
+- `add_submission_comment` - Comment on a submission thread
 
-### Phase 3: Better Auth Flow
+### Better Auth Flow
 
 - Device Authorization (click link → approve → done)
 - No copy-paste needed
 
-### Phase 4: Project Owner Tools
-
-- `create_bounty`
-- `approve_submission`
-- `close_bounty`
-
 ## Implementation Tasks
+
+### Phase 1 - Read Operations ✅
 
 1. ✅ **Schema**: Add `McpAccessToken` model
 2. ✅ **Token Generation UI**: Settings page with MCP Tokens section
 3. ✅ **MCP Route**: `/api/mcp/route.ts` with tools (using SDK directly, not mcp-handler)
 4. ✅ **Token Validation**: `verifyMcpToken()` in `lib/mcp-token/server.ts`
+5. ✅ **Read Tools**: `read_bounty`, `list_my_bounties`, `read_project`, `list_projects`
+
+### Phase 2 - Write Operations ✅
+
+1. ✅ **Bounty Management**: `create_bounty`, `update_bounty`, `close_bounty`, `reopen_bounty`
+2. ✅ **Claim Management**: `claim_bounty`, `release_claim`
+3. ✅ **Submissions**: `create_submission`, `list_my_submissions`
+4. ✅ **Labels**: `create_label`, `update_label`, `delete_label`, `list_labels`, `read_label`
+5. ✅ **Bounty Listing**: `list_bounties`
 
 ## Dependencies
 
@@ -197,11 +253,29 @@ pnpm add @modelcontextprotocol/sdk
 
 Once connected:
 
+### For Contributors
+
 > "What bounties am I working on?"
 
 > "Show me bounty SHP-42"
 
 > "List open bounties on the shippy project"
+
+> "Claim bounty SHP-15"
+
+> "Submit my work for SHP-15 with description: Implemented the dark mode toggle as requested. See PR #42."
+
+> "Release my claim on SHP-15"
+
+### For Founders
+
+> "Create a bounty for my project 'shippy' titled 'Add dark mode support' with 50 points"
+
+> "Update SHP-42 to have 100 points"
+
+> "Close bounty SHP-10"
+
+> "Create a label called 'urgent' with color #FF0000 for my shippy project"
 
 ---
 

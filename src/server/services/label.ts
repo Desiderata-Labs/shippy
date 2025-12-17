@@ -352,3 +352,59 @@ export async function updateLabel({
 
   return { success: true, label: updated }
 }
+
+// ================================
+// Delete Label Service
+// ================================
+
+export interface DeleteLabelParams {
+  prisma: PrismaClientOrTx
+  labelId: string
+  userId: string // For authorization
+}
+
+export interface DeleteLabelResult {
+  success: true
+}
+
+export type DeleteLabelError =
+  | { success: false; code: 'NOT_FOUND'; message: string }
+  | { success: false; code: 'FORBIDDEN'; message: string }
+
+/**
+ * Delete a label from a project
+ *
+ * This handles:
+ * - Verifying label exists
+ * - Validating ownership (founder check)
+ * - Deleting the label (cascade removes bounty associations)
+ */
+export async function deleteLabel({
+  prisma,
+  labelId,
+  userId,
+}: DeleteLabelParams): Promise<DeleteLabelResult | DeleteLabelError> {
+  // Verify label exists and get ownership info
+  const label = await prisma.label.findUnique({
+    where: { id: labelId },
+    include: { project: { select: { founderId: true } } },
+  })
+
+  if (!label) {
+    return { success: false, code: 'NOT_FOUND', message: 'Label not found' }
+  }
+
+  if (label.project.founderId !== userId) {
+    return {
+      success: false,
+      code: 'FORBIDDEN',
+      message: 'You do not own this project',
+    }
+  }
+
+  await prisma.label.delete({
+    where: { id: labelId },
+  })
+
+  return { success: true }
+}

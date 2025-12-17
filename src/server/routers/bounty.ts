@@ -6,8 +6,6 @@ import {
   DEFAULT_CLAIM_EXPIRY_DAYS,
   NotificationReferenceType,
   NotificationType,
-  SubmissionEventType,
-  SubmissionStatus,
 } from '@/lib/db/types'
 import { nanoId } from '@/lib/nanoid/zod'
 import {
@@ -17,8 +15,10 @@ import {
 } from './notification'
 import {
   claimBounty,
+  closeBounty,
   createBounty,
   releaseClaim,
+  reopenBounty,
   updateBounty,
 } from '@/server/services/bounty'
 import {
@@ -548,107 +548,35 @@ export const bountyRouter = router({
       }),
     )
     .mutation(async ({ ctx, input }) => {
-      const bounty = await ctx.prisma.bounty.findUnique({
-        where: { id: input.bountyId },
-        include: {
-          project: { select: { founderId: true } },
-          claims: {
-            where: {
-              status: { in: [ClaimStatus.ACTIVE, ClaimStatus.SUBMITTED] },
-            },
-            select: { id: true, userId: true, status: true },
-          },
-          submissions: {
-            where: {
-              status: {
-                in: [
-                  SubmissionStatus.DRAFT,
-                  SubmissionStatus.PENDING,
-                  SubmissionStatus.NEEDS_INFO,
-                ],
-              },
-            },
-            select: { id: true, status: true, userId: true },
-          },
-        },
-      })
-
-      if (!bounty) {
-        throw userError('NOT_FOUND', 'Bounty not found')
-      }
-
-      if (bounty.project.founderId !== ctx.user.id) {
-        throw userError('FORBIDDEN', 'You do not own this project')
-      }
-
-      // Cannot close completed bounties (points already awarded)
-      if (bounty.status === BountyStatus.COMPLETED) {
-        throw userError(
-          'BAD_REQUEST',
-          'Cannot close a completed bounty - points have been awarded',
-        )
-      }
-
-      // Already closed
-      if (bounty.status === BountyStatus.CLOSED) {
-        throw userError('BAD_REQUEST', 'Bounty is already closed')
-      }
-
-      const previousStatus = bounty.status
-
-      // Use transaction to update everything
+      // Use transaction to wrap the shared service
       return ctx.prisma.$transaction(async (tx) => {
-        // Expire all active claims
-        if (bounty.claims.length > 0) {
-          await tx.bountyClaim.updateMany({
-            where: {
-              bountyId: input.bountyId,
-              status: { in: [ClaimStatus.ACTIVE, ClaimStatus.SUBMITTED] },
-            },
-            data: { status: ClaimStatus.EXPIRED },
-          })
+        const result = await closeBounty({
+          prisma: tx,
+          bountyId: input.bountyId,
+          userId: ctx.user.id,
+          reason: input.reason,
+        })
+
+        if (!result.success) {
+          const errorMap: Record<
+            string,
+            'NOT_FOUND' | 'FORBIDDEN' | 'BAD_REQUEST'
+          > = {
+            NOT_FOUND: 'NOT_FOUND',
+            FORBIDDEN: 'FORBIDDEN',
+            ALREADY_COMPLETED: 'BAD_REQUEST',
+            ALREADY_CLOSED: 'BAD_REQUEST',
+          }
+          throw userError(
+            errorMap[result.code] ?? 'BAD_REQUEST',
+            result.message,
+          )
         }
 
-        // Withdraw all pending submissions
-        for (const submission of bounty.submissions) {
-          await tx.submission.update({
-            where: { id: submission.id },
-            data: { status: SubmissionStatus.WITHDRAWN },
-          })
-
-          await tx.submissionEvent.create({
-            data: {
-              submissionId: submission.id,
-              userId: ctx.user.id,
-              type: SubmissionEventType.STATUS_CHANGE,
-              fromStatus: submission.status,
-              toStatus: SubmissionStatus.WITHDRAWN,
-              note: input.reason
-                ? `Bounty closed: ${input.reason}`
-                : 'Bounty closed by founder',
-            },
-          })
-        }
-
-        // Update bounty status
-        const updated = await tx.bounty.update({
+        // Fetch full bounty to return (matching previous behavior)
+        return tx.bounty.findUniqueOrThrow({
           where: { id: input.bountyId },
-          data: { status: BountyStatus.CLOSED },
         })
-
-        // Create status change event
-        await tx.bountyEvent.create({
-          data: {
-            bountyId: input.bountyId,
-            userId: ctx.user.id,
-            type: BountyEventType.STATUS_CHANGE,
-            fromStatus: previousStatus,
-            toStatus: BountyStatus.CLOSED,
-            content: input.reason || null,
-          },
-        })
-
-        return updated
       })
     }),
 
@@ -663,48 +591,33 @@ export const bountyRouter = router({
       }),
     )
     .mutation(async ({ ctx, input }) => {
-      const bounty = await ctx.prisma.bounty.findUnique({
-        where: { id: input.bountyId },
-        include: {
-          project: { select: { founderId: true } },
-        },
-      })
-
-      if (!bounty) {
-        throw userError('NOT_FOUND', 'Bounty not found')
-      }
-
-      if (bounty.project.founderId !== ctx.user.id) {
-        throw userError('FORBIDDEN', 'You do not own this project')
-      }
-
-      // Can only reopen closed bounties
-      if (bounty.status !== BountyStatus.CLOSED) {
-        throw userError('BAD_REQUEST', 'Only closed bounties can be reopened')
-      }
-
-      // Determine new status based on points
-      const newStatus =
-        bounty.points === null ? BountyStatus.BACKLOG : BountyStatus.OPEN
-
+      // Use transaction to wrap the shared service
       return ctx.prisma.$transaction(async (tx) => {
-        const updated = await tx.bounty.update({
+        const result = await reopenBounty({
+          prisma: tx,
+          bountyId: input.bountyId,
+          userId: ctx.user.id,
+        })
+
+        if (!result.success) {
+          const errorMap: Record<
+            string,
+            'NOT_FOUND' | 'FORBIDDEN' | 'BAD_REQUEST'
+          > = {
+            NOT_FOUND: 'NOT_FOUND',
+            FORBIDDEN: 'FORBIDDEN',
+            NOT_CLOSED: 'BAD_REQUEST',
+          }
+          throw userError(
+            errorMap[result.code] ?? 'BAD_REQUEST',
+            result.message,
+          )
+        }
+
+        // Fetch full bounty to return (matching previous behavior)
+        return tx.bounty.findUniqueOrThrow({
           where: { id: input.bountyId },
-          data: { status: newStatus },
         })
-
-        // Create status change event
-        await tx.bountyEvent.create({
-          data: {
-            bountyId: input.bountyId,
-            userId: ctx.user.id,
-            type: BountyEventType.STATUS_CHANGE,
-            fromStatus: BountyStatus.CLOSED,
-            toStatus: newStatus,
-          },
-        })
-
-        return updated
       })
     }),
 })

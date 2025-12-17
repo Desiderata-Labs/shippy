@@ -1,6 +1,11 @@
 import { isValidHexColor } from '@/lib/db/types'
 import { nanoId } from '@/lib/nanoid/zod'
-import { createLabel, listLabels, updateLabel } from '@/server/services/label'
+import {
+  createLabel,
+  deleteLabel,
+  listLabels,
+  updateLabel,
+} from '@/server/services/label'
 import {
   protectedProcedure,
   publicProcedure,
@@ -114,23 +119,19 @@ export const labelRouter = router({
   delete: protectedProcedure
     .input(z.object({ id: nanoId() }))
     .mutation(async ({ ctx, input }) => {
-      // Verify ownership via project
-      const label = await ctx.prisma.label.findUnique({
-        where: { id: input.id },
-        include: { project: { select: { founderId: true } } },
+      const result = await deleteLabel({
+        prisma: ctx.prisma,
+        labelId: input.id,
+        userId: ctx.user.id,
       })
 
-      if (!label) {
-        throw userError('NOT_FOUND', 'Label not found')
+      if (!result.success) {
+        const errorMap: Record<string, 'NOT_FOUND' | 'FORBIDDEN'> = {
+          NOT_FOUND: 'NOT_FOUND',
+          FORBIDDEN: 'FORBIDDEN',
+        }
+        throw userError(errorMap[result.code] ?? 'BAD_REQUEST', result.message)
       }
-
-      if (label.project.founderId !== ctx.user.id) {
-        throw userError('FORBIDDEN', 'You do not own this project')
-      }
-
-      await ctx.prisma.label.delete({
-        where: { id: input.id },
-      })
 
       return { success: true }
     }),

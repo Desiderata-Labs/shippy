@@ -1,7 +1,6 @@
 import {
   BountyStatus,
   CommitmentMonths,
-  DEFAULT_PLATFORM_FEE_PERCENTAGE,
   PayoutFrequency,
   PayoutVisibility,
   ProfitBasis,
@@ -17,6 +16,11 @@ import {
   isProjectSlugAvailable,
   validateProjectSlug,
 } from '@/lib/project-slug/server'
+import {
+  createProject,
+  updateProject,
+  updateProjectLogo,
+} from '@/server/services/project'
 import {
   protectedProcedure,
   publicProcedure,
@@ -352,77 +356,36 @@ export const projectRouter = router({
   create: protectedProcedure
     .input(createProjectSchema)
     .mutation(async ({ ctx, input }) => {
-      const userEmail = ctx.user.email
-
-      // Validate slug format (admins can use reserved slugs)
-      const validation = validateProjectSlug(input.slug, userEmail)
-      if (!validation.isValid) {
-        throw userError('BAD_REQUEST', validation.error || 'Invalid slug')
-      }
-
-      // Check if slug is available
-      const available = await isProjectSlugAvailable(input.slug, { userEmail })
-      if (!available) {
-        throw userError('CONFLICT', 'This slug is already taken')
-      }
-
-      // Validate project key
-      const keyValidation = validateProjectKey(input.projectKey)
-      if (!keyValidation.isValid) {
-        throw userError(
-          'BAD_REQUEST',
-          keyValidation.error || 'Invalid project key',
-        )
-      }
-
-      // Check key availability (unique per founder)
-      const keyAvailable = await isProjectKeyAvailable(
-        ctx.user.id,
-        input.projectKey,
-      )
-      if (!keyAvailable) {
-        throw userError(
-          'CONFLICT',
-          'This project key is already used by one of your projects',
-        )
-      }
-
-      // Calculate commitment end date
-      const commitmentEndsAt = new Date()
-      commitmentEndsAt.setMonth(
-        commitmentEndsAt.getMonth() + input.commitmentMonths,
-      )
-
-      // Create project with reward pool
-      const project = await ctx.prisma.project.create({
-        data: {
-          name: input.name,
-          slug: input.slug,
-          projectKey: input.projectKey,
-          tagline: input.tagline,
-          description: input.description,
-          logoUrl: input.logoUrl,
-          websiteUrl: input.websiteUrl,
-          discordUrl: input.discordUrl,
-          payoutVisibility: input.payoutVisibility,
-          founderId: ctx.user.id,
-          rewardPool: {
-            create: {
-              poolPercentage: input.poolPercentage,
-              payoutFrequency: input.payoutFrequency,
-              profitBasis: input.profitBasis ?? ProfitBasis.NET_PROFIT,
-              commitmentMonths: input.commitmentMonths,
-              commitmentEndsAt,
-              platformFeePercentage: DEFAULT_PLATFORM_FEE_PERCENTAGE,
-            },
-          },
-        },
-        include: {
-          rewardPool: true,
-        },
+      const result = await createProject({
+        prisma: ctx.prisma,
+        userId: ctx.user.id,
+        userEmail: ctx.user.email,
+        name: input.name,
+        slug: input.slug,
+        projectKey: input.projectKey,
+        tagline: input.tagline,
+        description: input.description,
+        logoUrl: input.logoUrl,
+        websiteUrl: input.websiteUrl,
+        discordUrl: input.discordUrl,
+        poolPercentage: input.poolPercentage,
+        payoutFrequency: input.payoutFrequency,
+        profitBasis: input.profitBasis,
+        commitmentMonths: input.commitmentMonths,
+        payoutVisibility: input.payoutVisibility,
       })
 
-      return project
+      if (!result.success) {
+        const errorCodeMap = {
+          INVALID_SLUG: 'BAD_REQUEST',
+          SLUG_TAKEN: 'CONFLICT',
+          INVALID_PROJECT_KEY: 'BAD_REQUEST',
+          PROJECT_KEY_TAKEN: 'CONFLICT',
+        } as const
+        throw userError(errorCodeMap[result.code], result.message)
+      }
+
+      return result.project
     }),
 
   /**
@@ -436,24 +399,22 @@ export const projectRouter = router({
       }),
     )
     .mutation(async ({ ctx, input }) => {
-      const project = await ctx.prisma.project.findUnique({
-        where: { id: input.id },
-        select: { founderId: true },
+      const result = await updateProjectLogo({
+        prisma: ctx.prisma,
+        projectId: input.id,
+        userId: ctx.user.id,
+        logoUrl: input.logoUrl,
       })
 
-      if (!project) {
-        throw userError('NOT_FOUND', 'Project not found')
+      if (!result.success) {
+        const errorCodeMap = {
+          NOT_FOUND: 'NOT_FOUND',
+          FORBIDDEN: 'FORBIDDEN',
+        } as const
+        throw userError(errorCodeMap[result.code], result.message)
       }
 
-      if (project.founderId !== ctx.user.id) {
-        throw userError('FORBIDDEN', 'You do not own this project')
-      }
-
-      return ctx.prisma.project.update({
-        where: { id: input.id },
-        data: { logoUrl: input.logoUrl },
-        select: { id: true, logoUrl: true },
-      })
+      return result.project
     }),
 
   /**
@@ -462,132 +423,42 @@ export const projectRouter = router({
   update: protectedProcedure
     .input(updateProjectSchema)
     .mutation(async ({ ctx, input }) => {
-      const {
-        id,
-        slug,
-        projectKey,
-        poolPercentage,
-        payoutFrequency,
-        commitmentMonths,
-        payoutVisibility,
-        ...projectData
-      } = input
-      const userEmail = ctx.user.email
-
-      // Verify ownership
-      const project = await ctx.prisma.project.findUnique({
-        where: { id },
-        select: { founderId: true, slug: true },
-      })
-
-      if (!project) {
-        throw userError('NOT_FOUND', 'Project not found')
-      }
-
-      if (project.founderId !== ctx.user.id) {
-        throw userError('FORBIDDEN', 'You do not own this project')
-      }
-
-      // If slug is being changed, validate it
-      if (slug && slug !== project.slug) {
-        const validation = validateProjectSlug(slug, userEmail)
-        if (!validation.isValid) {
-          throw userError('BAD_REQUEST', validation.error || 'Invalid slug')
-        }
-
-        const available = await isProjectSlugAvailable(slug, { userEmail })
-        if (!available) {
-          throw userError('CONFLICT', 'This slug is already taken')
-        }
-      }
-
-      // If project key is being changed, validate and ensure it's unique for this founder
-      if (projectKey) {
-        const keyValidation = validateProjectKey(projectKey)
-        if (!keyValidation.isValid) {
-          throw userError(
-            'BAD_REQUEST',
-            keyValidation.error || 'Invalid project key',
-          )
-        }
-
-        const keyAvailable = await isProjectKeyAvailable(
-          ctx.user.id,
-          projectKey,
-          {
-            excludeProjectId: id,
-          },
-        )
-        if (!keyAvailable) {
-          throw userError(
-            'CONFLICT',
-            'This project key is already used by one of your projects',
-          )
-        }
-      }
-
-      // Check if trying to update reward pool settings
-      const hasRewardPoolUpdates =
-        poolPercentage !== undefined ||
-        payoutFrequency !== undefined ||
-        commitmentMonths !== undefined
-
-      if (hasRewardPoolUpdates) {
-        // Check if there are any claimed or completed bounties
-        const claimedOrCompletedCount = await ctx.prisma.bounty.count({
-          where: {
-            projectId: id,
-            status: {
-              in: [BountyStatus.CLAIMED, BountyStatus.COMPLETED],
-            },
-          },
-        })
-
-        if (claimedOrCompletedCount > 0) {
-          throw userError(
-            'FORBIDDEN',
-            'Cannot update reward pool settings when bounties have been claimed or completed',
-          )
-        }
-      }
-
-      // Build reward pool update data
-      const rewardPoolUpdate: {
-        poolPercentage?: number
-        payoutFrequency?: string
-        commitmentMonths?: number
-        commitmentEndsAt?: Date
-      } = {}
-
-      if (poolPercentage !== undefined) {
-        rewardPoolUpdate.poolPercentage = poolPercentage
-      }
-      if (payoutFrequency !== undefined) {
-        rewardPoolUpdate.payoutFrequency = payoutFrequency
-      }
-      if (commitmentMonths !== undefined) {
-        rewardPoolUpdate.commitmentMonths = commitmentMonths
-        // Recalculate commitment end date from now
-        const commitmentEndsAt = new Date()
-        commitmentEndsAt.setMonth(
-          commitmentEndsAt.getMonth() + commitmentMonths,
-        )
-        rewardPoolUpdate.commitmentEndsAt = commitmentEndsAt
-      }
-
-      return ctx.prisma.project.update({
-        where: { id },
+      const result = await updateProject({
+        prisma: ctx.prisma,
+        projectId: input.id,
+        userId: ctx.user.id,
+        userEmail: ctx.user.email,
         data: {
-          ...projectData,
-          ...(slug && slug !== project.slug ? { slug } : {}),
-          ...(projectKey ? { projectKey } : {}),
-          ...(payoutVisibility ? { payoutVisibility } : {}),
-          ...(Object.keys(rewardPoolUpdate).length > 0
-            ? { rewardPool: { update: rewardPoolUpdate } }
-            : {}),
+          name: input.name,
+          slug: input.slug,
+          projectKey: input.projectKey,
+          tagline: input.tagline,
+          description: input.description,
+          logoUrl: input.logoUrl,
+          websiteUrl: input.websiteUrl,
+          discordUrl: input.discordUrl,
+          poolPercentage: input.poolPercentage,
+          payoutFrequency: input.payoutFrequency,
+          commitmentMonths: input.commitmentMonths,
+          payoutVisibility: input.payoutVisibility,
         },
-        include: { rewardPool: true },
       })
+
+      if (!result.success) {
+        const errorCodeMap = {
+          NOT_FOUND: 'NOT_FOUND',
+          FORBIDDEN: 'FORBIDDEN',
+          INVALID_SLUG: 'BAD_REQUEST',
+          SLUG_TAKEN: 'CONFLICT',
+          INVALID_PROJECT_KEY: 'BAD_REQUEST',
+          PROJECT_KEY_TAKEN: 'CONFLICT',
+          REWARD_POOL_LOCKED: 'FORBIDDEN',
+          NO_CHANGES: 'BAD_REQUEST',
+        } as const
+        throw userError(errorCodeMap[result.code], result.message)
+      }
+
+      return result.project
     }),
 
   /**

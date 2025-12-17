@@ -756,3 +756,244 @@ export async function updateBounty({
     changes,
   }
 }
+
+// ================================
+// Close Bounty Service
+// ================================
+
+export interface CloseBountyParams {
+  prisma: PrismaClientOrTx
+  bountyId: string
+  userId: string // User attempting to close (for auth check)
+  reason?: string
+}
+
+export interface CloseBountyResult {
+  success: true
+  bounty: { id: string; status: string }
+}
+
+export type CloseBountyError =
+  | { success: false; code: 'NOT_FOUND'; message: string }
+  | { success: false; code: 'FORBIDDEN'; message: string }
+  | { success: false; code: 'ALREADY_COMPLETED'; message: string }
+  | { success: false; code: 'ALREADY_CLOSED'; message: string }
+
+/**
+ * Close a bounty - shared logic used by both tRPC and MCP
+ *
+ * This handles:
+ * - Validating bounty exists
+ * - Validating ownership (founder check)
+ * - Checking bounty can be closed (not completed/closed)
+ * - Expiring all active claims
+ * - Withdrawing all pending submissions
+ * - Updating bounty status to CLOSED
+ * - Creating status change event
+ */
+export async function closeBounty({
+  prisma,
+  bountyId,
+  userId,
+  reason,
+}: CloseBountyParams): Promise<CloseBountyResult | CloseBountyError> {
+  const bounty = await prisma.bounty.findUnique({
+    where: { id: bountyId },
+    include: {
+      project: { select: { founderId: true } },
+      claims: {
+        where: {
+          status: { in: [ClaimStatus.ACTIVE, ClaimStatus.SUBMITTED] },
+        },
+        select: { id: true, userId: true, status: true },
+      },
+      submissions: {
+        where: {
+          status: {
+            in: [
+              SubmissionStatus.DRAFT,
+              SubmissionStatus.PENDING,
+              SubmissionStatus.NEEDS_INFO,
+            ],
+          },
+        },
+        select: { id: true, status: true, userId: true },
+      },
+    },
+  })
+
+  if (!bounty) {
+    return { success: false, code: 'NOT_FOUND', message: 'Bounty not found' }
+  }
+
+  if (bounty.project.founderId !== userId) {
+    return {
+      success: false,
+      code: 'FORBIDDEN',
+      message: 'You do not own this project',
+    }
+  }
+
+  // Cannot close completed bounties (points already awarded)
+  if (bounty.status === BountyStatus.COMPLETED) {
+    return {
+      success: false,
+      code: 'ALREADY_COMPLETED',
+      message: 'Cannot close a completed bounty - points have been awarded',
+    }
+  }
+
+  // Already closed
+  if (bounty.status === BountyStatus.CLOSED) {
+    return {
+      success: false,
+      code: 'ALREADY_CLOSED',
+      message: 'Bounty is already closed',
+    }
+  }
+
+  const previousStatus = bounty.status
+
+  // Expire all active claims
+  if (bounty.claims.length > 0) {
+    await prisma.bountyClaim.updateMany({
+      where: {
+        bountyId,
+        status: { in: [ClaimStatus.ACTIVE, ClaimStatus.SUBMITTED] },
+      },
+      data: { status: ClaimStatus.EXPIRED },
+    })
+  }
+
+  // Withdraw all pending submissions
+  for (const submission of bounty.submissions) {
+    await prisma.submission.update({
+      where: { id: submission.id },
+      data: { status: SubmissionStatus.WITHDRAWN },
+    })
+
+    await prisma.submissionEvent.create({
+      data: {
+        submissionId: submission.id,
+        userId,
+        type: SubmissionEventType.STATUS_CHANGE,
+        fromStatus: submission.status,
+        toStatus: SubmissionStatus.WITHDRAWN,
+        note: reason ? `Bounty closed: ${reason}` : 'Bounty closed by founder',
+      },
+    })
+  }
+
+  // Update bounty status
+  const updated = await prisma.bounty.update({
+    where: { id: bountyId },
+    data: { status: BountyStatus.CLOSED },
+  })
+
+  // Create status change event
+  await prisma.bountyEvent.create({
+    data: {
+      bountyId,
+      userId,
+      type: BountyEventType.STATUS_CHANGE,
+      fromStatus: previousStatus,
+      toStatus: BountyStatus.CLOSED,
+      content: reason || null,
+    },
+  })
+
+  return {
+    success: true,
+    bounty: { id: updated.id, status: updated.status },
+  }
+}
+
+// ================================
+// Reopen Bounty Service
+// ================================
+
+export interface ReopenBountyParams {
+  prisma: PrismaClientOrTx
+  bountyId: string
+  userId: string // User attempting to reopen (for auth check)
+}
+
+export interface ReopenBountyResult {
+  success: true
+  bounty: { id: string; status: string }
+}
+
+export type ReopenBountyError =
+  | { success: false; code: 'NOT_FOUND'; message: string }
+  | { success: false; code: 'FORBIDDEN'; message: string }
+  | { success: false; code: 'NOT_CLOSED'; message: string }
+
+/**
+ * Reopen a closed bounty - shared logic used by both tRPC and MCP
+ *
+ * This handles:
+ * - Validating bounty exists
+ * - Validating ownership (founder check)
+ * - Checking bounty is closed
+ * - Determining new status based on points (BACKLOG if null, OPEN otherwise)
+ * - Updating bounty status
+ * - Creating status change event
+ */
+export async function reopenBounty({
+  prisma,
+  bountyId,
+  userId,
+}: ReopenBountyParams): Promise<ReopenBountyResult | ReopenBountyError> {
+  const bounty = await prisma.bounty.findUnique({
+    where: { id: bountyId },
+    include: {
+      project: { select: { founderId: true } },
+    },
+  })
+
+  if (!bounty) {
+    return { success: false, code: 'NOT_FOUND', message: 'Bounty not found' }
+  }
+
+  if (bounty.project.founderId !== userId) {
+    return {
+      success: false,
+      code: 'FORBIDDEN',
+      message: 'You do not own this project',
+    }
+  }
+
+  // Can only reopen closed bounties
+  if (bounty.status !== BountyStatus.CLOSED) {
+    return {
+      success: false,
+      code: 'NOT_CLOSED',
+      message: 'Only closed bounties can be reopened',
+    }
+  }
+
+  // Determine new status based on points
+  const newStatus =
+    bounty.points === null ? BountyStatus.BACKLOG : BountyStatus.OPEN
+
+  const updated = await prisma.bounty.update({
+    where: { id: bountyId },
+    data: { status: newStatus },
+  })
+
+  // Create status change event
+  await prisma.bountyEvent.create({
+    data: {
+      bountyId,
+      userId,
+      type: BountyEventType.STATUS_CHANGE,
+      fromStatus: BountyStatus.CLOSED,
+      toStatus: newStatus,
+    },
+  })
+
+  return {
+    success: true,
+    bounty: { id: updated.id, status: updated.status },
+  }
+}

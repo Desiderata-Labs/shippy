@@ -1,5 +1,6 @@
 import { isValidHexColor } from '@/lib/db/types'
 import { nanoId } from '@/lib/nanoid/zod'
+import { createLabel, listLabels, updateLabel } from '@/server/services/label'
 import {
   protectedProcedure,
   publicProcedure,
@@ -33,10 +34,16 @@ export const labelRouter = router({
   getByProject: publicProcedure
     .input(z.object({ projectId: nanoId() }))
     .query(async ({ ctx, input }) => {
-      return ctx.prisma.label.findMany({
-        where: { projectId: input.projectId },
-        orderBy: { createdAt: 'asc' },
+      const result = await listLabels({
+        prisma: ctx.prisma,
+        projectId: input.projectId,
       })
+
+      if (!result.success) {
+        throw userError('NOT_FOUND', result.message)
+      }
+
+      return result.labels
     }),
 
   /**
@@ -45,41 +52,28 @@ export const labelRouter = router({
   create: protectedProcedure
     .input(createLabelSchema)
     .mutation(async ({ ctx, input }) => {
-      // Verify project ownership
-      const project = await ctx.prisma.project.findUnique({
-        where: { id: input.projectId },
-        select: { founderId: true },
+      const result = await createLabel({
+        prisma: ctx.prisma,
+        projectId: input.projectId,
+        userId: ctx.user.id,
+        name: input.name,
+        color: input.color,
       })
 
-      if (!project) {
-        throw userError('NOT_FOUND', 'Project not found')
+      if (!result.success) {
+        const errorMap: Record<
+          string,
+          'NOT_FOUND' | 'FORBIDDEN' | 'CONFLICT' | 'BAD_REQUEST'
+        > = {
+          NOT_FOUND: 'NOT_FOUND',
+          FORBIDDEN: 'FORBIDDEN',
+          CONFLICT: 'CONFLICT',
+          INVALID_COLOR: 'BAD_REQUEST',
+        }
+        throw userError(errorMap[result.code] ?? 'BAD_REQUEST', result.message)
       }
 
-      if (project.founderId !== ctx.user.id) {
-        throw userError('FORBIDDEN', 'You do not own this project')
-      }
-
-      // Check for duplicate name
-      const existing = await ctx.prisma.label.findUnique({
-        where: {
-          projectId_name: {
-            projectId: input.projectId,
-            name: input.name,
-          },
-        },
-      })
-
-      if (existing) {
-        throw userError('CONFLICT', 'A label with this name already exists')
-      }
-
-      return ctx.prisma.label.create({
-        data: {
-          projectId: input.projectId,
-          name: input.name,
-          color: input.color,
-        },
-      })
+      return result.label
     }),
 
   /**
@@ -90,40 +84,28 @@ export const labelRouter = router({
     .mutation(async ({ ctx, input }) => {
       const { id, ...data } = input
 
-      // Verify ownership via project
-      const label = await ctx.prisma.label.findUnique({
-        where: { id },
-        include: { project: { select: { founderId: true } } },
-      })
-
-      if (!label) {
-        throw userError('NOT_FOUND', 'Label not found')
-      }
-
-      if (label.project.founderId !== ctx.user.id) {
-        throw userError('FORBIDDEN', 'You do not own this project')
-      }
-
-      // If changing name, check for duplicates
-      if (data.name && data.name !== label.name) {
-        const existing = await ctx.prisma.label.findUnique({
-          where: {
-            projectId_name: {
-              projectId: label.projectId,
-              name: data.name,
-            },
-          },
-        })
-
-        if (existing) {
-          throw userError('CONFLICT', 'A label with this name already exists')
-        }
-      }
-
-      return ctx.prisma.label.update({
-        where: { id },
+      const result = await updateLabel({
+        prisma: ctx.prisma,
+        labelId: id,
+        userId: ctx.user.id,
         data,
       })
+
+      if (!result.success) {
+        const errorMap: Record<
+          string,
+          'NOT_FOUND' | 'FORBIDDEN' | 'CONFLICT' | 'BAD_REQUEST'
+        > = {
+          NOT_FOUND: 'NOT_FOUND',
+          FORBIDDEN: 'FORBIDDEN',
+          CONFLICT: 'CONFLICT',
+          INVALID_COLOR: 'BAD_REQUEST',
+          NO_CHANGES: 'BAD_REQUEST',
+        }
+        throw userError(errorMap[result.code] ?? 'BAD_REQUEST', result.message)
+      }
+
+      return result.label
     }),
 
   /**

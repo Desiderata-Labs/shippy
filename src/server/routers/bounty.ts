@@ -15,14 +15,17 @@ import {
   getBountyCommentRecipients,
   resolveMentionedUserIds,
 } from './notification'
-import { claimBounty, releaseClaim } from '@/server/services/bounty'
+import {
+  claimBounty,
+  releaseClaim,
+  updateBounty,
+} from '@/server/services/bounty'
 import {
   protectedProcedure,
   publicProcedure,
   router,
   userError,
 } from '@/server/trpc'
-import { Prisma } from '@prisma/client'
 import { z } from 'zod/v4'
 
 // Validation schemas
@@ -250,177 +253,39 @@ export const bountyRouter = router({
     .mutation(async ({ ctx, input }) => {
       const { id, labelIds, ...data } = input
 
-      // Verify ownership via project
-      const bounty = await ctx.prisma.bounty.findUnique({
-        where: { id },
-        include: {
-          project: { select: { founderId: true } },
-          labels: { select: { labelId: true } },
-        },
-      })
-
-      if (!bounty) {
-        throw userError('NOT_FOUND', 'Bounty not found')
-      }
-
-      if (bounty.project.founderId !== ctx.user.id) {
-        throw userError('FORBIDDEN', 'You do not own this project')
-      }
-
-      // Build a record of what changed for the audit trail
-      const changes: Record<string, { from: unknown; to: unknown }> = {}
-
-      if (data.title !== undefined && data.title !== bounty.title) {
-        changes.title = { from: bounty.title, to: data.title }
-      }
-      if (
-        data.description !== undefined &&
-        data.description !== bounty.description
-      ) {
-        changes.description = { from: bounty.description, to: data.description }
-      }
-      if (data.points !== undefined && data.points !== bounty.points) {
-        changes.points = { from: bounty.points, to: data.points }
-      }
-      if (labelIds !== undefined) {
-        const oldLabelIds = bounty.labels.map((l) => l.labelId).sort()
-        const newLabelIds = [...labelIds].sort()
-        if (oldLabelIds.join(',') !== newLabelIds.join(',')) {
-          changes.labels = { from: oldLabelIds, to: newLabelIds }
-        }
-      }
-      if (data.evidenceDescription !== undefined) {
-        if (data.evidenceDescription !== bounty.evidenceDescription) {
-          changes.evidenceDescription = {
-            from: bounty.evidenceDescription,
-            to: data.evidenceDescription,
-          }
-        }
-      }
-      if (data.status !== undefined && data.status !== bounty.status) {
-        changes.status = { from: bounty.status, to: data.status }
-      }
-      if (data.claimMode !== undefined && data.claimMode !== bounty.claimMode) {
-        changes.claimMode = { from: bounty.claimMode, to: data.claimMode }
-      }
-      if (
-        data.claimExpiryDays !== undefined &&
-        data.claimExpiryDays !== bounty.claimExpiryDays
-      ) {
-        changes.claimExpiryDays = {
-          from: bounty.claimExpiryDays,
-          to: data.claimExpiryDays,
-        }
-      }
-      if (data.maxClaims !== undefined && data.maxClaims !== bounty.maxClaims) {
-        changes.maxClaims = { from: bounty.maxClaims, to: data.maxClaims }
-      }
-
-      // Prevent changing points on completed/closed bounties
-      if (data.points !== undefined && data.points !== bounty.points) {
-        if (
-          bounty.status === BountyStatus.COMPLETED ||
-          bounty.status === BountyStatus.CLOSED
-        ) {
-          throw userError(
-            'BAD_REQUEST',
-            'Cannot change points on a completed or closed bounty',
-          )
-        }
-
-        // Prevent removing points (backlog) on claimed bounties
-        if (bounty.status === BountyStatus.CLAIMED && data.points === null) {
-          throw userError(
-            'BAD_REQUEST',
-            'Cannot remove points from a bounty that is being worked on',
-          )
-        }
-      }
-
-      // Handle automatic status transitions based on points changes
-      // - BACKLOG -> OPEN: when points are assigned
-      // - OPEN -> BACKLOG: when points are removed (only if no claims/submissions)
-      const updateData = { ...data }
-      if (data.points !== undefined) {
-        const wasBacklog = bounty.status === BountyStatus.BACKLOG
-        const wasOpen = bounty.status === BountyStatus.OPEN
-        const nowHasPoints = data.points !== null
-        const nowNoPoints = data.points === null
-
-        if (wasBacklog && nowHasPoints && !data.status) {
-          // Auto-transition from BACKLOG to OPEN when points are assigned
-          updateData.status = BountyStatus.OPEN
-          changes.status = { from: BountyStatus.BACKLOG, to: BountyStatus.OPEN }
-        } else if (wasOpen && nowNoPoints && !data.status) {
-          // Auto-transition from OPEN to BACKLOG when points are removed
-          updateData.status = BountyStatus.BACKLOG
-          changes.status = { from: BountyStatus.OPEN, to: BountyStatus.BACKLOG }
-        }
-      }
-
-      // Use transaction to update bounty and record the edit event
+      // Use the shared update service (wrapped in transaction for atomicity)
       return ctx.prisma.$transaction(async (tx) => {
-        const updated = await tx.bounty.update({
-          where: { id },
-          data: updateData,
+        const result = await updateBounty({
+          prisma: tx,
+          bountyId: id,
+          userId: ctx.user.id,
+          data: {
+            ...data,
+            labelIds,
+          },
         })
 
-        // Update labels if provided
-        if (labelIds !== undefined) {
-          // Delete all existing labels
-          await tx.bountyLabel.deleteMany({
-            where: { bountyId: id },
-          })
-          // Create new labels
-          if (labelIds.length > 0) {
-            await tx.bountyLabel.createMany({
-              data: labelIds.map((labelId) => ({
-                bountyId: id,
-                labelId,
-              })),
-            })
+        if (!result.success) {
+          // Map service errors to tRPC errors
+          const errorMap: Record<
+            string,
+            'NOT_FOUND' | 'FORBIDDEN' | 'BAD_REQUEST'
+          > = {
+            NOT_FOUND: 'NOT_FOUND',
+            FORBIDDEN: 'FORBIDDEN',
+            NO_CHANGES: 'BAD_REQUEST',
+            INVALID_POINTS_CHANGE: 'BAD_REQUEST',
           }
+          throw userError(
+            errorMap[result.code] ?? 'BAD_REQUEST',
+            result.message,
+          )
         }
 
-        // Only create an event if something actually changed
-        if (Object.keys(changes).length > 0) {
-          // If status changed, create a STATUS_CHANGE event; otherwise EDIT
-          if (changes.status) {
-            await tx.bountyEvent.create({
-              data: {
-                bountyId: id,
-                userId: ctx.user.id,
-                type: BountyEventType.STATUS_CHANGE,
-                fromStatus: changes.status.from as string,
-                toStatus: changes.status.to as string,
-              },
-            })
-            // If there are other changes besides status, also record an edit
-            const nonStatusChanges = { ...changes }
-            delete nonStatusChanges.status
-            if (Object.keys(nonStatusChanges).length > 0) {
-              await tx.bountyEvent.create({
-                data: {
-                  bountyId: id,
-                  userId: ctx.user.id,
-                  type: BountyEventType.EDIT,
-                  changes: nonStatusChanges as Prisma.InputJsonValue,
-                },
-              })
-            }
-          } else {
-            await tx.bountyEvent.create({
-              data: {
-                bountyId: id,
-                userId: ctx.user.id,
-                type: BountyEventType.EDIT,
-                changes: changes as Prisma.InputJsonValue,
-              },
-            })
-          }
-        }
-
-        return updated
+        // Fetch the full bounty to return (matching previous behavior)
+        return tx.bounty.findUniqueOrThrow({
+          where: { id },
+        })
       })
     }),
 

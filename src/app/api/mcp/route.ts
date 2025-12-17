@@ -1,8 +1,15 @@
 import { prisma } from '@/lib/db/server'
-import { BountyStatus, ClaimStatus } from '@/lib/db/types'
+import { BountyClaimMode, BountyStatus, ClaimStatus } from '@/lib/db/types'
 import { extractBearerToken, verifyMcpToken } from '@/lib/mcp-token/server'
 import { toMarkdown } from '@/lib/mcp/to-markdown'
 import { routes } from '@/lib/routes'
+import { updateBounty } from '@/server/services/bounty'
+import {
+  createLabel,
+  getLabel,
+  listLabels,
+  updateLabel,
+} from '@/server/services/label'
 import { McpServer } from '@modelcontextprotocol/sdk/server/mcp.js'
 import { WebStandardStreamableHTTPServerTransport } from '@modelcontextprotocol/sdk/server/webStandardStreamableHttp.js'
 import { z } from 'zod'
@@ -276,6 +283,472 @@ server.registerTool(
             namespace: 'projects',
             wrapFields: ['description'],
           }),
+        },
+      ],
+    }
+  },
+)
+
+server.registerTool(
+  'update_bounty',
+  {
+    description:
+      "Update a bounty's title, description, or acceptance criteria (requires authentication as project founder)",
+    inputSchema: {
+      identifier: z
+        .string()
+        .describe('Bounty identifier like "SHP-42" or the bounty ID'),
+      title: z
+        .string()
+        .min(1)
+        .max(200)
+        .optional()
+        .describe('New title for the bounty (plain text string)'),
+      description: z
+        .string()
+        .min(1)
+        .optional()
+        .describe('New description for the bounty (markdown supported)'),
+      acceptance: z
+        .string()
+        .optional()
+        .nullable()
+        .describe(
+          'New acceptance criteria / evidence requirements (markdown supported). Set to null to clear.',
+        ),
+      points: z
+        .number()
+        .int()
+        .min(1)
+        .optional()
+        .nullable()
+        .describe(
+          'Point reward for completing this bounty. Set to null to move to backlog.',
+        ),
+      status: z
+        .enum(['BACKLOG', 'OPEN', 'CLAIMED', 'COMPLETED', 'CLOSED'])
+        .optional()
+        .describe(
+          'Bounty status. Note: points changes may auto-transition status.',
+        ),
+      claimMode: z
+        .enum(['SINGLE', 'MULTIPLE'])
+        .optional()
+        .describe(
+          'SINGLE = exclusive (one contributor), MULTIPLE = competitive (multiple contributors can work on it but only one gets rewarded).',
+        ),
+      claimExpiryDays: z
+        .number()
+        .int()
+        .min(1)
+        .max(90)
+        .default(14)
+        .optional()
+        .describe(
+          'Deadline for the work, e.g. days before a claim expires if no submission (1-90). Default: 14.',
+        ),
+      maxClaims: z
+        .number()
+        .int()
+        .min(1)
+        .optional()
+        .nullable()
+        .describe(
+          'Maximum number of claims allowed (only for MULTIPLE mode). Set to null for unlimited.',
+        ),
+      labelIds: z
+        .array(z.string())
+        .optional()
+        .describe(
+          'Array of label IDs to set on the bounty. Pass an empty array to remove all labels.',
+        ),
+    },
+  },
+  async (
+    {
+      identifier,
+      title,
+      description,
+      acceptance,
+      points,
+      status,
+      claimMode,
+      claimExpiryDays,
+      maxClaims,
+      labelIds,
+    },
+    extra,
+  ) => {
+    const authInfo = extra.authInfo
+    if (!authInfo?.clientId) {
+      return {
+        content: [
+          {
+            type: 'text' as const,
+            text: 'Authentication required. Generate a token in your Shippy user profile settings.',
+          },
+        ],
+      }
+    }
+
+    // Resolve bounty ID from identifier
+    const parsed = parseBountyIdentifier(identifier)
+    let bountyId: string | undefined
+
+    if (parsed.projectKey && parsed.number !== undefined) {
+      const bounty = await prisma.bounty.findFirst({
+        where: {
+          number: parsed.number,
+          project: { projectKey: parsed.projectKey },
+        },
+        select: { id: true },
+      })
+      bountyId = bounty?.id
+    } else if (parsed.rawId) {
+      bountyId = parsed.rawId
+    }
+
+    if (!bountyId) {
+      return {
+        content: [
+          { type: 'text' as const, text: `Bounty "${identifier}" not found.` },
+        ],
+      }
+    }
+
+    // Check if any updates were provided
+    if (
+      title === undefined &&
+      description === undefined &&
+      acceptance === undefined &&
+      points === undefined &&
+      status === undefined &&
+      claimMode === undefined &&
+      claimExpiryDays === undefined &&
+      maxClaims === undefined &&
+      labelIds === undefined
+    ) {
+      return {
+        content: [
+          {
+            type: 'text' as const,
+            text: 'No updates provided. Specify at least one field to update.',
+          },
+        ],
+      }
+    }
+
+    // Call the shared update service
+    const result = await updateBounty({
+      prisma,
+      bountyId,
+      userId: authInfo.clientId,
+      data: {
+        title,
+        description,
+        evidenceDescription: acceptance,
+        points,
+        status: status as BountyStatus | undefined,
+        claimMode: claimMode as BountyClaimMode | undefined,
+        claimExpiryDays,
+        maxClaims,
+        labelIds,
+      },
+    })
+
+    if (!result.success) {
+      const errorMessages: Record<string, string> = {
+        NOT_FOUND: `Bounty "${identifier}" not found.`,
+        FORBIDDEN:
+          'You do not have permission to update this bounty. Only the project founder can update bounties.',
+        NO_CHANGES:
+          'No changes detected. The provided values match the current bounty.',
+        INVALID_POINTS_CHANGE: result.message,
+      }
+      return {
+        content: [
+          {
+            type: 'text' as const,
+            text: errorMessages[result.code] ?? result.message,
+          },
+        ],
+      }
+    }
+
+    // Format the response with what was updated
+    const updatedFields = Object.keys(result.changes)
+    return {
+      content: [
+        {
+          type: 'text' as const,
+          text: `Successfully updated bounty "${identifier}". Updated fields: ${updatedFields.join(', ')}.`,
+        },
+      ],
+    }
+  },
+)
+
+// ================================
+// Label Tools
+// ================================
+
+server.registerTool(
+  'list_labels',
+  {
+    description: 'List all labels for a project',
+    inputSchema: {
+      projectSlug: z
+        .string()
+        .describe('Project slug (e.g., "shippy") to list labels for'),
+    },
+  },
+  async ({ projectSlug }) => {
+    // Resolve project ID from slug
+    const project = await prisma.project.findFirst({
+      where: { slug: projectSlug, isPublic: true },
+      select: { id: true, name: true },
+    })
+
+    if (!project) {
+      return {
+        content: [
+          {
+            type: 'text' as const,
+            text: `Project "${projectSlug}" not found or is not public.`,
+          },
+        ],
+      }
+    }
+
+    const result = await listLabels({
+      prisma,
+      projectId: project.id,
+    })
+
+    if (!result.success) {
+      return {
+        content: [{ type: 'text' as const, text: result.message }],
+      }
+    }
+
+    if (result.labels.length === 0) {
+      return {
+        content: [
+          {
+            type: 'text' as const,
+            text: `No labels found for project "${project.name}".`,
+          },
+        ],
+      }
+    }
+
+    const formatted = result.labels.map((label) => ({
+      id: label.id,
+      name: label.name,
+      color: label.color,
+    }))
+
+    return {
+      content: [
+        {
+          type: 'text' as const,
+          text: toMarkdown(formatted, { namespace: 'labels' }),
+        },
+      ],
+    }
+  },
+)
+
+server.registerTool(
+  'read_label',
+  {
+    description: 'Get details of a specific label by ID',
+    inputSchema: {
+      labelId: z.string().describe('The label ID'),
+    },
+  },
+  async ({ labelId }) => {
+    const result = await getLabel({
+      prisma,
+      labelId,
+    })
+
+    if (!result.success) {
+      return {
+        content: [{ type: 'text' as const, text: `Label not found.` }],
+      }
+    }
+
+    return {
+      content: [
+        {
+          type: 'text' as const,
+          text: toMarkdown(
+            {
+              id: result.label.id,
+              name: result.label.name,
+              color: result.label.color,
+            },
+            { namespace: 'label' },
+          ),
+        },
+      ],
+    }
+  },
+)
+
+server.registerTool(
+  'create_label',
+  {
+    description:
+      'Create a new label for a project (requires authentication as project founder)',
+    inputSchema: {
+      projectSlug: z
+        .string()
+        .describe('Project slug (e.g., "shippy") to create the label in'),
+      name: z
+        .string()
+        .min(1)
+        .max(50)
+        .describe('Label name (must be unique within the project)'),
+      color: z.string().describe('Hex color code (e.g., "#FF5500")'),
+    },
+  },
+  async ({ projectSlug, name, color }, extra) => {
+    const authInfo = extra.authInfo
+    if (!authInfo?.clientId) {
+      return {
+        content: [
+          {
+            type: 'text' as const,
+            text: 'Authentication required. Generate a token in your Shippy user profile settings.',
+          },
+        ],
+      }
+    }
+
+    // Resolve project ID from slug
+    const project = await prisma.project.findFirst({
+      where: { slug: projectSlug },
+      select: { id: true, name: true },
+    })
+
+    if (!project) {
+      return {
+        content: [
+          {
+            type: 'text' as const,
+            text: `Project "${projectSlug}" not found.`,
+          },
+        ],
+      }
+    }
+
+    const result = await createLabel({
+      prisma,
+      projectId: project.id,
+      userId: authInfo.clientId,
+      name,
+      color,
+    })
+
+    if (!result.success) {
+      const errorMessages: Record<string, string> = {
+        NOT_FOUND: `Project "${projectSlug}" not found.`,
+        FORBIDDEN:
+          'You do not have permission to create labels. Only the project founder can create labels.',
+        CONFLICT: `A label named "${name}" already exists in this project.`,
+        INVALID_COLOR: 'Invalid hex color format (expected #RRGGBB).',
+      }
+      return {
+        content: [
+          {
+            type: 'text' as const,
+            text: errorMessages[result.code] ?? result.message,
+          },
+        ],
+      }
+    }
+
+    return {
+      content: [
+        {
+          type: 'text' as const,
+          text: `Successfully created label "${result.label.name}" with color ${result.label.color}. Label ID: ${result.label.id}`,
+        },
+      ],
+    }
+  },
+)
+
+server.registerTool(
+  'update_label',
+  {
+    description: 'Update a label (requires authentication as project founder)',
+    inputSchema: {
+      labelId: z.string().describe('The label ID to update'),
+      name: z.string().min(1).max(50).optional().describe('New label name'),
+      color: z
+        .string()
+        .optional()
+        .describe('New hex color code (e.g., "#FF5500")'),
+    },
+  },
+  async ({ labelId, name, color }, extra) => {
+    const authInfo = extra.authInfo
+    if (!authInfo?.clientId) {
+      return {
+        content: [
+          {
+            type: 'text' as const,
+            text: 'Authentication required. Generate a token in your Shippy user profile settings.',
+          },
+        ],
+      }
+    }
+
+    if (name === undefined && color === undefined) {
+      return {
+        content: [
+          {
+            type: 'text' as const,
+            text: 'No updates provided. Specify at least one of: name or color.',
+          },
+        ],
+      }
+    }
+
+    const result = await updateLabel({
+      prisma,
+      labelId,
+      userId: authInfo.clientId,
+      data: { name, color },
+    })
+
+    if (!result.success) {
+      const errorMessages: Record<string, string> = {
+        NOT_FOUND: 'Label not found.',
+        FORBIDDEN:
+          'You do not have permission to update this label. Only the project founder can update labels.',
+        CONFLICT: `A label named "${name}" already exists in this project.`,
+        INVALID_COLOR: 'Invalid hex color format (expected #RRGGBB).',
+        NO_CHANGES: 'No changes detected.',
+      }
+      return {
+        content: [
+          {
+            type: 'text' as const,
+            text: errorMessages[result.code] ?? result.message,
+          },
+        ],
+      }
+    }
+
+    return {
+      content: [
+        {
+          type: 'text' as const,
+          text: `Successfully updated label. Name: "${result.label.name}", Color: ${result.label.color}`,
         },
       ],
     }

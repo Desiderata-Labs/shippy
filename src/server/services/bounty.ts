@@ -1,6 +1,7 @@
 import { prisma as globalPrisma } from '@/lib/db/server'
 import {
   BountyClaimMode,
+  BountyEventType,
   BountyStatus,
   ClaimStatus,
   NotificationReferenceType,
@@ -414,5 +415,291 @@ export async function createBounty({
       number: bounty.number,
       status: bounty.status,
     },
+  }
+}
+
+// ================================
+// Update Bounty Service
+// ================================
+
+export interface UpdateBountyParams {
+  prisma: PrismaClientOrTx
+  bountyId: string
+  userId: string // User attempting to update (for auth check)
+  data: {
+    title?: string
+    description?: string
+    evidenceDescription?: string | null
+    points?: number | null
+    status?: BountyStatus
+    claimMode?: BountyClaimMode
+    claimExpiryDays?: number
+    maxClaims?: number | null
+    labelIds?: string[]
+  }
+}
+
+export interface UpdateBountyResult {
+  success: true
+  bounty: {
+    id: string
+    title: string
+    description: string
+    evidenceDescription: string | null
+    points: number | null
+    status: string
+    claimMode: string
+    claimExpiryDays: number
+    maxClaims: number | null
+  }
+  changes: Record<string, { from: unknown; to: unknown }>
+}
+
+export type UpdateBountyError =
+  | { success: false; code: 'NOT_FOUND'; message: string }
+  | { success: false; code: 'FORBIDDEN'; message: string }
+  | { success: false; code: 'NO_CHANGES'; message: string }
+  | { success: false; code: 'INVALID_POINTS_CHANGE'; message: string }
+
+/**
+ * Update a bounty - shared logic used by both tRPC and MCP
+ *
+ * This handles:
+ * - Verifying bounty exists
+ * - Validating ownership (founder check)
+ * - Validating points changes (can't change on completed/closed, can't remove on claimed)
+ * - Automatic status transitions (BACKLOG <-> OPEN based on points)
+ * - Building audit trail of changes
+ * - Updating the bounty and labels
+ * - Creating edit/status change events
+ */
+export async function updateBounty({
+  prisma,
+  bountyId,
+  userId,
+  data,
+}: UpdateBountyParams): Promise<UpdateBountyResult | UpdateBountyError> {
+  // Fetch bounty with project and labels to check ownership
+  const bounty = await prisma.bounty.findUnique({
+    where: { id: bountyId },
+    include: {
+      project: { select: { founderId: true } },
+      labels: { select: { labelId: true } },
+    },
+  })
+
+  if (!bounty) {
+    return { success: false, code: 'NOT_FOUND', message: 'Bounty not found' }
+  }
+
+  // Authorization: only founder can update
+  if (bounty.project.founderId !== userId) {
+    return {
+      success: false,
+      code: 'FORBIDDEN',
+      message: 'You do not own this project',
+    }
+  }
+
+  // Build a record of what changed for the audit trail
+  const changes: Record<string, { from: unknown; to: unknown }> = {}
+
+  // Track field changes
+  if (data.title !== undefined && data.title !== bounty.title) {
+    changes.title = { from: bounty.title, to: data.title }
+  }
+
+  if (
+    data.description !== undefined &&
+    data.description !== bounty.description
+  ) {
+    changes.description = { from: bounty.description, to: data.description }
+  }
+
+  if (
+    data.evidenceDescription !== undefined &&
+    data.evidenceDescription !== bounty.evidenceDescription
+  ) {
+    changes.evidenceDescription = {
+      from: bounty.evidenceDescription,
+      to: data.evidenceDescription,
+    }
+  }
+
+  if (data.points !== undefined && data.points !== bounty.points) {
+    changes.points = { from: bounty.points, to: data.points }
+  }
+
+  if (data.labelIds !== undefined) {
+    const oldLabelIds = bounty.labels.map((l) => l.labelId).sort()
+    const newLabelIds = [...data.labelIds].sort()
+    if (oldLabelIds.join(',') !== newLabelIds.join(',')) {
+      changes.labels = { from: oldLabelIds, to: newLabelIds }
+    }
+  }
+
+  if (data.status !== undefined && data.status !== bounty.status) {
+    changes.status = { from: bounty.status, to: data.status }
+  }
+
+  if (data.claimMode !== undefined && data.claimMode !== bounty.claimMode) {
+    changes.claimMode = { from: bounty.claimMode, to: data.claimMode }
+  }
+
+  if (
+    data.claimExpiryDays !== undefined &&
+    data.claimExpiryDays !== bounty.claimExpiryDays
+  ) {
+    changes.claimExpiryDays = {
+      from: bounty.claimExpiryDays,
+      to: data.claimExpiryDays,
+    }
+  }
+
+  if (data.maxClaims !== undefined && data.maxClaims !== bounty.maxClaims) {
+    changes.maxClaims = { from: bounty.maxClaims, to: data.maxClaims }
+  }
+
+  // Validate points changes
+  if (data.points !== undefined && data.points !== bounty.points) {
+    if (
+      bounty.status === BountyStatus.COMPLETED ||
+      bounty.status === BountyStatus.CLOSED
+    ) {
+      return {
+        success: false,
+        code: 'INVALID_POINTS_CHANGE',
+        message: 'Cannot change points on a completed or closed bounty',
+      }
+    }
+
+    // Prevent removing points (backlog) on claimed bounties
+    if (bounty.status === BountyStatus.CLAIMED && data.points === null) {
+      return {
+        success: false,
+        code: 'INVALID_POINTS_CHANGE',
+        message: 'Cannot remove points from a bounty that is being worked on',
+      }
+    }
+  }
+
+  // Handle automatic status transitions based on points changes
+  // - BACKLOG -> OPEN: when points are assigned
+  // - OPEN -> BACKLOG: when points are removed (only if no claims/submissions)
+  let finalStatus = data.status
+  if (data.points !== undefined && data.points !== bounty.points) {
+    const wasBacklog = bounty.status === BountyStatus.BACKLOG
+    const wasOpen = bounty.status === BountyStatus.OPEN
+    const nowHasPoints = data.points !== null
+    const nowNoPoints = data.points === null
+
+    if (wasBacklog && nowHasPoints && !data.status) {
+      // Auto-transition from BACKLOG to OPEN when points are assigned
+      finalStatus = BountyStatus.OPEN
+      changes.status = { from: BountyStatus.BACKLOG, to: BountyStatus.OPEN }
+    } else if (wasOpen && nowNoPoints && !data.status) {
+      // Auto-transition from OPEN to BACKLOG when points are removed
+      finalStatus = BountyStatus.BACKLOG
+      changes.status = { from: BountyStatus.OPEN, to: BountyStatus.BACKLOG }
+    }
+  }
+
+  // If nothing changed, return early
+  if (Object.keys(changes).length === 0) {
+    return {
+      success: false,
+      code: 'NO_CHANGES',
+      message: 'No changes detected',
+    }
+  }
+
+  // Build the update data object
+  const updateData: Prisma.BountyUpdateInput = {}
+  if (data.title !== undefined) updateData.title = data.title
+  if (data.description !== undefined) updateData.description = data.description
+  if (data.evidenceDescription !== undefined)
+    updateData.evidenceDescription = data.evidenceDescription
+  if (data.points !== undefined) updateData.points = data.points
+  if (finalStatus !== undefined) updateData.status = finalStatus
+  if (data.claimMode !== undefined) updateData.claimMode = data.claimMode
+  if (data.claimExpiryDays !== undefined)
+    updateData.claimExpiryDays = data.claimExpiryDays
+  if (data.maxClaims !== undefined) updateData.maxClaims = data.maxClaims
+
+  // Update the bounty
+  const updated = await prisma.bounty.update({
+    where: { id: bountyId },
+    data: updateData,
+  })
+
+  // Update labels if provided
+  if (data.labelIds !== undefined && changes.labels) {
+    // Delete all existing labels
+    await prisma.bountyLabel.deleteMany({
+      where: { bountyId },
+    })
+    // Create new labels
+    if (data.labelIds.length > 0) {
+      await prisma.bountyLabel.createMany({
+        data: data.labelIds.map((labelId) => ({
+          bountyId,
+          labelId,
+        })),
+      })
+    }
+  }
+
+  // Create events for audit trail
+  if (changes.status) {
+    // Create STATUS_CHANGE event
+    await prisma.bountyEvent.create({
+      data: {
+        bountyId,
+        userId,
+        type: BountyEventType.STATUS_CHANGE,
+        fromStatus: changes.status.from as string,
+        toStatus: changes.status.to as string,
+      },
+    })
+
+    // If there are other changes besides status, also record an edit
+    const nonStatusChanges = { ...changes }
+    delete nonStatusChanges.status
+    if (Object.keys(nonStatusChanges).length > 0) {
+      await prisma.bountyEvent.create({
+        data: {
+          bountyId,
+          userId,
+          type: BountyEventType.EDIT,
+          changes: nonStatusChanges as Prisma.InputJsonValue,
+        },
+      })
+    }
+  } else {
+    // Just an edit event
+    await prisma.bountyEvent.create({
+      data: {
+        bountyId,
+        userId,
+        type: BountyEventType.EDIT,
+        changes: changes as Prisma.InputJsonValue,
+      },
+    })
+  }
+
+  return {
+    success: true,
+    bounty: {
+      id: updated.id,
+      title: updated.title,
+      description: updated.description,
+      evidenceDescription: updated.evidenceDescription,
+      points: updated.points,
+      status: updated.status,
+      claimMode: updated.claimMode,
+      claimExpiryDays: updated.claimExpiryDays,
+      maxClaims: updated.maxClaims,
+    },
+    changes,
   }
 }

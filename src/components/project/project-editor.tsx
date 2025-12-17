@@ -384,7 +384,7 @@ export function ProjectEditor({ mode, username, slug }: ProjectEditorProps) {
             : {}),
           tagline: tagline || undefined,
           description: description || undefined,
-          logoUrl: logoUrl,
+          // logoUrl is NOT included here - it's auto-saved via updateLogo mutation
           websiteUrl: websiteUrl || null,
           discordUrl: discordUrl || null,
           // Visibility is always editable

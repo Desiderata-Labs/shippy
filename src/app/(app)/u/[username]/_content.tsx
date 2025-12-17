@@ -3,9 +3,11 @@
 import { useSession } from '@/lib/auth/react'
 import { trpc } from '@/lib/trpc/react'
 import { Folder, Plus, User01 } from '@untitled-ui/icons-react'
+import { useState } from 'react'
 import Link from 'next/link'
 import { notFound, useParams } from 'next/navigation'
 import { routes } from '@/lib/routes'
+import { cn } from '@/lib/utils'
 import { AppButton } from '@/components/app'
 import { AppBackground } from '@/components/layout/app-background'
 import {
@@ -16,9 +18,12 @@ import { Avatar, AvatarFallback, AvatarImage } from '@/components/ui/avatar'
 import { Skeleton } from '@/components/ui/skeleton'
 import { GlassCard } from '@/app/(app)/p/[slug]/_components/glass-card'
 
+type SortOption = 'mostBounties' | 'alphabetical' | 'newest'
+
 export function UserProfileContent() {
   const params = useParams<{ username: string }>()
   const { data: session, isPending: sessionLoading } = useSession()
+  const [sortBy, setSortBy] = useState<SortOption>('mostBounties')
 
   // Check if viewing own profile
   const currentUsername = (session?.user as { username?: string })?.username
@@ -30,16 +35,17 @@ export function UserProfileContent() {
     data: myProjects,
     isLoading: myProjectsLoading,
     error: myProjectsError,
-  } = trpc.project.myProjects.useQuery(undefined, {
-    enabled: !!session && isOwnProfile,
-  })
+  } = trpc.project.myProjects.useQuery(
+    { sortBy },
+    { enabled: !!session && isOwnProfile },
+  )
 
   const {
     data: publicProjects,
     isLoading: publicProjectsLoading,
     error: publicProjectsError,
   } = trpc.user.getPublicProjects.useQuery(
-    { username: params.username },
+    { username: params.username, sortBy },
     { enabled: !isOwnProfile },
   )
 
@@ -129,6 +135,28 @@ export function UserProfileContent() {
           )}
         </div>
 
+        {/* Sort filters */}
+        <div className="mb-4 flex items-center gap-1">
+          <SortButton
+            active={sortBy === 'mostBounties'}
+            onClick={() => setSortBy('mostBounties')}
+          >
+            Most Bounties
+          </SortButton>
+          <SortButton
+            active={sortBy === 'alphabetical'}
+            onClick={() => setSortBy('alphabetical')}
+          >
+            Name
+          </SortButton>
+          <SortButton
+            active={sortBy === 'newest'}
+            onClick={() => setSortBy('newest')}
+          >
+            Newest
+          </SortButton>
+        </div>
+
         {!projects || projects.length === 0 ? (
           <GlassCard className="py-12 text-center">
             <div className="mx-auto flex max-w-xs flex-col items-center">
@@ -189,6 +217,7 @@ function ProfileSkeleton() {
           </div>
           <Skeleton className="h-9 w-28" />
         </div>
+        <Skeleton className="mb-4 h-8 w-48" />
         <div className="grid gap-3 sm:grid-cols-2">
           {Array.from({ length: 4 }).map((_, i) => (
             <ProjectCardSkeleton key={i} />
@@ -196,5 +225,30 @@ function ProfileSkeleton() {
         </div>
       </div>
     </AppBackground>
+  )
+}
+
+function SortButton({
+  active,
+  onClick,
+  children,
+}: {
+  active: boolean
+  onClick: () => void
+  children: React.ReactNode
+}) {
+  return (
+    <button
+      type="button"
+      onClick={onClick}
+      className={cn(
+        'cursor-pointer rounded-full px-3 py-1 text-xs font-medium transition-colors',
+        active
+          ? 'bg-primary text-primary-foreground'
+          : 'text-muted-foreground hover:bg-accent/50 hover:text-foreground',
+      )}
+    >
+      {children}
+    </button>
   )
 }

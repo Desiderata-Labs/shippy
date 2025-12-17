@@ -19,7 +19,6 @@ import { useState } from 'react'
 import Link from 'next/link'
 import { useParams } from 'next/navigation'
 import { SubmissionEventType, SubmissionStatus } from '@/lib/db/types'
-import { formatRelativeTime } from '@/lib/format/relative-time'
 import { extractNanoIdFromSlug } from '@/lib/nanoid/shared'
 import { routes } from '@/lib/routes'
 import {
@@ -47,6 +46,7 @@ import {
   PopoverContent,
   PopoverTrigger,
 } from '@/components/ui/popover'
+import { RelativeTime } from '@/components/ui/relative-time'
 import { Separator } from '@/components/ui/separator'
 import { Skeleton } from '@/components/ui/skeleton'
 import {
@@ -688,9 +688,10 @@ export function SubmissionDetailContent() {
                               Owner
                             </Badge>
                           )}
-                          <span className="text-xs text-muted-foreground">
-                            {formatRelativeTime(event.createdAt)}
-                          </span>
+                          <RelativeTime
+                            date={event.createdAt}
+                            className="text-xs text-muted-foreground"
+                          />
                         </div>
                         {isEditing ? (
                           <div className="mt-2">

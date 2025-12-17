@@ -41,21 +41,28 @@ export function NewPayoutContent() {
   const { data: session, isPending: sessionLoading } = useSession()
   const [isCreating, setIsCreating] = useState(false)
 
-  // Form state
+  // Form state - use stable defaults to avoid hydration mismatch
+  // We use empty strings initially and populate on mount
   const [profitDollars, setProfitDollars] = useState('')
-  const [periodLabel, setPeriodLabel] = useState(() => {
+  const [periodLabel, setPeriodLabel] = useState('')
+  const [periodStart, setPeriodStart] = useState('')
+  const [periodEnd, setPeriodEnd] = useState('')
+  const [formInitialized, setFormInitialized] = useState(false)
+
+  // Initialize form with current date on mount
+  if (typeof window !== 'undefined' && !formInitialized) {
     const now = new Date()
-    return now.toLocaleDateString('en-US', { month: 'long', year: 'numeric' })
-  })
-  const [periodStart, setPeriodStart] = useState(() => {
-    const now = new Date()
-    return new Date(now.getFullYear(), now.getMonth(), 1)
-      .toISOString()
-      .split('T')[0]
-  })
-  const [periodEnd, setPeriodEnd] = useState(() => {
-    return new Date().toISOString().split('T')[0]
-  })
+    setPeriodLabel(
+      now.toLocaleDateString('en-US', { month: 'long', year: 'numeric' }),
+    )
+    setPeriodStart(
+      new Date(now.getFullYear(), now.getMonth(), 1)
+        .toISOString()
+        .split('T')[0],
+    )
+    setPeriodEnd(now.toISOString().split('T')[0])
+    setFormInitialized(true)
+  }
 
   // Fetch project data
   const {

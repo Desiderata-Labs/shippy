@@ -22,8 +22,6 @@ const footerSections = [
   },
 ]
 
-const currentYear = new Date().getFullYear()
-
 export function SiteFooter() {
   return (
     <footer className="border-t border-border bg-muted/30">
@@ -92,8 +90,11 @@ export function SiteFooter() {
 
         {/* Bottom section */}
         <div className="mt-16 flex flex-col items-center justify-between gap-6 border-t border-border pt-8 sm:flex-row">
-          <div className="text-sm text-muted-foreground">
-            © {currentYear} Shippy. All rights reserved.
+          <div
+            className="text-sm text-muted-foreground"
+            suppressHydrationWarning
+          >
+            © {new Date().getFullYear()} Shippy. All rights reserved.
           </div>
 
           {/* Social links */}

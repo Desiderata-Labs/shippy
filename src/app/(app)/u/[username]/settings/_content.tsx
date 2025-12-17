@@ -6,13 +6,13 @@ import { Check, Copy, Key, Loader2, Trash2, X } from 'lucide-react'
 import { useCallback, useEffect, useState } from 'react'
 import Link from 'next/link'
 import { redirect, useParams, useRouter } from 'next/navigation'
-import { formatRelativeTime } from '@/lib/format/relative-time'
 import { routes } from '@/lib/routes'
 import { cn } from '@/lib/utils'
 import { useDebounce } from '@/hooks/use-debounce'
 import { AppButton, AppInput } from '@/components/app'
 import { AppBackground } from '@/components/layout/app-background'
 import { ConfirmModal } from '@/components/ui/confirm-modal'
+import { RelativeTime } from '@/components/ui/relative-time'
 import { Separator } from '@/components/ui/separator'
 import { Skeleton } from '@/components/ui/skeleton'
 import { toast } from 'sonner'
@@ -669,9 +669,12 @@ function McpTokensSection() {
               <div className="min-w-0 flex-1">
                 <p className="truncate text-sm font-medium">{token.name}</p>
                 <p className="text-xs text-muted-foreground">
-                  Created {formatRelativeTime(token.createdAt)}
+                  Created <RelativeTime date={token.createdAt} />
                   {token.lastUsedAt && (
-                    <> · Last used {formatRelativeTime(token.lastUsedAt)}</>
+                    <>
+                      {' '}
+                      · Last used <RelativeTime date={token.lastUsedAt} />
+                    </>
                   )}
                 </p>
               </div>

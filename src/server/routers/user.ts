@@ -89,7 +89,14 @@ export const userRouter = router({
    * Get a user's public projects by username
    */
   getPublicProjects: publicProcedure
-    .input(z.object({ username: z.string() }))
+    .input(
+      z.object({
+        username: z.string(),
+        sortBy: z
+          .enum(['mostBounties', 'alphabetical', 'newest'])
+          .default('mostBounties'),
+      }),
+    )
     .query(async ({ ctx, input }) => {
       const user = await ctx.prisma.user.findUnique({
         where: { username: input.username },
@@ -100,12 +107,29 @@ export const userRouter = router({
         throw userError('NOT_FOUND', 'User not found')
       }
 
+      // Build orderBy based on sortBy
+      let orderBy
+      switch (input.sortBy) {
+        case 'mostBounties':
+          orderBy = [
+            { bounties: { _count: 'desc' as const } },
+            { createdAt: 'desc' as const },
+          ]
+          break
+        case 'alphabetical':
+          orderBy = [{ name: 'asc' as const }]
+          break
+        case 'newest':
+        default:
+          orderBy = [{ createdAt: 'desc' as const }]
+      }
+
       return ctx.prisma.project.findMany({
         where: {
           founderId: user.id,
           isPublic: true,
         },
-        orderBy: { createdAt: 'desc' },
+        orderBy,
         include: {
           founder: {
             select: { id: true, name: true, image: true },

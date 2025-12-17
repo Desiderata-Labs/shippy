@@ -36,7 +36,6 @@ import {
   SubmissionStatus,
   generateRandomLabelColor,
 } from '@/lib/db/types'
-import { formatRelativeTime } from '@/lib/format/relative-time'
 import { extractNanoIdFromSlug } from '@/lib/nanoid/shared'
 import { ProjectTab, routes } from '@/lib/routes'
 import {
@@ -66,6 +65,7 @@ import {
   PopoverContent,
   PopoverTrigger,
 } from '@/components/ui/popover'
+import { RelativeTime } from '@/components/ui/relative-time'
 import { Separator } from '@/components/ui/separator'
 import { Skeleton } from '@/components/ui/skeleton'
 import {
@@ -387,17 +387,18 @@ export function BountyDetailContent() {
 
   const bountyDisplayId = `${bounty.project.projectKey}-${bounty.number}`
 
-  const bountyUrl =
-    typeof window !== 'undefined'
-      ? `${window.location.origin}${routes.project.bountyDetail({
-          slug: params.slug,
-          bountyId: bounty.id,
-          title: bounty.title,
-        })}`
-      : ''
+  // Build bounty URL for sharing - constructed on demand to avoid hydration issues
+  const getBountyUrl = () => {
+    if (typeof window === 'undefined') return ''
+    return `${window.location.origin}${routes.project.bountyDetail({
+      slug: params.slug,
+      bountyId: bounty.id,
+      title: bounty.title,
+    })}`
+  }
 
   const handleCopyLink = async () => {
-    await navigator.clipboard.writeText(bountyUrl)
+    await navigator.clipboard.writeText(getBountyUrl())
     setCopied(true)
     toast.success('Link copied!')
     setTimeout(() => setCopied(false), 2000)
@@ -803,9 +804,10 @@ export function BountyDetailContent() {
                               @{event.user.username}
                             </span>
                           )}
-                          <span className="text-xs text-muted-foreground">
-                            {formatRelativeTime(event.createdAt)}
-                          </span>
+                          <RelativeTime
+                            date={event.createdAt}
+                            className="text-xs text-muted-foreground"
+                          />
                         </div>
                         {isEditing ? (
                           <div className="mt-2">
@@ -1407,7 +1409,7 @@ export function BountyDetailContent() {
                     complete and submit your work.
                   </TooltipContent>
                 </Tooltip>
-                <span className="text-xs">
+                <span className="text-xs" suppressHydrationWarning>
                   {userClaim && new Date(userClaim.expiresAt) < new Date() ? (
                     <span className="text-destructive">Expired</span>
                   ) : (
@@ -1435,7 +1437,7 @@ export function BountyDetailContent() {
                         : 'The founder has committed to paying contributors until this date.'}
                     </TooltipContent>
                   </Tooltip>
-                  <span className="text-xs">
+                  <span className="text-xs" suppressHydrationWarning>
                     {isForeverCommitment ? (
                       'Never'
                     ) : new Date(commitmentDate) < new Date() ? (

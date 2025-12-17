@@ -182,11 +182,12 @@ export function ProjectStatsPanel({ project }: ProjectStatsPanelProps) {
         value={`${rewardPool.poolPercentage}%`}
       />
 
-      {/* Commitment */}
+      {/* Commitment - suppressHydrationWarning since it compares with current date */}
       <StatItem
         icon={Calendar}
         label="Commitment"
         value={formatCommitmentDate(rewardPool.commitmentEndsAt)}
+        suppressHydrationWarning
       />
     </div>
   )
@@ -197,11 +198,13 @@ function StatItem({
   label,
   value,
   showPrivateLock,
+  suppressHydrationWarning = false,
 }: {
   icon: React.ComponentType<{ className?: string }>
   label: string
   value: string
   showPrivateLock?: boolean
+  suppressHydrationWarning?: boolean
 }) {
   return (
     <div className="flex items-center justify-between">
@@ -215,7 +218,12 @@ function StatItem({
             <Lock01 className="size-3 opacity-50" />
           </span>
         )}
-        <span className="text-xs font-semibold">{value}</span>
+        <span
+          className="text-xs font-semibold"
+          suppressHydrationWarning={suppressHydrationWarning}
+        >
+          {value}
+        </span>
       </div>
     </div>
   )

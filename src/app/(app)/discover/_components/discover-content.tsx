@@ -16,10 +16,10 @@ import {
 } from '@/components/project/project-card'
 import { Card } from '@/components/ui/card'
 
-type SortOption = 'newest' | 'openBounties' | 'totalPaidOut'
+type SortOption = 'newest' | 'mostBounties'
 
 export function DiscoverContent() {
-  const [sortBy, setSortBy] = useState<SortOption>('newest')
+  const [sortBy, setSortBy] = useState<SortOption>('mostBounties')
   const { data: session } = useSession()
 
   const username = (session?.user as { username?: string })?.username
@@ -48,22 +48,16 @@ export function DiscoverContent() {
         {/* Sort filters */}
         <div className="mb-4 flex items-center gap-1">
           <SortButton
-            active={sortBy === 'newest'}
-            onClick={() => setSortBy('newest')}
-          >
-            Newest
-          </SortButton>
-          <SortButton
-            active={sortBy === 'openBounties'}
-            onClick={() => setSortBy('openBounties')}
+            active={sortBy === 'mostBounties'}
+            onClick={() => setSortBy('mostBounties')}
           >
             Most Bounties
           </SortButton>
           <SortButton
-            active={sortBy === 'totalPaidOut'}
-            onClick={() => setSortBy('totalPaidOut')}
+            active={sortBy === 'newest'}
+            onClick={() => setSortBy('newest')}
           >
-            Most Paid Out
+            Newest
           </SortButton>
         </div>
 

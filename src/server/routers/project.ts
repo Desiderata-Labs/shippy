@@ -245,14 +245,21 @@ export const projectRouter = router({
       z.object({
         cursor: nanoId().optional(),
         limit: z.number().int().min(1).max(50).default(20),
-        sortBy: z
-          .enum(['newest', 'totalPaidOut', 'openBounties'])
-          .default('newest'),
+        sortBy: z.enum(['newest', 'mostBounties']).default('newest'),
         hasOpenBounties: z.boolean().optional(),
       }),
     )
     .query(async ({ ctx, input }) => {
-      const { cursor, limit, hasOpenBounties } = input
+      const { cursor, limit, sortBy, hasOpenBounties } = input
+
+      // Build orderBy based on sortBy
+      const orderBy =
+        sortBy === 'mostBounties'
+          ? [
+              { bounties: { _count: 'desc' as const } },
+              { createdAt: 'desc' as const },
+            ]
+          : [{ createdAt: 'desc' as const }]
 
       const projects = await ctx.prisma.project.findMany({
         where: {
@@ -261,7 +268,7 @@ export const projectRouter = router({
             bounties: { some: { status: BountyStatus.OPEN } },
           }),
         },
-        orderBy: { createdAt: 'desc' },
+        orderBy,
         take: limit + 1, // Get one extra to check for more
         cursor: cursor ? { id: cursor } : undefined,
         include: {
@@ -292,23 +299,52 @@ export const projectRouter = router({
   /**
    * Get projects owned by the current user
    */
-  myProjects: protectedProcedure.query(async ({ ctx }) => {
-    return ctx.prisma.project.findMany({
-      where: { founderId: ctx.user.id },
-      orderBy: { createdAt: 'desc' },
-      include: {
-        founder: {
-          select: { id: true, name: true, image: true },
-        },
-        rewardPool: true,
-        _count: {
-          select: {
-            bounties: true,
+  myProjects: protectedProcedure
+    .input(
+      z
+        .object({
+          sortBy: z
+            .enum(['mostBounties', 'alphabetical', 'newest'])
+            .default('mostBounties'),
+        })
+        .optional(),
+    )
+    .query(async ({ ctx, input }) => {
+      const sortBy = input?.sortBy ?? 'mostBounties'
+
+      // Build orderBy based on sortBy
+      let orderBy
+      switch (sortBy) {
+        case 'mostBounties':
+          orderBy = [
+            { bounties: { _count: 'desc' as const } },
+            { createdAt: 'desc' as const },
+          ]
+          break
+        case 'alphabetical':
+          orderBy = [{ name: 'asc' as const }]
+          break
+        case 'newest':
+        default:
+          orderBy = [{ createdAt: 'desc' as const }]
+      }
+
+      return ctx.prisma.project.findMany({
+        where: { founderId: ctx.user.id },
+        orderBy,
+        include: {
+          founder: {
+            select: { id: true, name: true, image: true },
+          },
+          rewardPool: true,
+          _count: {
+            select: {
+              bounties: { where: { status: BountyStatus.OPEN } },
+            },
           },
         },
-      },
-    })
-  }),
+      })
+    }),
 
   /**
    * Create a new project

@@ -1421,14 +1421,14 @@ export function BountyDetailContent() {
                 </span>
               </div>
 
-              {/* Pool ends */}
+              {/* Profit share ends */}
               {commitmentDate && (
                 <div className="flex items-center justify-between py-1">
                   <Tooltip>
                     <TooltipTrigger asChild>
                       <span className="flex cursor-help items-center gap-1 text-xs text-muted-foreground">
                         <Target01 className="size-3 text-foreground opacity-50" />
-                        Pool Ends
+                        Profit Share Ends
                       </span>
                     </TooltipTrigger>
                     <TooltipContent className="max-w-xs">
@@ -1454,7 +1454,7 @@ export function BountyDetailContent() {
               )}
             </div>
 
-            {/* Pool warning */}
+            {/* Profit share warning */}
             {bounty.project.rewardPool &&
               commitmentRemaining !== null &&
               commitmentRemaining < 90 && (
@@ -1462,7 +1462,9 @@ export function BountyDetailContent() {
                   <div className="flex gap-2">
                     <AlertCircle className="size-4 shrink-0 text-amber-500" />
                     <div className="text-xs text-amber-700 dark:text-amber-400">
-                      <p className="font-medium">Pool commitment ending soon</p>
+                      <p className="font-medium">
+                        Profit share commitment ending soon
+                      </p>
                       <p className="mt-0.5 opacity-80">
                         Ends in {commitmentRemaining} days
                       </p>

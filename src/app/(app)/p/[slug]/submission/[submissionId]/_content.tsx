@@ -492,7 +492,7 @@ export function SubmissionDetailContent() {
                               poolStats.poolCapacity && (
                               <div className="mt-2 flex items-center rounded-md bg-primary/5 px-2 py-1.5">
                                 <span className="text-[11px] text-muted-foreground">
-                                  Expands reward pool from{' '}
+                                  Expands profit share from{' '}
                                   {poolStats.poolCapacity.toLocaleString()} to{' '}
                                   {(
                                     poolStats.earnedPoints +

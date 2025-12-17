@@ -617,10 +617,10 @@ export function ProjectEditor({ mode, username, slug }: ProjectEditorProps) {
               {mode === 'edit' && !canEditRewardPool && (
                 <div className="rounded-lg border border-muted bg-muted/30 p-4 text-sm text-muted-foreground">
                   <p className="mb-3 font-medium text-foreground">
-                    Reward Pool (locked)
+                    Profit Share (locked)
                   </p>
                   <p className="mb-3">
-                    Reward pool settings are locked because contributors have
+                    Profit share settings are locked because contributors have
                     already claimed or completed bounties on this project. This
                     protects contributors who committed based on your original
                     terms.
@@ -672,11 +672,11 @@ export function ProjectEditor({ mode, username, slug }: ProjectEditorProps) {
 
               <Separator />
 
-              {/* Reward Pool Settings - only show if editable */}
+              {/* Profit Share Settings - only show if editable */}
               {canEditRewardPool && (
                 <div className="space-y-4 pt-2">
                   <span className="text-xs font-medium text-muted-foreground">
-                    Reward Pool
+                    Profit Share
                   </span>
 
                   {/* Pool Percentage */}
@@ -798,8 +798,8 @@ export function ProjectEditor({ mode, username, slug }: ProjectEditorProps) {
                         </span>
                       </TooltipTrigger>
                       <TooltipContent className="max-w-xs text-wrap">
-                        How long you commit to running the pool and paying
-                        contributors
+                        How long you commit to running the profit share and
+                        paying contributors
                       </TooltipContent>
                     </Tooltip>
                     <Select

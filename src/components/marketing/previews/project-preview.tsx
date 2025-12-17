@@ -41,12 +41,12 @@ const ProjectPreviewComponent = () => {
             </div>
           </div>
 
-          {/* Pool Info */}
+          {/* Profit Share Info */}
           <div className="mt-auto rounded-xl border border-primary/20 bg-primary/5 p-4">
             <div className="flex items-center justify-between">
               <div>
                 <p className="text-xs font-semibold tracking-wider text-primary uppercase">
-                  Reward Pool
+                  Profit Share
                 </p>
                 <p className="mt-1 text-lg font-bold">10% of profit</p>
               </div>

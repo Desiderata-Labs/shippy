@@ -155,7 +155,7 @@ function RewardPoolVisualization() {
               <div>
                 <div className="font-semibold">Image AI</div>
                 <div className="text-xs text-muted-foreground">
-                  Reward Pool: 10% of $115k/mo profit
+                  Profit Share: 10% of $115k/mo profit
                 </div>
               </div>
             </div>
@@ -165,7 +165,7 @@ function RewardPoolVisualization() {
           </div>
         </div>
 
-        {/* Pool visualization */}
+        {/* Profit share visualization */}
         <div className="relative p-6">
           <div className="mb-4 flex items-center justify-between text-sm">
             <span className="text-muted-foreground">December 2025 Split</span>

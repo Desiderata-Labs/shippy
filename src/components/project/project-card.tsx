@@ -96,7 +96,7 @@ export function ProjectCard({ project }: ProjectCardProps) {
             <>
               <span className="flex items-center gap-1 font-medium">
                 <BankNote03 className="size-3.5 opacity-50" />
-                {project.rewardPool.poolPercentage}% pool
+                {project.rewardPool.poolPercentage}% profit share
               </span>
               <span className="flex items-center gap-1">
                 <Calendar className="size-3.5 opacity-50" />

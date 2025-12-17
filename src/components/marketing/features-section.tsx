@@ -82,9 +82,9 @@ export function FeaturesSection() {
 
           {/* Row 2: Three equal columns */}
           <GlassCard className="md:col-span-2">
-            <CardHeader icon={PieChart01} title="Transparent pools" />
+            <CardHeader icon={PieChart01} title="Transparent profit shares" />
             <p className="mt-2 text-sm text-muted-foreground">
-              See pool commitment, payout history, and verification.
+              See profit share commitment, payout history, and verification.
             </p>
             <div className="mt-5">
               <div className="flex h-4 overflow-hidden rounded-sm">
@@ -95,7 +95,9 @@ export function FeaturesSection() {
               </div>
               <div className="mt-3 flex items-center justify-between text-xs">
                 <span className="text-muted-foreground">4 contributors</span>
-                <span className="font-medium text-primary">10% pool</span>
+                <span className="font-medium text-primary">
+                  10% profit share
+                </span>
               </div>
             </div>
           </GlassCard>
@@ -119,7 +121,7 @@ export function FeaturesSection() {
             </p>
             <div className="mt-5 flex flex-col gap-1.5">
               <VisibilityRow label="Your points" value="125 pts" />
-              <VisibilityRow label="Pool capacity" value="1,000 pts" />
+              <VisibilityRow label="Profit share capacity" value="1,000 pts" />
               <VisibilityRow label="Your payout" value="$625" highlight />
             </div>
           </GlassCard>

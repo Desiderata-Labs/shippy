@@ -115,8 +115,8 @@ export function PayoutsTab({
           <h3 className="text-base font-semibold">No payouts yet</h3>
           <p className="mt-1.5 text-sm text-muted-foreground">
             {isFounder
-              ? 'Create your first payout to distribute the reward pool.'
-              : 'Payouts will appear here once the founder distributes the reward pool.'}
+              ? 'Create your first payout to distribute the profit share.'
+              : 'Payouts will appear here once the founder distributes the profit share.'}
           </p>
           {isFounder && (
             <AppButton asChild className="mt-4" size="sm">
@@ -316,7 +316,7 @@ export function PayoutsTab({
         })}
       </div>
 
-      {/* Pool Expansion Timeline */}
+      {/* Profit Share Expansion Timeline */}
       {poolStats &&
         poolStats.expansionEvents &&
         poolStats.expansionEvents.length > 0 && (
@@ -324,7 +324,7 @@ export function PayoutsTab({
             <div className="border-b border-border py-2.5">
               <h3 className="flex items-center gap-2 text-xs font-medium tracking-wider text-muted-foreground uppercase">
                 <ArrowUp className="size-3" />
-                Pool Expansion History
+                Profit Share Expansion History
               </h3>
             </div>
             <div className="divide-y divide-border">
@@ -333,7 +333,7 @@ export function PayoutsTab({
                   <div className="flex items-start justify-between gap-3">
                     <div>
                       <p className="text-sm font-medium">
-                        Pool expanded: {event.previousCapacity} →{' '}
+                        Profit share expanded: {event.previousCapacity} →{' '}
                         {event.newCapacity} pts
                       </p>
                       <p className="mt-0.5 text-xs text-muted-foreground">

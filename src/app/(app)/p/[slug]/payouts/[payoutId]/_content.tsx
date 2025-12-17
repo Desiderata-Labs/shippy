@@ -420,7 +420,7 @@ export function PayoutDetailContent() {
                       {formatCurrency(payout.reportedProfitCents)}
                     </div>
                     <p className="mt-1 text-xs text-muted-foreground">
-                      Pool: {formatCurrency(payout.poolAmountCents)} (
+                      Profit share: {formatCurrency(payout.poolAmountCents)} (
                       {payout.project.rewardPool?.poolPercentage ?? 10}% of
                       profit)
                     </p>
@@ -432,7 +432,9 @@ export function PayoutDetailContent() {
             {/* Summary stats */}
             <div className="grid gap-3 sm:grid-cols-3">
               <div className="rounded-lg border border-border bg-card px-4 py-3">
-                <div className="text-xs text-muted-foreground">Pool Amount</div>
+                <div className="text-xs text-muted-foreground">
+                  Profit Share Amount
+                </div>
                 <div className="text-lg font-semibold">
                   {canSeeFinancials ? (
                     formatCurrency(payout.poolAmountCents)
@@ -446,7 +448,7 @@ export function PayoutDetailContent() {
               </div>
               <div className="rounded-lg border border-border bg-card px-4 py-3">
                 <div className="text-xs text-muted-foreground">
-                  Pool Utilization
+                  Profit Share Utilization
                 </div>
                 <div className="text-lg font-semibold">
                   {formatPercentage(Math.min(poolUtilization, 100))}
@@ -913,7 +915,7 @@ export function PayoutDetailContent() {
                             Platform fee (
                             {payout.project.rewardPool?.platformFeePercentage ??
                               10}
-                            % of pool)
+                            % of profit share)
                           </p>
                         </div>
                       </div>

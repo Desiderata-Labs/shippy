@@ -38,7 +38,7 @@ export function HowItWorksSection() {
             <CardHeader icon={Target01} title="Post bounties" />
             <p className="mb-6 text-sm leading-relaxed text-muted-foreground">
               Create specific tasks with point rewards. Each point = 0.1% of
-              your reward pool. Only pay for work that gets done.
+              your profit share. Only pay for work that gets done.
             </p>
             <div className="flex flex-col gap-2">
               <BountyRow title="SEO blog post" points={50} />

@@ -179,7 +179,7 @@ export function NewPayoutContent() {
         <div className="mx-auto max-w-7xl p-6">
           <div className="rounded-lg border border-border bg-card p-12 text-center">
             <p className="text-muted-foreground">
-              This project doesn&apos;t have a reward pool configured.
+              This project doesn&apos;t have a profit share configured.
             </p>
           </div>
         </div>
@@ -333,7 +333,7 @@ export function NewPayoutContent() {
                     />
                   </div>
                   <p className="mt-2 text-xs text-muted-foreground">
-                    The reward pool ({project.rewardPool.poolPercentage}%) will
+                    The profit share ({project.rewardPool.poolPercentage}%) will
                     be calculated from this amount
                   </p>
                 </div>
@@ -344,7 +344,7 @@ export function NewPayoutContent() {
                 <div className="grid gap-3 sm:grid-cols-3">
                   <div className="rounded-lg border border-border bg-card px-4 py-3">
                     <div className="text-xs text-muted-foreground">
-                      Pool Amount
+                      Profit Share Amount
                     </div>
                     <div className="text-lg font-semibold">
                       {formatCurrency(preview.poolAmountCents)}
@@ -355,7 +355,7 @@ export function NewPayoutContent() {
                   </div>
                   <div className="rounded-lg border border-border bg-card px-4 py-3">
                     <div className="text-xs text-muted-foreground">
-                      Pool Utilization
+                      Profit Share Utilization
                     </div>
                     <div className="text-lg font-semibold">
                       {formatPercentage(poolUtilization)}
@@ -573,7 +573,7 @@ export function NewPayoutContent() {
                                       <p className="text-[10px] text-muted-foreground">
                                         Platform fee (
                                         {preview.platformFeePercentage}% of
-                                        pool)
+                                        profit share)
                                       </p>
                                     </div>
                                   </div>

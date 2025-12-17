@@ -868,7 +868,7 @@ export function BountyEditor({ mode, slug, bountyId }: BountyEditorProps) {
                     ))}
                   </div>
 
-                  {/* Pool share info */}
+                  {/* Profit share info */}
                   {!isBacklog && (
                     <div className="space-y-0.5 rounded-md bg-primary/5 px-3 py-2 text-right text-xs">
                       {project.rewardPool && (
@@ -883,7 +883,7 @@ export function BountyEditor({ mode, slug, bountyId }: BountyEditorProps) {
                             minimumFractionDigits: 0,
                             maximumFractionDigits: 0,
                           })}{' '}
-                          per $10k profit for current reward pool size
+                          per $10k profit for current profit share size
                         </div>
                       )}
                     </div>

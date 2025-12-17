@@ -175,7 +175,7 @@ export function ProjectStatsPanel({ project }: ProjectStatsPanelProps) {
         <Separator />
       </div>
 
-      {/* Reward Pool */}
+      {/* Profit Share */}
       <StatItem
         icon={PieChart01}
         label="Profit share"

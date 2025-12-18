@@ -368,6 +368,20 @@ src/
     └── payouts/           # Payout calculation logic
 ```
 
+## Working with Shippy Bounties
+
+When completing bounties on Shippy itself:
+
+1. **Never mark a bounty as COMPLETED directly** - always follow the proper flow
+2. The correct flow is: **Claim → Submit → (Founder approves) → COMPLETED**
+3. Use the MCP tools to:
+   - `read_bounty` - check bounty details
+   - `claim_bounty` - claim when starting work
+   - `create_submission` - submit work with description of what was done
+   - `update_bounty` - update description/acceptance (founders only)
+4. Only founders can approve submissions and mark bounties complete
+5. Include commit hashes and file lists in submission descriptions
+
 ## References
 
 - **Full PRD**: `prds/shippy.md`

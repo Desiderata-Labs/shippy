@@ -51,7 +51,7 @@ Read https://shippy.sh/llms.txt/docs/mcp-installation.md for MCP setup instructi
 For deeper integration, Shippy also provides an MCP (Model Context Protocol) server that lets AI assistants interact with bounties directly from your IDE—not just read documentation.
 
 - **Docs MCP server** (no auth required): `https://shippy.sh/mcp/docs`
-- **Full MCP server** (requires token): `https://shippy.sh/api/mcp`
+- **Full MCP server** (requires token): `https://shippy.sh/mcp`
 
 The docs MCP server provides `list_docs` and `read_doc` tools. The full MCP server lets contributors claim bounties, submit work, and lets founders manage their projects—all from within the IDE.
 

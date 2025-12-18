@@ -181,6 +181,6 @@ Referrals are a specific configuration of PERFORMANCE bounties with:
 - Signup tracking
 - Attribution logic
 
-### Pool Versioning (pool-versioning.md)
+### Payouts (payouts.md)
 
 PERFORMANCE bounties belong to a pool. When pool sunsets, bounty closes.

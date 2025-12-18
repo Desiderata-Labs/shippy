@@ -11,7 +11,7 @@ import {
   Target01,
   User01,
 } from '@untitled-ui/icons-react'
-import { useState } from 'react'
+import { useMemo, useState } from 'react'
 import Link from 'next/link'
 import { getLabelColor } from '@/lib/bounty/tag-colors'
 import { BountyStatus } from '@/lib/db/types'
@@ -21,16 +21,7 @@ import { cn } from '@/lib/utils'
 import { AppButton } from '@/components/app/app-button'
 import { Avatar, AvatarFallback, AvatarImage } from '@/components/ui/avatar'
 import { Card } from '@/components/ui/card'
-
-enum BountyFilter {
-  All = 'all',
-  Open = 'open',
-  Backlog = 'backlog',
-  InProgress = 'in_progress',
-  NeedsReview = 'needs_review',
-  Completed = 'completed',
-  Closed = 'closed',
-}
+import { BountyFilters, type BountyFiltersState } from './bounty-filters'
 
 type Bounty = BountiesTabProps['bounties'][number]
 
@@ -94,7 +85,10 @@ export function BountiesTab({
   bounties,
   isFounder,
 }: BountiesTabProps) {
-  const [filter, setFilter] = useState<BountyFilter>(BountyFilter.All)
+  const [filters, setFilters] = useState<BountyFiltersState>({
+    statuses: [],
+    labelIds: [],
+  })
 
   const sortByCreatedDesc = (list: Bounty[]) =>
     [...list].sort(
@@ -102,21 +96,82 @@ export function BountiesTab({
         new Date(b.createdAt).getTime() - new Date(a.createdAt).getTime(),
     )
 
-  const openBounties = bounties.filter((b) => b.status === BountyStatus.OPEN)
-  const backlogBounties = bounties.filter(
+  // Extract unique labels from all bounties
+  const allLabels = useMemo(
+    () =>
+      bounties
+        .flatMap((b) => b.labels.map((l) => l.label))
+        .filter(
+          (label, index, self) =>
+            self.findIndex((l) => l.id === label.id) === index,
+        )
+        .sort((a, b) => a.name.localeCompare(b.name)),
+    [bounties],
+  )
+
+  // Status counts for filter UI
+  const statusCounts = useMemo(
+    () => ({
+      [BountyStatus.OPEN]: bounties.filter(
+        (b) => b.status === BountyStatus.OPEN,
+      ).length,
+      [BountyStatus.CLAIMED]: bounties.filter(
+        (b) => b.status === BountyStatus.CLAIMED,
+      ).length,
+      [BountyStatus.COMPLETED]: bounties.filter(
+        (b) => b.status === BountyStatus.COMPLETED,
+      ).length,
+      [BountyStatus.BACKLOG]: bounties.filter(
+        (b) => b.status === BountyStatus.BACKLOG,
+      ).length,
+      [BountyStatus.CLOSED]: bounties.filter(
+        (b) => b.status === BountyStatus.CLOSED,
+      ).length,
+    }),
+    [bounties],
+  )
+
+  // Apply filters
+  const filteredBounties = useMemo(() => {
+    let result = bounties
+
+    // Filter by status (if any selected)
+    if (filters.statuses.length > 0) {
+      result = result.filter((b) =>
+        filters.statuses.includes(b.status as BountyStatus),
+      )
+    }
+
+    // Filter by labels (if any selected - bounty must have at least one of the selected labels)
+    if (filters.labelIds.length > 0) {
+      result = result.filter((b) =>
+        b.labels.some((l) => filters.labelIds.includes(l.label.id)),
+      )
+    }
+
+    return result
+  }, [bounties, filters])
+
+  const hasActiveFilters =
+    filters.statuses.length > 0 || filters.labelIds.length > 0
+
+  const openBounties = filteredBounties.filter(
+    (b) => b.status === BountyStatus.OPEN,
+  )
+  const backlogBounties = filteredBounties.filter(
     (b) => b.status === BountyStatus.BACKLOG,
   )
-  const needsReviewBounties = bounties.filter(
+  const needsReviewBounties = filteredBounties.filter(
     (b) => b._count.pendingSubmissions > 0,
   )
-  const inProgressBounties = bounties.filter(
+  const inProgressBounties = filteredBounties.filter(
     (b) =>
       b.status === BountyStatus.CLAIMED && b._count.pendingSubmissions === 0,
   )
-  const completedBounties = bounties.filter(
+  const completedBounties = filteredBounties.filter(
     (b) => b.status === BountyStatus.COMPLETED,
   )
-  const closedBounties = bounties.filter(
+  const closedBounties = filteredBounties.filter(
     (b) => b.status === BountyStatus.CLOSED,
   )
 
@@ -186,27 +241,6 @@ export function BountiesTab({
       : []),
   ]
 
-  const filteredBounties = (() => {
-    switch (filter) {
-      case BountyFilter.Open:
-        return openBounties
-      case BountyFilter.Backlog:
-        return backlogBounties
-      case BountyFilter.InProgress:
-        return inProgressBounties
-      case BountyFilter.NeedsReview:
-        return needsReviewBounties
-      case BountyFilter.Completed:
-        return completedBounties
-      case BountyFilter.Closed:
-        return closedBounties
-      default:
-        return bounties
-    }
-  })()
-
-  const sortedFilteredBounties = sortByCreatedDesc(filteredBounties)
-
   if (bounties.length === 0) {
     return (
       <Card className="py-12 text-center">
@@ -240,88 +274,21 @@ export function BountiesTab({
   return (
     <div className="space-y-4">
       {/* Filter bar */}
-      <div className="flex flex-wrap items-center justify-between gap-3">
-        <div className="flex flex-wrap items-center gap-1">
-          <FilterButton
-            active={filter === BountyFilter.All}
-            onClick={() => setFilter(BountyFilter.All)}
-          >
-            All ({bounties.length})
-          </FilterButton>
-          <FilterButton
-            active={filter === BountyFilter.Open}
-            onClick={() => setFilter(BountyFilter.Open)}
-            disabled={openBounties.length === 0}
-          >
-            <span
-              className={cn(
-                'mr-1.5 size-2 rounded-full',
-                bountyStatusColors.OPEN.dot,
-              )}
-            />
-            Open ({openBounties.length})
-          </FilterButton>
-          <FilterButton
-            active={filter === BountyFilter.InProgress}
-            onClick={() => setFilter(BountyFilter.InProgress)}
-            disabled={inProgressBounties.length === 0}
-          >
-            <span
-              className={cn(
-                'mr-1.5 size-2 rounded-full',
-                bountyStatusColors.CLAIMED.dot,
-              )}
-            />
-            In Progress ({inProgressBounties.length})
-          </FilterButton>
-          <FilterButton
-            active={filter === BountyFilter.Completed}
-            onClick={() => setFilter(BountyFilter.Completed)}
-            disabled={completedBounties.length === 0}
-          >
-            <span
-              className={cn(
-                'mr-1.5 size-2 rounded-full',
-                bountyStatusColors.COMPLETED.dot,
-              )}
-            />
-            Done ({completedBounties.length})
-          </FilterButton>
-          <FilterButton
-            active={filter === BountyFilter.Closed}
-            onClick={() => setFilter(BountyFilter.Closed)}
-            disabled={closedBounties.length === 0}
-          >
-            Closed ({closedBounties.length})
-          </FilterButton>
-          {backlogBounties.length > 0 && (
-            <FilterButton
-              active={filter === BountyFilter.Backlog}
-              onClick={() => setFilter(BountyFilter.Backlog)}
-            >
-              <span
-                className={cn(
-                  'mr-1.5 size-2 rounded-full',
-                  bountyStatusColors.BACKLOG.dot,
-                )}
-              />
-              Backlog ({backlogBounties.length})
-            </FilterButton>
-          )}
-          {isFounder && needsReviewBounties.length > 0 && (
-            <FilterButton
-              active={filter === BountyFilter.NeedsReview}
-              onClick={() => setFilter(BountyFilter.NeedsReview)}
-            >
-              <FileCheck02
-                className={cn('mr-1 size-3', needsReviewColor.icon)}
-              />
-              Review ({needsReviewBounties.length})
-            </FilterButton>
-          )}
+      <div className="flex items-start gap-3">
+        <div className="min-w-0 flex-1">
+          <BountyFilters
+            labels={allLabels}
+            filters={filters}
+            onFiltersChange={setFilters}
+            statusCounts={statusCounts}
+          />
         </div>
         {isFounder && (
-          <AppButton size="sm" asChild className="cursor-pointer gap-1.5">
+          <AppButton
+            size="sm"
+            asChild
+            className="shrink-0 cursor-pointer gap-1.5"
+          >
             <Link href={routes.project.newBounty({ slug: projectSlug })}>
               <Plus className="size-3.5" />
               Create
@@ -331,8 +298,8 @@ export function BountiesTab({
       </div>
 
       {/* Bounty list */}
-      {filter === BountyFilter.All ? (
-        // Grouped view by status
+      {!hasActiveFilters ? (
+        // Grouped view by status when no filters active
         <div className="space-y-6">
           {sections.map((section) => (
             <div key={section.key}>
@@ -363,14 +330,14 @@ export function BountiesTab({
             </div>
           ))}
         </div>
-      ) : sortedFilteredBounties.length === 0 ? (
+      ) : filteredBounties.length === 0 ? (
         <div className="py-8 text-center text-sm text-muted-foreground">
-          No bounties match this filter
+          No bounties match the selected filters
         </div>
       ) : (
         // Flat list for filtered view
         <div className="space-y-2">
-          {sortedFilteredBounties.map((bounty) => (
+          {sortByCreatedDesc(filteredBounties).map((bounty) => (
             <BountyRow
               key={bounty.id}
               bounty={bounty}
@@ -384,35 +351,6 @@ export function BountiesTab({
         </div>
       )}
     </div>
-  )
-}
-
-function FilterButton({
-  active,
-  disabled,
-  onClick,
-  children,
-}: {
-  active: boolean
-  disabled?: boolean
-  onClick: () => void
-  children: React.ReactNode
-}) {
-  return (
-    <button
-      type="button"
-      onClick={onClick}
-      disabled={disabled}
-      className={cn(
-        'inline-flex cursor-pointer items-center rounded-full px-2 py-1 text-xs font-medium transition-colors',
-        active
-          ? 'bg-accent text-accent-foreground'
-          : 'text-muted-foreground hover:bg-accent/50 hover:text-foreground',
-        disabled && 'pointer-events-none opacity-50',
-      )}
-    >
-      {children}
-    </button>
   )
 }
 

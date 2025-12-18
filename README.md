@@ -48,6 +48,7 @@ Open [http://localhost:3050](http://localhost:3050)
 | Command                                | Description              |
 | -------------------------------------- | ------------------------ |
 | `pnpm dev`                             | Start development server |
+| `pnpm test`                            | Run all tests            |
 | `pnpm lint`                            | Run ESLint               |
 | `pnpm format`                          | Format with Prettier     |
 | `pnpm check-types`                     | TypeScript type checking |

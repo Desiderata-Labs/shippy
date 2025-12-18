@@ -459,7 +459,21 @@ export function BountyDetailContent() {
             Bounties
           </Link>
           <span className="text-muted-foreground/50">/</span>
-          <span className="text-foreground">{bountyDisplayId}</span>
+          <Tooltip>
+            <TooltipTrigger asChild>
+              <button
+                type="button"
+                onClick={async () => {
+                  await navigator.clipboard.writeText(bountyDisplayId)
+                  toast.success('Copied!')
+                }}
+                className="cursor-pointer rounded-sm px-1 py-0.5 text-foreground transition-colors hover:bg-accent"
+              >
+                {bountyDisplayId}
+              </button>
+            </TooltipTrigger>
+            <TooltipContent>Click to copy</TooltipContent>
+          </Tooltip>
         </div>
 
         {/* Header */}

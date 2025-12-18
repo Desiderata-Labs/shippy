@@ -2,6 +2,21 @@
 
 Shippy provides a remote [Model Context Protocol (MCP)](https://modelcontextprotocol.io/) server that lets AI coding assistants interact with your bounties directly in your IDE.
 
+## Documentation MCP Server
+
+Note that we also provide a separate MCP endpoint for reading Shippy documentation via MCP:
+
+**Endpoint:** `https://shippy.sh/api/mcp/docs`
+
+This endpoint requires no authentication and provides two tools:
+
+| Tool        | Description                              |
+| ----------- | ---------------------------------------- |
+| `list_docs` | List all available documentation pages   |
+| `read_doc`  | Read a specific documentation page by ID |
+
+This is useful if you want your AI assistant to be able to reference Shippy docs without leaving your IDE.
+
 ## Features
 
 With the Shippy MCP server, your AI assistant can:

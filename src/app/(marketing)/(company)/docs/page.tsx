@@ -10,20 +10,22 @@ import {
   BreadcrumbPage,
   BreadcrumbSeparator,
 } from '@/components/ui/breadcrumb'
+import { DOCS } from '@/../docs/config'
 
 export const metadata: Metadata = {
   title: 'Documentation',
   description: 'Shippy documentation and guides.',
 }
 
-const docs = [
-  {
-    title: 'MCP Server Installation',
-    description:
-      'Install the Shippy MCP server to interact with bounties directly from your AI coding assistant.',
-    href: routes.docs.mcpInstallation(),
-  },
-]
+// Map doc IDs to route functions
+const docRoutes: Record<string, () => string> = {
+  'mcp-installation': routes.docs.mcpInstallation,
+}
+
+const docs = DOCS.map((doc) => ({
+  ...doc,
+  href: docRoutes[doc.id]?.() ?? `/docs/${doc.id}`,
+}))
 
 export default function DocsPage() {
   return (

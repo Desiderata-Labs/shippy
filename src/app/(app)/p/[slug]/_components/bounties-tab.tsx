@@ -11,7 +11,6 @@ import {
   Target01,
   User01,
 } from '@untitled-ui/icons-react'
-import { useMemo, useState } from 'react'
 import Link from 'next/link'
 import { getLabelColor } from '@/lib/bounty/tag-colors'
 import { BountyStatus } from '@/lib/db/types'
@@ -21,7 +20,8 @@ import { cn } from '@/lib/utils'
 import { AppButton } from '@/components/app/app-button'
 import { Avatar, AvatarFallback, AvatarImage } from '@/components/ui/avatar'
 import { Card } from '@/components/ui/card'
-import { BountyFilters, type BountyFiltersState } from './bounty-filters'
+import { BountyFilters } from './bounty-filters'
+import { useBountyFilters } from './use-bounty-filters'
 
 type Bounty = BountiesTabProps['bounties'][number]
 
@@ -85,95 +85,33 @@ export function BountiesTab({
   bounties,
   isFounder,
 }: BountiesTabProps) {
-  const [filters, setFilters] = useState<BountyFiltersState>({
-    statuses: [],
-    labelIds: [],
+  const {
+    filters,
+    setFilters,
+    hasActiveFilters,
+    allLabels,
+    statusCounts,
+    filteredBounties,
+    groupedBounties,
+  } = useBountyFilters({
+    projectSlug,
+    bounties,
   })
+
+  const {
+    open: openBounties,
+    backlog: backlogBounties,
+    needsReview: needsReviewBounties,
+    inProgress: inProgressBounties,
+    completed: completedBounties,
+    closed: closedBounties,
+  } = groupedBounties
 
   const sortByCreatedDesc = (list: Bounty[]) =>
     [...list].sort(
       (a, b) =>
         new Date(b.createdAt).getTime() - new Date(a.createdAt).getTime(),
     )
-
-  // Extract unique labels from all bounties
-  const allLabels = useMemo(
-    () =>
-      bounties
-        .flatMap((b) => b.labels.map((l) => l.label))
-        .filter(
-          (label, index, self) =>
-            self.findIndex((l) => l.id === label.id) === index,
-        )
-        .sort((a, b) => a.name.localeCompare(b.name)),
-    [bounties],
-  )
-
-  // Status counts for filter UI
-  const statusCounts = useMemo(
-    () => ({
-      [BountyStatus.OPEN]: bounties.filter(
-        (b) => b.status === BountyStatus.OPEN,
-      ).length,
-      [BountyStatus.CLAIMED]: bounties.filter(
-        (b) => b.status === BountyStatus.CLAIMED,
-      ).length,
-      [BountyStatus.COMPLETED]: bounties.filter(
-        (b) => b.status === BountyStatus.COMPLETED,
-      ).length,
-      [BountyStatus.BACKLOG]: bounties.filter(
-        (b) => b.status === BountyStatus.BACKLOG,
-      ).length,
-      [BountyStatus.CLOSED]: bounties.filter(
-        (b) => b.status === BountyStatus.CLOSED,
-      ).length,
-    }),
-    [bounties],
-  )
-
-  // Apply filters
-  const filteredBounties = useMemo(() => {
-    let result = bounties
-
-    // Filter by status (if any selected)
-    if (filters.statuses.length > 0) {
-      result = result.filter((b) =>
-        filters.statuses.includes(b.status as BountyStatus),
-      )
-    }
-
-    // Filter by labels (if any selected - bounty must have at least one of the selected labels)
-    if (filters.labelIds.length > 0) {
-      result = result.filter((b) =>
-        b.labels.some((l) => filters.labelIds.includes(l.label.id)),
-      )
-    }
-
-    return result
-  }, [bounties, filters])
-
-  const hasActiveFilters =
-    filters.statuses.length > 0 || filters.labelIds.length > 0
-
-  const openBounties = filteredBounties.filter(
-    (b) => b.status === BountyStatus.OPEN,
-  )
-  const backlogBounties = filteredBounties.filter(
-    (b) => b.status === BountyStatus.BACKLOG,
-  )
-  const needsReviewBounties = filteredBounties.filter(
-    (b) => b._count.pendingSubmissions > 0,
-  )
-  const inProgressBounties = filteredBounties.filter(
-    (b) =>
-      b.status === BountyStatus.CLAIMED && b._count.pendingSubmissions === 0,
-  )
-  const completedBounties = filteredBounties.filter(
-    (b) => b.status === BountyStatus.COMPLETED,
-  )
-  const closedBounties = filteredBounties.filter(
-    (b) => b.status === BountyStatus.CLOSED,
-  )
 
   // Build sections for grouped display (when filter is "All")
   const sectionIconClass = 'size-4 text-muted-foreground/50'

@@ -7,6 +7,7 @@ import {
   Contrast01,
   FilterLines,
   SlashCircle01,
+  Tag01,
   XClose,
 } from '@untitled-ui/icons-react'
 import { getLabelColor } from '@/lib/bounty/tag-colors'
@@ -15,20 +16,21 @@ import { bountyStatusColors } from '@/lib/status-colors'
 import { cn } from '@/lib/utils'
 import { Checkbox } from '@/components/ui/checkbox'
 import {
-  Popover,
-  PopoverContent,
-  PopoverTrigger,
-} from '@/components/ui/popover'
+  DropdownMenu,
+  DropdownMenuContent,
+  DropdownMenuItem,
+  DropdownMenuSeparator,
+  DropdownMenuSub,
+  DropdownMenuSubContent,
+  DropdownMenuSubTrigger,
+  DropdownMenuTrigger,
+} from '@/components/ui/dropdown-menu'
+import type { BountyFiltersState } from './use-bounty-filters'
 
 interface Label {
   id: string
   name: string
   color: string
-}
-
-export interface BountyFiltersState {
-  statuses: BountyStatus[]
-  labelIds: string[]
 }
 
 interface BountyFiltersProps {
@@ -122,11 +124,15 @@ export function BountyFilters({
   // Get label details for active label filters
   const activeLabels = labels.filter((l) => filters.labelIds.includes(l.id))
 
+  // Count selected in each category
+  const selectedStatusCount = filters.statuses.length
+  const selectedLabelCount = filters.labelIds.length
+
   return (
     <div className="flex flex-wrap items-center gap-2">
-      {/* Filter button with popover */}
-      <Popover>
-        <PopoverTrigger asChild>
+      {/* Filter dropdown menu */}
+      <DropdownMenu>
+        <DropdownMenuTrigger asChild>
           <button
             type="button"
             className={cn(
@@ -144,92 +150,103 @@ export function BountyFilters({
               </span>
             )}
           </button>
-        </PopoverTrigger>
-        <PopoverContent align="start" className="w-64 p-0">
-          <div className="space-y-3 p-3">
-            {/* Status section */}
-            <div>
-              <div className="mb-2 text-xs font-medium text-muted-foreground">
-                Status
-              </div>
-              <div className="space-y-1">
-                {STATUS_OPTIONS.map((option) => {
-                  const count = statusCounts[option.value] ?? 0
-                  const isChecked = filters.statuses.includes(option.value)
+        </DropdownMenuTrigger>
+        <DropdownMenuContent align="start" className="w-48">
+          {/* Status submenu */}
+          <DropdownMenuSub>
+            <DropdownMenuSubTrigger className="cursor-pointer">
+              <Circle className="size-3.5" />
+              <span className="flex-1">Status</span>
+              {selectedStatusCount > 0 && (
+                <span className="rounded-full bg-primary/20 px-1.5 py-0.5 text-[10px] font-medium text-primary">
+                  {selectedStatusCount}
+                </span>
+              )}
+            </DropdownMenuSubTrigger>
+            <DropdownMenuSubContent className="w-48">
+              {STATUS_OPTIONS.map((option) => {
+                const count = statusCounts[option.value] ?? 0
+                const isChecked = filters.statuses.includes(option.value)
+                return (
+                  <DropdownMenuItem
+                    key={option.value}
+                    onClick={(e) => {
+                      e.preventDefault()
+                      toggleStatus(option.value)
+                    }}
+                    disabled={count === 0}
+                    className="cursor-pointer"
+                  >
+                    <Checkbox
+                      checked={isChecked}
+                      className="pointer-events-none size-3.5"
+                    />
+                    <span
+                      className={cn('size-2 rounded-full', option.dotClass)}
+                    />
+                    <span className="flex-1">{option.label}</span>
+                    <span className="text-xs text-muted-foreground">
+                      {count}
+                    </span>
+                  </DropdownMenuItem>
+                )
+              })}
+            </DropdownMenuSubContent>
+          </DropdownMenuSub>
+
+          {/* Labels submenu */}
+          {labels.length > 0 && (
+            <DropdownMenuSub>
+              <DropdownMenuSubTrigger className="cursor-pointer">
+                <Tag01 className="size-3.5" />
+                <span className="flex-1">Labels</span>
+                {selectedLabelCount > 0 && (
+                  <span className="rounded-full bg-primary/20 px-1.5 py-0.5 text-[10px] font-medium text-primary">
+                    {selectedLabelCount}
+                  </span>
+                )}
+              </DropdownMenuSubTrigger>
+              <DropdownMenuSubContent className="max-h-64 w-48 overflow-y-auto">
+                {labels.map((label) => {
+                  const color = getLabelColor(label.color)
+                  const isChecked = filters.labelIds.includes(label.id)
                   return (
-                    <label
-                      key={option.value}
-                      className={cn(
-                        'flex cursor-pointer items-center gap-2 rounded-md px-2 py-1.5 text-sm transition-colors hover:bg-accent',
-                        count === 0 && 'opacity-50',
-                      )}
+                    <DropdownMenuItem
+                      key={label.id}
+                      onClick={(e) => {
+                        e.preventDefault()
+                        toggleLabel(label.id)
+                      }}
+                      className="cursor-pointer"
                     >
                       <Checkbox
                         checked={isChecked}
-                        onCheckedChange={() => toggleStatus(option.value)}
-                        disabled={count === 0}
-                        className="size-3.5"
+                        className="pointer-events-none size-3.5"
                       />
                       <span
-                        className={cn('size-2 rounded-full', option.dotClass)}
+                        className="size-2 rounded-full"
+                        style={{ backgroundColor: color.dot }}
                       />
-                      <span className="flex-1">{option.label}</span>
-                      <span className="text-xs text-muted-foreground">
-                        {count}
-                      </span>
-                    </label>
+                      <span className="flex-1 truncate">{label.name}</span>
+                    </DropdownMenuItem>
                   )
                 })}
-              </div>
-            </div>
-
-            {/* Labels section */}
-            {labels.length > 0 && (
-              <div>
-                <div className="mb-2 text-xs font-medium text-muted-foreground">
-                  Labels
-                </div>
-                <div className="max-h-40 space-y-1 overflow-y-auto">
-                  {labels.map((label) => {
-                    const color = getLabelColor(label.color)
-                    const isChecked = filters.labelIds.includes(label.id)
-                    return (
-                      <label
-                        key={label.id}
-                        className="flex cursor-pointer items-center gap-2 rounded-md px-2 py-1.5 text-sm transition-colors hover:bg-accent"
-                      >
-                        <Checkbox
-                          checked={isChecked}
-                          onCheckedChange={() => toggleLabel(label.id)}
-                          className="size-3.5"
-                        />
-                        <span
-                          className="size-2 rounded-full"
-                          style={{ backgroundColor: color.dot }}
-                        />
-                        <span className="flex-1 truncate">{label.name}</span>
-                      </label>
-                    )
-                  })}
-                </div>
-              </div>
-            )}
-          </div>
-
-          {/* Clear all footer */}
-          {hasActiveFilters && (
-            <div className="border-t border-border px-3 py-2">
-              <button
-                type="button"
-                onClick={clearAll}
-                className="w-full cursor-pointer rounded-md px-2 py-1 text-xs text-muted-foreground transition-colors hover:bg-accent hover:text-foreground"
-              >
-                Clear all filters
-              </button>
-            </div>
+              </DropdownMenuSubContent>
+            </DropdownMenuSub>
           )}
-        </PopoverContent>
-      </Popover>
+
+          {/* Clear all option */}
+          {hasActiveFilters && (
+            <>
+              <DropdownMenuSeparator />
+              <DropdownMenuItem onClick={clearAll} className="cursor-pointer">
+                <XClose className="size-3.5" />
+                Clear all filters
+              </DropdownMenuItem>
+            </>
+          )}
+        </DropdownMenuContent>
+      </DropdownMenu>
 
       {/* Active filter chips */}
       {filters.statuses.map((status) => {
@@ -259,7 +276,7 @@ export function BountyFilters({
         )
       })}
 
-      {/* Clear all button (outside popover, when filters active) */}
+      {/* Clear all button (outside dropdown, when filters active) */}
       {hasActiveFilters && (
         <button
           type="button"

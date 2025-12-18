@@ -13,7 +13,7 @@ import {
 } from '@untitled-ui/icons-react'
 import Link from 'next/link'
 import { getLabelColor } from '@/lib/bounty/tag-colors'
-import { BountyStatus } from '@/lib/db/types'
+import { BountyClaimMode, BountyStatus } from '@/lib/db/types'
 import { routes } from '@/lib/routes'
 import { bountyStatusColors, needsReviewColor } from '@/lib/status-colors'
 import { cn } from '@/lib/utils'
@@ -50,8 +50,8 @@ interface BountiesTabProps {
     description: string
     points: number | null
     labels: BountyLabel[]
-    status: string
-    claimMode: string
+    status: BountyStatus
+    claimMode: BountyClaimMode
     evidenceDescription: string | null
     createdAt: Date
     claims: Array<{
@@ -91,6 +91,7 @@ export function BountiesTab({
     hasActiveFilters,
     allLabels,
     statusCounts,
+    claimModeCounts,
     filteredBounties,
     groupedBounties,
   } = useBountyFilters({
@@ -219,6 +220,7 @@ export function BountiesTab({
             filters={filters}
             onFiltersChange={setFilters}
             statusCounts={statusCounts}
+            claimModeCounts={claimModeCounts}
           />
         </div>
         {isFounder && (

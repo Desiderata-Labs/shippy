@@ -1,10 +1,11 @@
 import { useCallback, useEffect, useMemo, useRef } from 'react'
 import { usePathname, useRouter, useSearchParams } from 'next/navigation'
-import { BountyStatus } from '@/lib/db/types'
+import { BountyClaimMode, BountyStatus } from '@/lib/db/types'
 
 export interface BountyFiltersState {
   statuses: BountyStatus[]
   labelIds: string[]
+  claimModes: BountyClaimMode[]
 }
 
 export interface BountyLabel {
@@ -16,7 +17,8 @@ export interface BountyLabel {
 }
 
 export interface FilterableBounty {
-  status: string
+  status: BountyStatus
+  claimMode: BountyClaimMode
   labels: BountyLabel[]
   _count: {
     pendingSubmissions: number
@@ -25,13 +27,18 @@ export interface FilterableBounty {
 
 // Encode filter state to a compact base64 string
 function encodeFilters(filters: BountyFiltersState): string | null {
-  if (filters.statuses.length === 0 && filters.labelIds.length === 0) {
+  if (
+    filters.statuses.length === 0 &&
+    filters.labelIds.length === 0 &&
+    filters.claimModes.length === 0
+  ) {
     return null
   }
-  // Use short keys for compactness: s = statuses, l = labelIds
+  // Use short keys for compactness: s = statuses, l = labelIds, c = claimModes
   const compact = {
     ...(filters.statuses.length > 0 && { s: filters.statuses }),
     ...(filters.labelIds.length > 0 && { l: filters.labelIds }),
+    ...(filters.claimModes.length > 0 && { c: filters.claimModes }),
   }
   return btoa(JSON.stringify(compact))
 }
@@ -39,16 +46,21 @@ function encodeFilters(filters: BountyFiltersState): string | null {
 // Decode filter state from a base64 string
 function decodeFilters(encoded: string | null): BountyFiltersState {
   if (!encoded) {
-    return { statuses: [], labelIds: [] }
+    return { statuses: [], labelIds: [], claimModes: [] }
   }
   try {
-    const compact = JSON.parse(atob(encoded)) as { s?: string[]; l?: string[] }
+    const compact = JSON.parse(atob(encoded)) as {
+      s?: string[]
+      l?: string[]
+      c?: string[]
+    }
     return {
       statuses: (compact.s ?? []) as BountyStatus[],
       labelIds: compact.l ?? [],
+      claimModes: (compact.c ?? []) as BountyClaimMode[],
     }
   } catch {
-    return { statuses: [], labelIds: [] }
+    return { statuses: [], labelIds: [], claimModes: [] }
   }
 }
 
@@ -175,15 +187,31 @@ export function useBountyFilters<T extends FilterableBounty>({
     [bounties],
   )
 
+  const claimModeCounts = useMemo(
+    () => ({
+      [BountyClaimMode.SINGLE]: bounties.filter(
+        (b) => b.claimMode === BountyClaimMode.SINGLE,
+      ).length,
+      [BountyClaimMode.COMPETITIVE]: bounties.filter(
+        (b) => b.claimMode === BountyClaimMode.COMPETITIVE,
+      ).length,
+      [BountyClaimMode.MULTIPLE]: bounties.filter(
+        (b) => b.claimMode === BountyClaimMode.MULTIPLE,
+      ).length,
+      [BountyClaimMode.PERFORMANCE]: bounties.filter(
+        (b) => b.claimMode === BountyClaimMode.PERFORMANCE,
+      ).length,
+    }),
+    [bounties],
+  )
+
   // Apply filters to bounties
   const filteredBounties = useMemo(() => {
     let result = bounties
 
     // Filter by status (if any selected)
     if (filters.statuses.length > 0) {
-      result = result.filter((b) =>
-        filters.statuses.includes(b.status as BountyStatus),
-      )
+      result = result.filter((b) => filters.statuses.includes(b.status))
     }
 
     // Filter by labels (if any selected - bounty must have at least one of the selected labels)
@@ -193,11 +221,17 @@ export function useBountyFilters<T extends FilterableBounty>({
       )
     }
 
+    if (filters.claimModes.length > 0) {
+      result = result.filter((b) => filters.claimModes.includes(b.claimMode))
+    }
+
     return result
   }, [bounties, filters])
 
   const hasActiveFilters =
-    filters.statuses.length > 0 || filters.labelIds.length > 0
+    filters.statuses.length > 0 ||
+    filters.labelIds.length > 0 ||
+    filters.claimModes.length > 0
 
   // Group filtered bounties by status
   const groupedBounties = useMemo(() => {
@@ -228,6 +262,7 @@ export function useBountyFilters<T extends FilterableBounty>({
     hasActiveFilters,
     allLabels,
     statusCounts,
+    claimModeCounts,
     filteredBounties,
     groupedBounties,
   }

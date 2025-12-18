@@ -27,7 +27,10 @@ import {
   updateProject,
   updateProjectLogo,
 } from '@/server/services/project'
-import { createSubmission } from '@/server/services/submission'
+import {
+  createSubmission,
+  updateSubmission,
+} from '@/server/services/submission'
 import { McpServer } from '@modelcontextprotocol/sdk/server/mcp.js'
 import { WebStandardStreamableHTTPServerTransport } from '@modelcontextprotocol/sdk/server/webStandardStreamableHttp.js'
 import { z } from 'zod'
@@ -1638,6 +1641,101 @@ server.registerTool(
         {
           type: 'text' as const,
           text: `Successfully submitted work for bounty "${identifier}".\n\nYour submission is now pending review by the project founder.\n\nSubmission URL: ${submissionUrl}`,
+        },
+      ],
+    }
+  },
+)
+
+server.registerTool(
+  'update_submission',
+  {
+    description:
+      'Update an existing submission (requires authentication). Only the submitter can edit before approval.',
+    inputSchema: {
+      submissionId: z.string().describe('Submission ID'),
+      description: z
+        .string()
+        .min(1)
+        .optional()
+        .describe('Updated description or evidence (markdown supported)'),
+      status: z
+        .enum([SubmissionStatus.DRAFT, SubmissionStatus.PENDING])
+        .optional()
+        .describe('Set to DRAFT to save, or PENDING to submit for review'),
+    },
+  },
+  async ({ submissionId, description, status }, extra) => {
+    const authInfo = extra.authInfo
+    if (!authInfo?.clientId) {
+      return {
+        content: [
+          {
+            type: 'text' as const,
+            text: 'Authentication required. Generate a token in your Shippy user profile settings.',
+          },
+        ],
+      }
+    }
+
+    if (!description && !status) {
+      return {
+        content: [
+          {
+            type: 'text' as const,
+            text: 'Provide a description or status to update your submission.',
+          },
+        ],
+      }
+    }
+
+    const result = await updateSubmission({
+      prisma,
+      submissionId,
+      userId: authInfo.clientId,
+      description,
+      status,
+    })
+
+    if (!result.success) {
+      const errorMessages: Record<string, string> = {
+        NOT_FOUND: 'Submission not found.',
+        FORBIDDEN: 'You cannot edit this submission.',
+        FINALIZED: 'Cannot edit a finalized submission.',
+        NO_CHANGES: 'No updates were provided.',
+      }
+      return {
+        content: [
+          {
+            type: 'text' as const,
+            text: errorMessages[result.code] ?? result.message,
+          },
+        ],
+      }
+    }
+
+    const submission = await prisma.submission.findUnique({
+      where: { id: submissionId },
+      include: {
+        bounty: { include: { project: { select: { slug: true } } } },
+      },
+    })
+
+    const submissionUrl = submission
+      ? `${APP_URL}${routes.project.submissionDetail({
+          slug: submission.bounty.project.slug,
+          bountyId: submission.bountyId,
+          submissionId,
+        })}`
+      : undefined
+
+    return {
+      content: [
+        {
+          type: 'text' as const,
+          text: submissionUrl
+            ? `Successfully updated your submission.\n\nSubmission URL: ${submissionUrl}`
+            : 'Successfully updated your submission.',
         },
       ],
     }

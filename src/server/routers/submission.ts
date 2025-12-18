@@ -13,9 +13,9 @@ import {
 import {
   approveSubmission,
   createSubmission,
+  updateSubmission,
 } from '@/server/services/submission'
 import { protectedProcedure, router, userError } from '@/server/trpc'
-import { Prisma } from '@prisma/client'
 import { z } from 'zod/v4'
 
 // Validation schemas
@@ -227,91 +227,28 @@ export const submissionRouter = router({
     .input(updateSubmissionSchema)
     .mutation(async ({ ctx, input }) => {
       const { id, ...data } = input
-
-      const submission = await ctx.prisma.submission.findUnique({
-        where: { id },
+      const result = await updateSubmission({
+        prisma: ctx.prisma,
+        submissionId: id,
+        userId: ctx.user.id,
+        description: data.description,
+        status: data.status,
       })
 
-      if (!submission) {
-        throw userError('NOT_FOUND', 'Submission not found')
-      }
-
-      if (submission.userId !== ctx.user.id) {
-        throw userError('FORBIDDEN', 'You cannot edit this submission')
-      }
-
-      // Can only edit if not yet approved/rejected/withdrawn
-      if (
-        submission.status === SubmissionStatus.APPROVED ||
-        submission.status === SubmissionStatus.REJECTED ||
-        submission.status === SubmissionStatus.WITHDRAWN
-      ) {
-        throw userError('BAD_REQUEST', 'Cannot edit a finalized submission')
-      }
-
-      // Build a record of what changed for the audit trail
-      const changes: Record<string, { from: unknown; to: unknown }> = {}
-
-      if (
-        data.description !== undefined &&
-        data.description !== submission.description
-      ) {
-        changes.description = {
-          from: submission.description,
-          to: data.description,
+      if (!result.success) {
+        const errorMap: Record<
+          string,
+          'NOT_FOUND' | 'BAD_REQUEST' | 'FORBIDDEN'
+        > = {
+          NOT_FOUND: 'NOT_FOUND',
+          FORBIDDEN: 'FORBIDDEN',
+          FINALIZED: 'BAD_REQUEST',
+          NO_CHANGES: 'BAD_REQUEST',
         }
-      }
-      if (data.status !== undefined && data.status !== submission.status) {
-        changes.status = { from: submission.status, to: data.status }
+        throw userError(errorMap[result.code] ?? 'BAD_REQUEST', result.message)
       }
 
-      // Use transaction to update submission and record the edit event
-      return ctx.prisma.$transaction(async (tx) => {
-        const updated = await tx.submission.update({
-          where: { id },
-          data,
-        })
-
-        // Only create an event if something actually changed
-        if (Object.keys(changes).length > 0) {
-          // If status changed, create a STATUS_CHANGE event; otherwise EDIT
-          if (changes.status) {
-            await tx.submissionEvent.create({
-              data: {
-                submissionId: id,
-                userId: ctx.user.id,
-                type: SubmissionEventType.STATUS_CHANGE,
-                fromStatus: changes.status.from as string,
-                toStatus: changes.status.to as string,
-              },
-            })
-            // If there are other changes besides status, also record an edit
-            const nonStatusChanges = { ...changes }
-            delete nonStatusChanges.status
-            if (Object.keys(nonStatusChanges).length > 0) {
-              await tx.submissionEvent.create({
-                data: {
-                  submissionId: id,
-                  userId: ctx.user.id,
-                  type: SubmissionEventType.EDIT,
-                  changes: nonStatusChanges as Prisma.InputJsonValue,
-                },
-              })
-            }
-          } else {
-            await tx.submissionEvent.create({
-              data: {
-                submissionId: id,
-                userId: ctx.user.id,
-                type: SubmissionEventType.EDIT,
-                changes: changes as Prisma.InputJsonValue,
-              },
-            })
-          }
-        }
-
-        return updated
-      })
+      return result.submission
     }),
 
   /**

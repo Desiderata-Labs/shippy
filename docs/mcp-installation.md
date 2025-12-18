@@ -198,6 +198,7 @@ For other MCP clients that only support stdio transport (not Streamable HTTP), u
 | `claim_bounty`      | Claim a bounty to start working on it |
 | `release_claim`     | Release your claim on a bounty        |
 | `create_submission` | Submit work for a claimed bounty      |
+| `update_submission` | Update a draft/pending submission     |
 
 ### Founder Operations
 
@@ -229,6 +230,10 @@ Once connected, try prompts like:
 > "Claim bounty SHP-15"
 
 > "Submit my work for SHP-15 with description: Implemented the dark mode toggle. See PR #42."
+
+> "Update submission sub_123 with description: Added screenshots and test results."
+
+> "Update submission sub_123 to status: PENDING"
 
 **For Founders:**
 

@@ -3,9 +3,14 @@ import {
   BountyClaimMode,
   BountyStatus,
   ClaimStatus,
+  SubmissionEventType,
   SubmissionStatus,
 } from '@/lib/db/types'
-import { approveSubmission, createSubmission } from './submission'
+import {
+  approveSubmission,
+  createSubmission,
+  updateSubmission,
+} from './submission'
 import { beforeEach, describe, expect, test, vi } from 'vitest'
 
 // Mock the notification module
@@ -31,8 +36,40 @@ vi.mock('@/lib/github/server', () => ({
 // Mock Factory
 // ================================
 
-function createMockPrisma() {
-  return {
+type MockPrisma = {
+  submission: {
+    findUnique: ReturnType<typeof vi.fn>
+    findFirst: ReturnType<typeof vi.fn>
+    findMany: ReturnType<typeof vi.fn>
+    create: ReturnType<typeof vi.fn>
+    update: ReturnType<typeof vi.fn>
+    aggregate: ReturnType<typeof vi.fn>
+    count: ReturnType<typeof vi.fn>
+  }
+  submissionEvent: {
+    create: ReturnType<typeof vi.fn>
+  }
+  bountyClaim: {
+    findFirst: ReturnType<typeof vi.fn>
+    findMany: ReturnType<typeof vi.fn>
+    update: ReturnType<typeof vi.fn>
+    updateMany: ReturnType<typeof vi.fn>
+  }
+  bounty: {
+    findUnique: ReturnType<typeof vi.fn>
+    update: ReturnType<typeof vi.fn>
+  }
+  rewardPool: {
+    update: ReturnType<typeof vi.fn>
+  }
+  poolExpansionEvent: {
+    create: ReturnType<typeof vi.fn>
+  }
+  $transaction: ReturnType<typeof vi.fn>
+}
+
+function createMockPrisma(): MockPrisma {
+  const mock: MockPrisma = {
     submission: {
       findUnique: vi.fn(),
       findFirst: vi.fn(),
@@ -61,7 +98,12 @@ function createMockPrisma() {
     poolExpansionEvent: {
       create: vi.fn(),
     },
+    $transaction: vi.fn(),
   }
+  mock.$transaction.mockImplementation(
+    async (cb: (tx: MockPrisma) => unknown) => cb(mock),
+  )
+  return mock
 }
 
 // ================================
@@ -628,6 +670,58 @@ describe('approveSubmission', () => {
           toStatus: SubmissionStatus.APPROVED,
         }),
       })
+    })
+  })
+})
+
+// ================================
+// updateSubmission Tests
+// ================================
+
+describe('updateSubmission', () => {
+  let mockPrisma: ReturnType<typeof createMockPrisma>
+
+  beforeEach(() => {
+    mockPrisma = createMockPrisma()
+    vi.clearAllMocks()
+  })
+
+  test('updates description and records edit event', async () => {
+    mockPrisma.submission.findUnique.mockResolvedValue({
+      id: 'sub-1',
+      userId: 'user-1',
+      status: SubmissionStatus.DRAFT,
+      description: 'Old description',
+    })
+
+    mockPrisma.submission.update.mockResolvedValue({
+      id: 'sub-1',
+      userId: 'user-1',
+      status: SubmissionStatus.DRAFT,
+      description: 'New description',
+    })
+
+    const result = await updateSubmission({
+      prisma: mockPrisma as any,
+      submissionId: 'sub-1',
+      userId: 'user-1',
+      description: 'New description',
+    })
+
+    expect(result.success).toBe(true)
+    expect(mockPrisma.submission.update).toHaveBeenCalledWith({
+      where: { id: 'sub-1' },
+      data: { description: 'New description' },
+    })
+    expect(mockPrisma.submissionEvent.create).toHaveBeenCalledWith({
+      data: {
+        submissionId: 'sub-1',
+        userId: 'user-1',
+        type: SubmissionEventType.EDIT,
+        changes: {
+          description: { from: 'Old description', to: 'New description' },
+        },
+      },
     })
   })
 })

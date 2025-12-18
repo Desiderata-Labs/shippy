@@ -8,10 +8,12 @@ import {
   FilterLines,
   SlashCircle01,
   Tag01,
+  Users01,
   XClose,
 } from '@untitled-ui/icons-react'
+import { getAllClaimModes, getClaimModeInfo } from '@/lib/bounty/claim-modes'
 import { getLabelColor } from '@/lib/bounty/tag-colors'
-import { BountyStatus } from '@/lib/db/types'
+import { BountyClaimMode, BountyStatus } from '@/lib/db/types'
 import { bountyStatusColors } from '@/lib/status-colors'
 import { cn } from '@/lib/utils'
 import { Checkbox } from '@/components/ui/checkbox'
@@ -39,6 +41,7 @@ interface BountyFiltersProps {
   onFiltersChange: (filters: BountyFiltersState) => void
   /** Status counts for display */
   statusCounts: Record<BountyStatus, number>
+  claimModeCounts: Record<BountyClaimMode, number>
 }
 
 const STATUS_OPTIONS: Array<{
@@ -79,15 +82,26 @@ const STATUS_OPTIONS: Array<{
   },
 ]
 
+const CLAIM_MODE_OPTIONS = getAllClaimModes().map(({ value, info }) => ({
+  value,
+  label: info.shortLabel,
+}))
+
 export function BountyFilters({
   labels,
   filters,
   onFiltersChange,
   statusCounts,
+  claimModeCounts,
 }: BountyFiltersProps) {
   const hasActiveFilters =
-    filters.statuses.length > 0 || filters.labelIds.length > 0
-  const activeFilterCount = filters.statuses.length + filters.labelIds.length
+    filters.statuses.length > 0 ||
+    filters.labelIds.length > 0 ||
+    filters.claimModes.length > 0
+  const activeFilterCount =
+    filters.statuses.length +
+    filters.labelIds.length +
+    filters.claimModes.length
 
   const toggleStatus = (status: BountyStatus) => {
     const newStatuses = filters.statuses.includes(status)
@@ -101,6 +115,13 @@ export function BountyFilters({
       ? filters.labelIds.filter((id) => id !== labelId)
       : [...filters.labelIds, labelId]
     onFiltersChange({ ...filters, labelIds: newLabelIds })
+  }
+
+  const toggleClaimMode = (mode: BountyClaimMode) => {
+    const newClaimModes = filters.claimModes.includes(mode)
+      ? filters.claimModes.filter((m) => m !== mode)
+      : [...filters.claimModes, mode]
+    onFiltersChange({ ...filters, claimModes: newClaimModes })
   }
 
   const removeStatus = (status: BountyStatus) => {
@@ -117,8 +138,15 @@ export function BountyFilters({
     })
   }
 
+  const removeClaimMode = (mode: BountyClaimMode) => {
+    onFiltersChange({
+      ...filters,
+      claimModes: filters.claimModes.filter((m) => m !== mode),
+    })
+  }
+
   const clearAll = () => {
-    onFiltersChange({ statuses: [], labelIds: [] })
+    onFiltersChange({ statuses: [], labelIds: [], claimModes: [] })
   }
 
   // Get label details for active label filters
@@ -127,6 +155,7 @@ export function BountyFilters({
   // Count selected in each category
   const selectedStatusCount = filters.statuses.length
   const selectedLabelCount = filters.labelIds.length
+  const selectedClaimModeCount = filters.claimModes.length
 
   return (
     <div className="flex flex-wrap items-center gap-2">
@@ -183,6 +212,45 @@ export function BountyFilters({
                     />
                     <span
                       className={cn('size-2 rounded-full', option.dotClass)}
+                    />
+                    <span className="flex-1">{option.label}</span>
+                    <span className="text-xs text-muted-foreground">
+                      {count}
+                    </span>
+                  </DropdownMenuItem>
+                )
+              })}
+            </DropdownMenuSubContent>
+          </DropdownMenuSub>
+
+          {/* Claim mode submenu */}
+          <DropdownMenuSub>
+            <DropdownMenuSubTrigger className="cursor-pointer">
+              <Users01 className="size-3.5" />
+              <span className="flex-1">Claim Type</span>
+              {selectedClaimModeCount > 0 && (
+                <span className="rounded-full bg-primary/20 px-1.5 py-0.5 text-[10px] font-medium text-primary">
+                  {selectedClaimModeCount}
+                </span>
+              )}
+            </DropdownMenuSubTrigger>
+            <DropdownMenuSubContent className="w-48">
+              {CLAIM_MODE_OPTIONS.map((option) => {
+                const count = claimModeCounts[option.value] ?? 0
+                const isChecked = filters.claimModes.includes(option.value)
+                return (
+                  <DropdownMenuItem
+                    key={option.value}
+                    onClick={(e) => {
+                      e.preventDefault()
+                      toggleClaimMode(option.value)
+                    }}
+                    disabled={count === 0}
+                    className="cursor-pointer"
+                  >
+                    <Checkbox
+                      checked={isChecked}
+                      className="pointer-events-none size-3.5"
                     />
                     <span className="flex-1">{option.label}</span>
                     <span className="text-xs text-muted-foreground">
@@ -259,6 +327,15 @@ export function BountyFilters({
             dotClass={option.dotClass}
           >
             {option.label}
+          </FilterChip>
+        )
+      })}
+
+      {filters.claimModes.map((mode) => {
+        const info = getClaimModeInfo(mode)
+        return (
+          <FilterChip key={mode} onRemove={() => removeClaimMode(mode)}>
+            {info.shortLabel}
           </FilterChip>
         )
       })}

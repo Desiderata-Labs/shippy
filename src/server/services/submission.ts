@@ -19,7 +19,7 @@ import {
 } from '@/lib/github/server'
 import { routes } from '@/lib/routes'
 import { createNotifications } from '@/server/routers/notification'
-import type { Prisma, PrismaClient } from '@prisma/client'
+import type { Prisma, PrismaClient, Submission } from '@prisma/client'
 
 const APP_URL = process.env.NEXT_PUBLIC_APP_URL || 'https://shippy.sh'
 
@@ -313,6 +313,150 @@ async function notifyGitHubPRApproval({
     issue_number: prLink.prNumber,
     body: comment,
   })
+}
+
+// ================================
+// Update Submission Service
+// ================================
+
+export interface UpdateSubmissionParams {
+  prisma: PrismaClient
+  submissionId: string
+  userId: string
+  description?: string
+  status?: SubmissionStatus.DRAFT | SubmissionStatus.PENDING
+}
+
+export interface UpdateSubmissionResult {
+  success: true
+  submission: Submission
+}
+
+export type UpdateSubmissionError =
+  | { success: false; code: 'NOT_FOUND'; message: string }
+  | { success: false; code: 'FORBIDDEN'; message: string }
+  | { success: false; code: 'FINALIZED'; message: string }
+  | { success: false; code: 'NO_CHANGES'; message: string }
+
+/**
+ * Update a submission - shared logic used by tRPC and MCP
+ *
+ * This handles:
+ * - Permission checks (submitter only)
+ * - Preventing edits on finalized submissions
+ * - Recording audit trail events for edits/status changes
+ */
+export async function updateSubmission({
+  prisma,
+  submissionId,
+  userId,
+  description,
+  status,
+}: UpdateSubmissionParams): Promise<
+  UpdateSubmissionResult | UpdateSubmissionError
+> {
+  const submission = await prisma.submission.findUnique({
+    where: { id: submissionId },
+  })
+
+  if (!submission) {
+    return {
+      success: false,
+      code: 'NOT_FOUND',
+      message: 'Submission not found',
+    }
+  }
+
+  if (submission.userId !== userId) {
+    return {
+      success: false,
+      code: 'FORBIDDEN',
+      message: 'You cannot edit this submission',
+    }
+  }
+
+  if (
+    submission.status === SubmissionStatus.APPROVED ||
+    submission.status === SubmissionStatus.REJECTED ||
+    submission.status === SubmissionStatus.WITHDRAWN
+  ) {
+    return {
+      success: false,
+      code: 'FINALIZED',
+      message: 'Cannot edit a finalized submission',
+    }
+  }
+
+  const changes: Record<string, { from: unknown; to: unknown }> = {}
+  const data: Prisma.SubmissionUpdateInput = {}
+
+  if (description !== undefined && description !== submission.description) {
+    data.description = description
+    changes.description = {
+      from: submission.description,
+      to: description,
+    }
+  }
+
+  if (status !== undefined && status !== submission.status) {
+    data.status = status
+    changes.status = { from: submission.status, to: status }
+  }
+
+  if (Object.keys(data).length === 0) {
+    return {
+      success: false,
+      code: 'NO_CHANGES',
+      message: 'No updates were provided',
+    }
+  }
+
+  const updated = await prisma.$transaction(async (tx) => {
+    const result = await tx.submission.update({
+      where: { id: submissionId },
+      data,
+    })
+
+    if (Object.keys(changes).length > 0) {
+      if (changes.status) {
+        await tx.submissionEvent.create({
+          data: {
+            submissionId,
+            userId,
+            type: SubmissionEventType.STATUS_CHANGE,
+            fromStatus: changes.status.from as string,
+            toStatus: changes.status.to as string,
+          },
+        })
+
+        const nonStatusChanges = { ...changes }
+        delete nonStatusChanges.status
+        if (Object.keys(nonStatusChanges).length > 0) {
+          await tx.submissionEvent.create({
+            data: {
+              submissionId,
+              userId,
+              type: SubmissionEventType.EDIT,
+              changes: nonStatusChanges as Prisma.InputJsonValue,
+            },
+          })
+        }
+      } else {
+        await tx.submissionEvent.create({
+          data: {
+            submissionId,
+            userId,
+            type: SubmissionEventType.EDIT,
+            changes: changes as Prisma.InputJsonValue,
+          },
+        })
+      }
+    }
+
+    return result
+  })
+
+  return { success: true, submission: updated }
 }
 
 // ================================

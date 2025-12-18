@@ -51,11 +51,12 @@ This means founders can use MCP tools to manage their private projects when auth
 
 ### Bounty Write Operations (Contributor)
 
-| Tool                | Description                      | Auth Required |
-| ------------------- | -------------------------------- | ------------- |
-| `claim_bounty`      | Claim a bounty to work on it     | Yes + visible |
-| `release_claim`     | Release your claim on a bounty   | Yes           |
-| `create_submission` | Submit work for a claimed bounty | Yes + visible |
+| Tool                | Description                       | Auth Required |
+| ------------------- | --------------------------------- | ------------- |
+| `claim_bounty`      | Claim a bounty to work on it      | Yes + visible |
+| `release_claim`     | Release your claim on a bounty    | Yes           |
+| `create_submission` | Submit work for a claimed bounty  | Yes + visible |
+| `update_submission` | Update a draft/pending submission | Yes           |
 
 Note: `claim_bounty` and `create_submission` also respect visibility - you can't claim or submit to a bounty you can't see.
 
@@ -194,7 +195,7 @@ export async function POST(req: Request) {
 
 1. ✅ **Bounty Management**: `create_bounty`, `update_bounty`, `close_bounty`, `reopen_bounty`
 2. ✅ **Claim Management**: `claim_bounty`, `release_claim`
-3. ✅ **Submissions**: `create_submission`, `list_my_submissions`
+3. ✅ **Submissions**: `create_submission`, `update_submission`, `list_my_submissions`
 4. ✅ **Labels**: `create_label`, `update_label`, `delete_label`, `list_labels`, `read_label`
 5. ✅ **Bounty Listing**: `list_bounties`
 

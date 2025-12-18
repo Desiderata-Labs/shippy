@@ -3,6 +3,7 @@ import { headers } from 'next/headers'
 import { auth } from '@/lib/auth/server'
 import { prisma } from '@/lib/db/server'
 import {
+  BountyClaimMode,
   BountyStatus,
   ClaimStatus,
   PayoutStatus,
@@ -150,6 +151,8 @@ async function getProject(slug: string) {
 
     return {
       ...bounty,
+      status: bounty.status as BountyStatus,
+      claimMode: bounty.claimMode as BountyClaimMode,
       // Keep approved submission for assignee display
       approvedSubmission: approvedSubmission ? [approvedSubmission] : [],
       _count: {
@@ -160,11 +163,12 @@ async function getProject(slug: string) {
   })
 
   // Keep active bounties at the top, then past bounties.
-  const statusRank: Record<string, number> = {
+  const statusRank: Record<BountyStatus, number> = {
     [BountyStatus.OPEN]: 0,
     [BountyStatus.CLAIMED]: 1,
     [BountyStatus.COMPLETED]: 2,
     [BountyStatus.CLOSED]: 3,
+    [BountyStatus.BACKLOG]: 98,
   }
   bountiesWithPendingCount.sort((a, b) => {
     const rankA = statusRank[a.status] ?? 99

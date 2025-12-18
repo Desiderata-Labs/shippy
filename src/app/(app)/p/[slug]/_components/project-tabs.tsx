@@ -8,7 +8,7 @@ import {
 } from '@untitled-ui/icons-react'
 import Link from 'next/link'
 import { useSearchParams } from 'next/navigation'
-import { BountyStatus } from '@/lib/db/types'
+import { BountyClaimMode, BountyStatus } from '@/lib/db/types'
 import { DEFAULT_PROJECT_TAB, ProjectTab, routes } from '@/lib/routes'
 import { cn } from '@/lib/utils'
 import { BountiesTab } from './bounties-tab'
@@ -44,8 +44,8 @@ interface ProjectTabsProps {
           color: string
         }
       }>
-      status: string
-      claimMode: string
+      status: BountyStatus
+      claimMode: BountyClaimMode
       evidenceDescription: string | null
       createdAt: Date
       claims: Array<{

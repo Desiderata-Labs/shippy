@@ -88,7 +88,7 @@ The simplest, most battle-tested pattern (used by GitHub, Stripe, OpenAI, Anthro
    ```json
    {
      "shippy": {
-       "url": "https://shippy.sh/api/mcp",
+       "url": "https://shippy.sh/mcp",
        "headers": {
          "Authorization": "Bearer shp_xxxx..."
        }
@@ -120,7 +120,7 @@ model McpAccessToken {
 
 ### API Route
 
-`/api/mcp/route.ts` — uses `@modelcontextprotocol/sdk` directly (not mcp-handler):
+`/mcp/route.ts` — uses `@modelcontextprotocol/sdk` directly (not mcp-handler):
 
 ```ts
 import { McpServer } from '@modelcontextprotocol/sdk/server'
@@ -186,7 +186,7 @@ export async function POST(req: Request) {
 
 1. ✅ **Schema**: Add `McpAccessToken` model
 2. ✅ **Token Generation UI**: Settings page with MCP Tokens section
-3. ✅ **MCP Route**: `/api/mcp/route.ts` with tools (using SDK directly, not mcp-handler)
+3. ✅ **MCP Route**: `/mcp/route.ts` with tools (using SDK directly, not mcp-handler)
 4. ✅ **Token Validation**: `verifyMcpToken()` in `lib/mcp-token/server.ts`
 5. ✅ **Read Tools**: `read_bounty`, `list_my_bounties`, `read_project`, `list_projects`
 
@@ -219,7 +219,7 @@ pnpm add @modelcontextprotocol/sdk
 {
   "mcpServers": {
     "shippy": {
-      "url": "https://shippy.sh/api/mcp",
+      "url": "https://shippy.sh/mcp",
       "headers": {
         "Authorization": "Bearer shp_your_token_here"
       }
@@ -238,7 +238,7 @@ pnpm add @modelcontextprotocol/sdk
       "args": [
         "-y",
         "mcp-remote",
-        "https://shippy.sh/api/mcp",
+        "https://shippy.sh/mcp",
         "--header",
         "Authorization: Bearer shp_your_token_here"
       ]
@@ -349,7 +349,7 @@ Even with a correct `Accept: application/json, text/event-stream` header from th
 2. Install `mcp-handler` and set up per their docs:
 
    ```ts
-   // app/api/mcp/[transport]/route.ts
+   // app/mcp/[transport]/route.ts
    import { createMcpHandler } from 'mcp-handler'
 
    const handler = createMcpHandler(
@@ -359,7 +359,7 @@ Even with a correct `Accept: application/json, text/event-stream` header from th
        }))
      },
      {},
-     { basePath: '/api/mcp' },
+     { basePath: '/mcp' },
    )
 
    export { handler as GET, handler as POST }
@@ -368,7 +368,7 @@ Even with a correct `Accept: application/json, text/event-stream` header from th
 3. Send a valid MCP request:
 
    ```bash
-   curl -X POST http://localhost:3000/api/mcp/mcp \
+   curl -X POST http://localhost:3000/mcp/mcp \
      -H "Content-Type: application/json" \
      -H "Accept: application/json, text/event-stream" \
      -d '{"jsonrpc":"2.0","method":"initialize","params":{"protocolVersion":"2025-03-26","capabilities":{},"clientInfo":{"name":"test","version":"1.0"}},"id":1}'
@@ -382,7 +382,7 @@ Even with a correct `Accept: application/json, text/event-stream` header from th
 We bypass `mcp-handler` entirely and use `WebStandardStreamableHTTPServerTransport` directly from `@modelcontextprotocol/sdk`:
 
 ```ts
-// app/api/mcp/route.ts
+// app/mcp/route.ts
 import { McpServer } from '@modelcontextprotocol/sdk/server'
 import { WebStandardStreamableHTTPServerTransport } from '@modelcontextprotocol/sdk/server/webStandardStreamableHttp'
 

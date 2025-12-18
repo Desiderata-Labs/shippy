@@ -22,6 +22,12 @@ export const DOCS: DocPage[] = [
     description:
       'Install the Shippy MCP server to interact with bounties directly from your AI coding assistant.',
   },
+  {
+    id: 'llms-txt',
+    title: 'llms.txt',
+    description:
+      'LLM-friendly documentation endpoint following the llms.txt standard.',
+  },
 ]
 
 export type DocId = (typeof DOCS)[number]['id']

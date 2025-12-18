@@ -20,6 +20,7 @@ export const metadata: Metadata = {
 // Map doc IDs to route functions
 const docRoutes: Record<string, () => string> = {
   'mcp-installation': routes.docs.mcpInstallation,
+  'llms-txt': routes.docs.llmsTxt,
 }
 
 const docs = DOCS.map((doc) => ({

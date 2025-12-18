@@ -6,7 +6,7 @@ Shippy provides a remote [Model Context Protocol (MCP)](https://modelcontextprot
 
 Note that we also provide a separate MCP endpoint for reading Shippy documentation via MCP:
 
-**Endpoint:** `https://shippy.sh/api/mcp/docs`
+**Endpoint:** `https://shippy.sh/mcp/docs`
 
 This endpoint requires no authentication and provides two tools:
 
@@ -55,7 +55,7 @@ Add this to `~/.cursor/mcp.json`:
 {
   "mcpServers": {
     "shippy": {
-      "url": "https://shippy.sh/api/mcp",
+      "url": "https://shippy.sh/mcp",
       "headers": {
         "Authorization": "Bearer shp_YOUR_TOKEN"
       }
@@ -72,7 +72,7 @@ Add this to `~/.codeium/windsurf/mcp_config.json`:
 {
   "mcpServers": {
     "shippy": {
-      "serverUrl": "https://shippy.sh/api/mcp",
+      "serverUrl": "https://shippy.sh/mcp",
       "headers": {
         "Authorization": "Bearer shp_YOUR_TOKEN"
       }
@@ -100,7 +100,7 @@ Add to your Claude Desktop config:
       "args": [
         "-y",
         "mcp-remote",
-        "https://shippy.sh/api/mcp",
+        "https://shippy.sh/mcp",
         "--header",
         "Authorization: Bearer shp_YOUR_TOKEN"
       ]
@@ -114,7 +114,7 @@ Add to your Claude Desktop config:
 Claude Code also uses stdio-based servers. You can add Shippy via the CLI:
 
 ```bash
-claude mcp add shippy -- npx -y mcp-remote https://shippy.sh/api/mcp --header "Authorization: Bearer shp_YOUR_TOKEN"
+claude mcp add shippy -- npx -y mcp-remote https://shippy.sh/mcp --header "Authorization: Bearer shp_YOUR_TOKEN"
 ```
 
 Or add to your project's `.mcp.json`:
@@ -127,7 +127,7 @@ Or add to your project's `.mcp.json`:
       "args": [
         "-y",
         "mcp-remote",
-        "https://shippy.sh/api/mcp",
+        "https://shippy.sh/mcp",
         "--header",
         "Authorization: Bearer shp_YOUR_TOKEN"
       ]
@@ -213,7 +213,7 @@ Once connected, try prompts like:
 1. Verify your token is correct and hasn't been deleted
 2. Make sure you're using the correct config file path for your IDE
 3. Restart your IDE after making config changes
-4. Check that Shippy is accessible at https://shippy.sh/api/mcp
+4. Check that Shippy is accessible at https://shippy.sh/mcp
 
 ### Authentication errors
 

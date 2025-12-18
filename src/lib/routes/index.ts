@@ -1,5 +1,12 @@
 import { authPaths, authRoutes } from './auth'
-import { companyPaths, companyRoutes, docsPaths, docsRoutes } from './company'
+import {
+  companyPaths,
+  companyRoutes,
+  docsPaths,
+  docsRoutes,
+  llmsTxtPaths,
+  llmsTxtRoutes,
+} from './company'
 import { dashboardPaths, dashboardRoutes } from './dashboard'
 import { discoverPaths, discoverRoutes } from './discover'
 import { projectPaths, projectRoutes } from './project'
@@ -15,6 +22,7 @@ export const publicRoutes = [
   companyRoutes.mediaKit(),
   docsRoutes.root(),
   docsRoutes.mcpInstallation(),
+  docsRoutes.llmsTxt(),
 ]
 
 // All application routes
@@ -25,6 +33,7 @@ export const routes = {
   dashboard: dashboardRoutes,
   discover: discoverRoutes,
   docs: docsRoutes,
+  llmsTxt: llmsTxtRoutes,
   project: projectRoutes,
   user: userRoutes,
 } as const
@@ -37,6 +46,7 @@ export const paths = {
   dashboard: dashboardPaths,
   discover: discoverPaths,
   docs: docsPaths,
+  llmsTxt: llmsTxtPaths,
   project: projectPaths,
   user: userPaths,
 } as const

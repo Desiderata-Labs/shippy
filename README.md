@@ -55,14 +55,23 @@ Open [http://localhost:3050](http://localhost:3050)
 | `pnpm db:migrate:create --name <name>` | Create new migration     |
 | `pnpm db:migrate:deploy`               | Apply migrations         |
 
-## MCP Server
+## AI Integration
 
-Shippy provides an MCP (Model Context Protocol) server so AI assistants can interact with bounties directly from your IDE.
+### MCP Server
+
+Shippy also provides an MCP (Model Context Protocol) server so AI assistants can interact with bounties directly from your IDE.
 
 - **Setup guide**: [shippy.sh/docs/mcp-installation](https://shippy.sh/docs/mcp-installation)
 - **Docs endpoint** (no auth required): `https://shippy.sh/api/mcp/docs`
 
 The docs MCP server provides `list_docs` and `read_doc` tools for AI assistants to reference Shippy documentation.
+
+### llms.txt
+
+Shippy provides an `/llms.txt` endpoint following the [llms.txt standard](https://llmstxt.org/) for LLM-friendly documentation:
+
+- **llms.txt**: [shippy.sh/llms.txt](https://shippy.sh/llms.txt)
+- **Docs guide**: [shippy.sh/llms.txt/docs/llms-txt.md](https://shippy.sh/llms.txt/docs/llms-txt.md)
 
 ## Documentation
 

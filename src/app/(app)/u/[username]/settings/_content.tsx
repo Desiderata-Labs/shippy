@@ -465,7 +465,7 @@ function McpInstallBlock({ token }: { token: string }) {
   // Cursor config (uses "url" for HTTP servers)
   // See: https://cursor.com/docs/context/mcp/install-links
   const cursorServerConfig = {
-    url: `${baseUrl}/api/mcp`,
+    url: `${baseUrl}/mcp`,
     headers: {
       Authorization: `Bearer ${token}`,
     },
@@ -484,7 +484,7 @@ function McpInstallBlock({ token }: { token: string }) {
     {
       mcpServers: {
         [serverName]: {
-          serverUrl: `${baseUrl}/api/mcp`,
+          serverUrl: `${baseUrl}/mcp`,
           headers: {
             Authorization: `Bearer ${token}`,
           },

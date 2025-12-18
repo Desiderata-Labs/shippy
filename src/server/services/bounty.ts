@@ -1,3 +1,7 @@
+import {
+  allowsMultipleClaims,
+  shouldReopenOnClaimRelease,
+} from '@/lib/bounty/claim-modes'
 import { prisma as globalPrisma } from '@/lib/db/server'
 import {
   BountyClaimMode,
@@ -109,11 +113,11 @@ export async function claimBounty({
     }
   }
 
-  // For CLAIMED bounties, only allow if in MULTIPLE mode (competitive)
+  // For CLAIMED bounties, only allow additional claims if mode allows it
   // This check comes AFTER the user's own claim check
   if (
     bounty.status === BountyStatus.CLAIMED &&
-    bounty.claimMode !== BountyClaimMode.MULTIPLE
+    !allowsMultipleClaims(bounty.claimMode as BountyClaimMode)
   ) {
     return {
       success: false,
@@ -131,7 +135,7 @@ export async function claimBounty({
     }
   }
 
-  // For MULTIPLE mode with maxClaims, check limit
+  // For modes with maxClaims, check limit
   if (bounty.maxClaims && bounty.claims.length >= bounty.maxClaims) {
     return {
       success: false,
@@ -282,9 +286,9 @@ export async function releaseClaim({
     })
   }
 
-  // If SINGLE mode and bounty is still CLAIMED (not COMPLETED/CLOSED), check if we should reopen
+  // Check if we should reopen the bounty (only for exclusive modes)
   if (
-    claim.bounty.claimMode === BountyClaimMode.SINGLE &&
+    shouldReopenOnClaimRelease(claim.bounty.claimMode as BountyClaimMode) &&
     claim.bounty.status === BountyStatus.CLAIMED
   ) {
     const remainingClaims = await prisma.bountyClaim.count({
@@ -318,11 +322,11 @@ export interface CreateBountyParams {
   points: number | null
   /** Optional label IDs to attach */
   labelIds?: string[]
-  /** Claim mode: SINGLE (exclusive) or MULTIPLE (competitive) */
+  /** Claim mode: SINGLE | COMPETITIVE | MULTIPLE | PERFORMANCE */
   claimMode?: BountyClaimMode
   /** Days before a claim expires if no submission */
   claimExpiryDays?: number
-  /** Maximum number of claims allowed (only for MULTIPLE mode) */
+  /** Maximum number of claims allowed (for COMPETITIVE/MULTIPLE/PERFORMANCE modes) */
   maxClaims?: number | null
   /** Description of evidence required for submission */
   evidenceDescription?: string

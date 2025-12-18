@@ -33,7 +33,9 @@ export enum BountyStatus {
 
 export enum BountyClaimMode {
   SINGLE = 'SINGLE', // Exclusive: One contributor claims, others locked out
-  MULTIPLE = 'MULTIPLE', // Competitive: Anyone can claim, first approved wins
+  COMPETITIVE = 'COMPETITIVE', // Competitive: Anyone can claim, first approved wins
+  MULTIPLE = 'MULTIPLE', // Multiple: Anyone can complete, all approved get points
+  PERFORMANCE = 'PERFORMANCE', // Performance: Points per verified result (referrals, leads, etc.)
 }
 
 /**

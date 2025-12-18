@@ -371,10 +371,10 @@ server.registerTool(
           'Bounty status. Note: points changes may auto-transition status.',
         ),
       claimMode: z
-        .enum(['SINGLE', 'MULTIPLE'])
+        .enum(['SINGLE', 'COMPETITIVE', 'MULTIPLE', 'PERFORMANCE'])
         .optional()
         .describe(
-          'SINGLE = exclusive (one contributor), MULTIPLE = competitive (multiple contributors can work on it but only one gets rewarded).',
+          'SINGLE = exclusive (one contributor). COMPETITIVE = race (many claim, first approved wins). MULTIPLE = parallel (many complete, all get points). PERFORMANCE = results-based (points per verified result).',
         ),
       claimExpiryDays: z
         .number()
@@ -573,10 +573,10 @@ server.registerTool(
           'Acceptance criteria / evidence requirements (markdown supported)',
         ),
       claimMode: z
-        .enum(['SINGLE', 'MULTIPLE'])
+        .enum(['SINGLE', 'COMPETITIVE', 'MULTIPLE', 'PERFORMANCE'])
         .optional()
         .describe(
-          'SINGLE = exclusive (one contributor), MULTIPLE = competitive (multiple contributors can work on it but only one gets rewarded). Default: SINGLE.',
+          'SINGLE = exclusive (one contributor). COMPETITIVE = race (many claim, first approved wins). MULTIPLE = parallel (many complete, all get points). PERFORMANCE = results-based (points per verified result). Default: SINGLE.',
         ),
       claimExpiryDays: z
         .number()
@@ -1631,7 +1631,7 @@ server.registerTool(
       }
     }
 
-    const submissionUrl = `${APP_URL}${routes.project.submissionDetail({ slug: bounty.project.slug, submissionId: result.submission.id })}`
+    const submissionUrl = `${APP_URL}${routes.project.submissionDetail({ slug: bounty.project.slug, bountyId: bounty.id, submissionId: result.submission.id })}`
 
     return {
       content: [
@@ -1718,7 +1718,7 @@ server.registerTool(
       status: sub.status,
       pointsAwarded: sub.pointsAwarded,
       submittedAt: sub.createdAt.toISOString(),
-      url: `${APP_URL}${routes.project.submissionDetail({ slug: sub.bounty.project.slug, submissionId: sub.id })}`,
+      url: `${APP_URL}${routes.project.submissionDetail({ slug: sub.bounty.project.slug, bountyId: sub.bountyId, submissionId: sub.id })}`,
     }))
 
     return {

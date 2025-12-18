@@ -14,6 +14,11 @@ import { useEffect, useState } from 'react'
 import Link from 'next/link'
 import { useRouter } from 'next/navigation'
 import { redirect } from 'next/navigation'
+import {
+  getAvailableClaimModes,
+  getClaimModeInfo,
+  supportsMaxClaims,
+} from '@/lib/bounty/claim-modes'
 import { getLabelColor } from '@/lib/bounty/tag-colors'
 import {
   BountyClaimMode,
@@ -459,6 +464,9 @@ export function BountyEditor({ mode, slug, bountyId }: BountyEditorProps) {
       // If backlog is enabled, send null for points
       const pointsValue = isBacklog ? null : points
 
+      // maxClaims only applies to multi-claim modes
+      const hasMaxClaimsSupport = supportsMaxClaims(claimMode)
+
       if (mode === 'create') {
         await createBounty.mutateAsync({
           projectId: project.id,
@@ -468,8 +476,7 @@ export function BountyEditor({ mode, slug, bountyId }: BountyEditorProps) {
           labelIds: selectedLabelIds,
           claimMode,
           claimExpiryDays: claimExpiryDays || DEFAULT_CLAIM_EXPIRY_DAYS,
-          maxClaims:
-            claimMode === BountyClaimMode.MULTIPLE ? maxClaims : undefined,
+          maxClaims: hasMaxClaimsSupport ? maxClaims : undefined,
           evidenceDescription: evidenceDescription || undefined,
         })
       } else {
@@ -482,8 +489,7 @@ export function BountyEditor({ mode, slug, bountyId }: BountyEditorProps) {
           // Don't pass status - let the backend handle status transitions
           claimMode,
           claimExpiryDays: claimExpiryDays || DEFAULT_CLAIM_EXPIRY_DAYS,
-          maxClaims:
-            claimMode === BountyClaimMode.MULTIPLE ? maxClaims : undefined,
+          maxClaims: hasMaxClaimsSupport ? maxClaims : undefined,
           evidenceDescription: evidenceDescription || null,
         })
       }
@@ -941,8 +947,7 @@ export function BountyEditor({ mode, slug, bountyId }: BountyEditorProps) {
                         </span>
                       </TooltipTrigger>
                       <TooltipContent className="max-w-xs">
-                        Exclusive: one person at a time. Competitive: first
-                        approved wins.
+                        How contributors can claim and complete this bounty.
                       </TooltipContent>
                     </Tooltip>
                     <Select
@@ -954,21 +959,18 @@ export function BountyEditor({ mode, slug, bountyId }: BountyEditorProps) {
                         <SelectValue />
                       </SelectTrigger>
                       <SelectContent>
-                        <SelectItem value={BountyClaimMode.SINGLE}>
-                          Exclusive
-                        </SelectItem>
-                        <SelectItem value={BountyClaimMode.MULTIPLE}>
-                          Competitive
-                        </SelectItem>
+                        {getAvailableClaimModes().map((mode) => (
+                          <SelectItem key={mode} value={mode}>
+                            {getClaimModeInfo(mode).label}
+                          </SelectItem>
+                        ))}
                       </SelectContent>
                     </Select>
                   </div>
 
                   {/* Claim type info */}
                   <div className="rounded-md bg-primary/5 px-3 py-2 text-right text-xs text-muted-foreground/70">
-                    {claimMode === BountyClaimMode.SINGLE
-                      ? 'One contributor can claim and work on this. Others must wait until they submit or their claim expires.'
-                      : 'Anyone can claim and work on this. First approved submission wins the points.'}
+                    {getClaimModeInfo(claimMode).description}
                   </div>
 
                   {/* Claim expiry */}
@@ -1014,8 +1016,8 @@ export function BountyEditor({ mode, slug, bountyId }: BountyEditorProps) {
                     submit their work after claiming.
                   </div>
 
-                  {/* Max claims (only for multiple) */}
-                  {claimMode === BountyClaimMode.MULTIPLE && (
+                  {/* Max claims (for multi-claim modes) */}
+                  {supportsMaxClaims(claimMode) && (
                     <div className="flex items-center justify-between">
                       <span className="text-xs text-muted-foreground">
                         Max Claims

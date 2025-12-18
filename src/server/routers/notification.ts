@@ -71,6 +71,7 @@ export const notificationRouter = router({
             referenceTitle = submission.bounty.title
             referenceUrl = routes.project.submissionDetail({
               slug: submission.bounty.project.slug,
+              bountyId: submission.bounty.id,
               submissionId: notification.referenceId,
               title: submission.bounty.title,
             })

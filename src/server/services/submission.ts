@@ -1,5 +1,11 @@
+import {
+  allowsMultipleSubmissionsPerUser,
+  shouldCompleteBountyOnApproval,
+  shouldExpireOtherClaimsOnApproval,
+} from '@/lib/bounty/claim-modes'
 import { prisma as globalPrisma } from '@/lib/db/server'
 import {
+  BountyClaimMode,
   BountyStatus,
   ClaimStatus,
   NotificationReferenceType,
@@ -137,17 +143,81 @@ export async function approveSubmission({
     },
   })
 
-  // Check if bounty should be marked as completed
-  const activeClaims = await prisma.bountyClaim.count({
+  const bounty = submission.bounty
+  const claimMode = bounty.claimMode as BountyClaimMode
+
+  // For COMPETITIVE mode: first approval wins, expire other claims and withdraw their submissions
+  if (shouldExpireOtherClaimsOnApproval(claimMode)) {
+    // Find other active/submitted claims (not the winner's)
+    const losingClaims = await prisma.bountyClaim.findMany({
+      where: {
+        bountyId: bounty.id,
+        userId: { not: submission.userId },
+        status: { in: [ClaimStatus.ACTIVE, ClaimStatus.SUBMITTED] },
+      },
+      select: { id: true, userId: true },
+    })
+
+    // Expire the losing claims
+    if (losingClaims.length > 0) {
+      await prisma.bountyClaim.updateMany({
+        where: {
+          id: { in: losingClaims.map((c) => c.id) },
+        },
+        data: { status: ClaimStatus.EXPIRED },
+      })
+
+      // Withdraw any pending submissions from the losers
+      const losingUserIds = losingClaims.map((c) => c.userId)
+      const submissionsToWithdraw = await prisma.submission.findMany({
+        where: {
+          bountyId: bounty.id,
+          userId: { in: losingUserIds },
+          status: {
+            in: [
+              SubmissionStatus.DRAFT,
+              SubmissionStatus.PENDING,
+              SubmissionStatus.NEEDS_INFO,
+            ],
+          },
+        },
+        select: { id: true, status: true, userId: true },
+      })
+
+      for (const sub of submissionsToWithdraw) {
+        await prisma.submission.update({
+          where: { id: sub.id },
+          data: { status: SubmissionStatus.WITHDRAWN },
+        })
+
+        await prisma.submissionEvent.create({
+          data: {
+            submissionId: sub.id,
+            userId: actorId, // Founder is withdrawing as part of approval
+            type: SubmissionEventType.STATUS_CHANGE,
+            fromStatus: sub.status,
+            toStatus: SubmissionStatus.WITHDRAWN,
+            note: 'Another submission was approved first (competitive mode)',
+          },
+        })
+      }
+    }
+  }
+
+  // Count approved submissions for this bounty to check completion threshold
+  const approvedCount = await prisma.submission.count({
     where: {
-      bountyId: submission.bountyId,
-      status: { in: [ClaimStatus.ACTIVE, ClaimStatus.SUBMITTED] },
+      bountyId: bounty.id,
+      status: SubmissionStatus.APPROVED,
     },
   })
 
-  if (activeClaims === 0) {
+  // Check if bounty should be marked as completed (mode-aware)
+  if (
+    shouldCompleteBountyOnApproval(claimMode, approvedCount, bounty.maxClaims)
+  ) {
     await prisma.bounty.update({
-      where: { id: submission.bountyId },
+      where: { id: bounty.id },
       data: { status: BountyStatus.COMPLETED },
     })
   }
@@ -164,14 +234,24 @@ export async function approveSubmission({
     console.error('Failed to create approval notification:', err)
   })
 
+  // Determine the bounty status after approval for GitHub comment
+  const bountyStatusAfterApproval = shouldCompleteBountyOnApproval(
+    claimMode,
+    approvedCount,
+    bounty.maxClaims,
+  )
+    ? BountyStatus.COMPLETED
+    : BountyStatus.CLAIMED
+
   // Post GitHub comment if linked to a PR (fire and forget, uses global prisma)
   notifyGitHubPRApproval({
     prisma: globalPrisma,
     submissionId,
     bountyIdentifier: bountyDisplayId,
-    bountyTitle: submission.bounty.title,
-    bountyUrl: `${APP_URL}${routes.project.bountyDetail({ slug: project.slug, bountyId: submission.bountyId })}`,
+    bountyTitle: bounty.title,
+    bountyUrl: `${APP_URL}${routes.project.bountyDetail({ slug: project.slug, bountyId: bounty.id })}`,
     pointsAwarded,
+    bountyStatus: bountyStatusAfterApproval,
   }).catch((err) => {
     console.error('Failed to notify GitHub PR:', err)
   })
@@ -187,6 +267,7 @@ async function notifyGitHubPRApproval({
   bountyTitle,
   bountyUrl,
   pointsAwarded,
+  bountyStatus,
 }: {
   prisma: typeof globalPrisma
   submissionId: string
@@ -194,6 +275,7 @@ async function notifyGitHubPRApproval({
   bountyTitle: string
   bountyUrl: string
   pointsAwarded: number
+  bountyStatus: BountyStatus
 }): Promise<void> {
   const prLink = await prisma.gitHubPRLink.findUnique({
     where: { submissionId },
@@ -214,7 +296,7 @@ async function notifyGitHubPRApproval({
     identifier: bountyIdentifier,
     title: bountyTitle,
     points: pointsAwarded,
-    status: BountyStatus.COMPLETED,
+    status: bountyStatus,
     url: bountyUrl,
   })
 
@@ -320,20 +402,24 @@ export async function createSubmission({
     })
   }
 
-  // Check for existing non-rejected submission
-  const existingSubmission = await prisma.submission.findFirst({
-    where: {
-      bountyId,
-      userId,
-      status: { notIn: [SubmissionStatus.REJECTED] },
-    },
-  })
+  // Check for existing non-rejected submission (unless mode allows multiple per user)
+  if (!allowsMultipleSubmissionsPerUser(bounty.claimMode as BountyClaimMode)) {
+    const existingSubmission = await prisma.submission.findFirst({
+      where: {
+        bountyId,
+        userId,
+        status: {
+          notIn: [SubmissionStatus.REJECTED, SubmissionStatus.WITHDRAWN],
+        },
+      },
+    })
 
-  if (existingSubmission) {
-    return {
-      success: false,
-      code: 'ALREADY_SUBMITTED',
-      message: 'You already have a submission for this bounty',
+    if (existingSubmission) {
+      return {
+        success: false,
+        code: 'ALREADY_SUBMITTED',
+        message: 'You already have a submission for this bounty',
+      }
     }
   }
 

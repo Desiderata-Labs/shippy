@@ -218,6 +218,7 @@ export function DashboardContent() {
                       <Link
                         href={routes.project.submissionDetail({
                           slug: submission.bounty.project.slug,
+                          bountyId: submission.bountyId,
                           submissionId: submission.id,
                           title: submission.bounty.title,
                         })}

@@ -809,14 +809,12 @@ function McpTokensSection() {
         <span className="font-medium text-foreground">What is MCP?</span> The
         Model Context Protocol lets AI assistants read your bounties directly in
         your IDE.{' '}
-        <a
-          href="https://modelcontextprotocol.io/"
-          target="_blank"
-          rel="noopener noreferrer"
+        <Link
+          href={routes.docs.mcpInstallation()}
           className="text-primary hover:underline"
         >
-          Learn more →
-        </a>
+          Installation guide →
+        </Link>
       </div>
     </div>
   )

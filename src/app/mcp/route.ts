@@ -371,10 +371,10 @@ server.registerTool(
           'Bounty status. Note: points changes may auto-transition status.',
         ),
       claimMode: z
-        .enum(['SINGLE', 'MULTIPLE'])
+        .enum(['SINGLE', 'COMPETITIVE', 'MULTIPLE', 'PERFORMANCE'])
         .optional()
         .describe(
-          'SINGLE = exclusive (one contributor), MULTIPLE = competitive (multiple contributors can work on it but only one gets rewarded).',
+          'SINGLE = exclusive (one contributor). COMPETITIVE = race (many claim, first approved wins). MULTIPLE = parallel (many complete, all get points). PERFORMANCE = results-based (points per verified result).',
         ),
       claimExpiryDays: z
         .number()
@@ -573,10 +573,10 @@ server.registerTool(
           'Acceptance criteria / evidence requirements (markdown supported)',
         ),
       claimMode: z
-        .enum(['SINGLE', 'MULTIPLE'])
+        .enum(['SINGLE', 'COMPETITIVE', 'MULTIPLE', 'PERFORMANCE'])
         .optional()
         .describe(
-          'SINGLE = exclusive (one contributor), MULTIPLE = competitive (multiple contributors can work on it but only one gets rewarded). Default: SINGLE.',
+          'SINGLE = exclusive (one contributor). COMPETITIVE = race (many claim, first approved wins). MULTIPLE = parallel (many complete, all get points). PERFORMANCE = results-based (points per verified result). Default: SINGLE.',
         ),
       claimExpiryDays: z
         .number()

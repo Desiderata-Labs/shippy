@@ -211,9 +211,9 @@ model Bounty {
   status      String @default("OPEN") // "BACKLOG" | "OPEN" | "CLAIMED" | "COMPLETED" | "CLOSED"
 
   // Claim configuration
-  claimMode       String   @default("SINGLE") // "SINGLE" (Exclusive) | "MULTIPLE" (Competitive)
+  claimMode       String   @default("SINGLE") // "SINGLE" (Exclusive) | "COMPETITIVE" (First wins) | "MULTIPLE" (All get points) | "PERFORMANCE" (Points per result)
   claimExpiryDays Int      @default(14) // Days before a claim expires
-  maxClaims       Int? // Max number of claims (null = unlimited for MULTIPLE mode)
+  maxClaims       Int? // Max number of claims (null = unlimited for COMPETITIVE/MULTIPLE modes)
 
   // Evidence requirements
   evidenceDescription String? @db.Text // What proof is needed

@@ -18,7 +18,12 @@ import { Loader2 } from 'lucide-react'
 import { useState } from 'react'
 import Link from 'next/link'
 import { useParams } from 'next/navigation'
-import { SubmissionEventType, SubmissionStatus } from '@/lib/db/types'
+import { getClaimModeInfo } from '@/lib/bounty/claim-modes'
+import {
+  BountyClaimMode,
+  SubmissionEventType,
+  SubmissionStatus,
+} from '@/lib/db/types'
 import { extractNanoIdFromSlug } from '@/lib/nanoid/shared'
 import { routes } from '@/lib/routes'
 import {
@@ -485,6 +490,16 @@ export function SubmissionDetailContent() {
                               ? `Award ${submission.bounty.points} points to the contributor.`
                               : 'Award points to the contributor.'}
                           </div>
+                          {/* Competitive mode warning */}
+                          {submission.bounty.claimMode ===
+                            BountyClaimMode.COMPETITIVE && (
+                            <div className="mt-2 flex items-center rounded-md bg-amber-500/10 px-2 py-1.5">
+                              <span className="text-[11px] text-amber-700 dark:text-amber-400">
+                                Competitive bounty: approving will expire other
+                                claims and withdraw their submissions.
+                              </span>
+                            </div>
+                          )}
                           {/* Pool expansion info */}
                           {poolStats &&
                             submission.bounty.points !== null &&
@@ -829,6 +844,20 @@ export function SubmissionDetailContent() {
                 </span>
                 <span className="rounded-sm bg-primary/10 px-2 py-0.5 text-xs font-semibold text-primary">
                   {submission.bounty.points}
+                </span>
+              </div>
+
+              {/* Claim Mode */}
+              <div className="flex items-center justify-between py-1">
+                <span className="text-xs text-muted-foreground">
+                  Claim Type
+                </span>
+                <span className="text-xs">
+                  {
+                    getClaimModeInfo(
+                      submission.bounty.claimMode as BountyClaimMode,
+                    ).label
+                  }
                 </span>
               </div>
 

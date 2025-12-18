@@ -27,6 +27,10 @@ import { Loader2 } from 'lucide-react'
 import { useState } from 'react'
 import Link from 'next/link'
 import { useParams } from 'next/navigation'
+import {
+  allowsMultipleClaims,
+  getClaimModeInfo,
+} from '@/lib/bounty/claim-modes'
 import { getLabelColor } from '@/lib/bounty/tag-colors'
 import {
   BountyClaimMode,
@@ -294,7 +298,7 @@ export function BountyDetailContent() {
   // User can claim if:
   // - Logged in
   // - Doesn't already have a claim
-  // - Bounty is OPEN, or CLAIMED but in MULTIPLE mode (competitive)
+  // - Bounty is OPEN, or CLAIMED but in a multi-claim mode
   // - maxClaims limit not reached (if set)
   const isAtMaxClaims =
     bounty.maxClaims !== null && bounty.claims.length >= bounty.maxClaims
@@ -304,7 +308,7 @@ export function BountyDetailContent() {
     !isAtMaxClaims &&
     (bounty.status === BountyStatus.OPEN ||
       (bounty.status === BountyStatus.CLAIMED &&
-        bounty.claimMode === BountyClaimMode.MULTIPLE))
+        allowsMultipleClaims(bounty.claimMode as BountyClaimMode)))
 
   const handleClaim = async () => {
     setIsClaiming(true)
@@ -1396,17 +1400,16 @@ export function BountyDetailContent() {
                   Claim Type
                 </span>
                 <span className="text-xs">
-                  {bounty.claimMode === BountyClaimMode.SINGLE
-                    ? 'Exclusive'
-                    : 'Competitive'}
+                  {getClaimModeInfo(bounty.claimMode as BountyClaimMode).label}
                 </span>
               </div>
 
               {/* Claim type info */}
               <div className="rounded-md bg-primary/5 px-3 py-2 text-right text-xs text-muted-foreground/70">
-                {bounty.claimMode === BountyClaimMode.SINGLE
-                  ? 'One contributor can claim and work on this. Others must wait until they submit or their claim expires.'
-                  : 'Anyone can claim and work on this. First approved submission wins the points.'}
+                {
+                  getClaimModeInfo(bounty.claimMode as BountyClaimMode)
+                    .contributorHint
+                }
               </div>
 
               {/* Claim expiry */}

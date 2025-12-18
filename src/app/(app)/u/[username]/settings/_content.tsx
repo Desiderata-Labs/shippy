@@ -448,16 +448,17 @@ function ConnectedAccountsSection() {
   )
 }
 
-type IdeType = 'cursor' | 'windsurf'
+type IdeType = 'cursor' | 'windsurf' | 'codex'
 
 const IDE_TABS: AppTab<IdeType>[] = [
   { value: 'cursor', label: 'Cursor' },
   { value: 'windsurf', label: 'Windsurf' },
+  { value: 'codex', label: 'Codex' },
 ]
 
 function McpInstallBlock({ token }: { token: string }) {
   const [activeIde, setActiveIde] = useState<IdeType>('cursor')
-  const [copied, setCopied] = useState(false)
+  const [copied, setCopied] = useState<string | null>(null)
   const baseUrl = process.env.NEXT_PUBLIC_APP_URL || 'https://shippy.sh'
   const isDev = process.env.NODE_ENV === 'development'
   const serverName = isDev ? 'shippy-localhost' : 'shippy'
@@ -495,11 +496,26 @@ function McpInstallBlock({ token }: { token: string }) {
     2,
   )
 
-  const handleCopy = (config: string) => {
+  // Codex config (TOML format for ~/.codex/config.toml)
+  // See: https://developers.openai.com/codex/mcp/
+  // Option 1: Direct token in headers (simpler)
+  const codexConfigDirect = `[mcp_servers.${serverName}]
+url = "${baseUrl}/mcp"
+http_headers = { "Authorization" = "Bearer ${token}" }`
+
+  // Option 2: Using environment variable (more secure)
+  const codexConfigEnvVar = `[mcp_servers.${serverName}]
+url = "${baseUrl}/mcp"
+bearer_token_env_var = "SHIPPY_MCP_TOKEN"`
+
+  const codexEnvVarInstructions = `# Set this in your shell (add to ~/.zshrc or ~/.bashrc):
+export SHIPPY_MCP_TOKEN="${token}"`
+
+  const handleCopy = (config: string, id: string) => {
     navigator.clipboard.writeText(config)
-    setCopied(true)
+    setCopied(id)
     toast.success('Config copied!')
-    setTimeout(() => setCopied(false), 2000)
+    setTimeout(() => setCopied(null), 2000)
   }
 
   return (
@@ -545,9 +561,9 @@ function McpInstallBlock({ token }: { token: string }) {
                   variant="ghost"
                   size="sm"
                   className="absolute top-8 right-2"
-                  onClick={() => handleCopy(cursorFullConfig)}
+                  onClick={() => handleCopy(cursorFullConfig, 'cursor-config')}
                 >
-                  {copied ? (
+                  {copied === 'cursor-config' ? (
                     <Check className="size-3.5" />
                   ) : (
                     <Copy className="size-3.5" />
@@ -576,14 +592,110 @@ function McpInstallBlock({ token }: { token: string }) {
                 variant="ghost"
                 size="sm"
                 className="absolute top-2 right-2"
-                onClick={() => handleCopy(windsurfConfig)}
+                onClick={() => handleCopy(windsurfConfig, 'windsurf-config')}
               >
-                {copied ? (
+                {copied === 'windsurf-config' ? (
                   <Check className="size-3.5" />
                 ) : (
                   <Copy className="size-3.5" />
                 )}
               </AppButton>
+            </div>
+          </div>
+        )}
+
+        {activeIde === 'codex' && (
+          <div className="space-y-4">
+            {/* Option 1: Direct token */}
+            <div>
+              <p className="mb-2 text-xs text-muted-foreground">
+                <strong className="text-foreground">Option 1:</strong> Direct
+                token (simpler)
+              </p>
+              <p className="mb-2 text-xs text-muted-foreground">
+                Add this to{' '}
+                <code className="rounded-sm bg-muted px-1">
+                  ~/.codex/config.toml
+                </code>
+                :
+              </p>
+              <div className="relative">
+                <pre className="overflow-x-auto rounded-md bg-muted/50 p-3 pr-12 text-xs">
+                  {codexConfigDirect}
+                </pre>
+                <AppButton
+                  type="button"
+                  variant="ghost"
+                  size="sm"
+                  className="absolute top-2 right-2"
+                  onClick={() => handleCopy(codexConfigDirect, 'codex-direct')}
+                >
+                  {copied === 'codex-direct' ? (
+                    <Check className="size-3.5" />
+                  ) : (
+                    <Copy className="size-3.5" />
+                  )}
+                </AppButton>
+              </div>
+            </div>
+
+            {/* Option 2: Environment variable */}
+            <div>
+              <p className="mb-2 text-xs text-muted-foreground">
+                <strong className="text-foreground">Option 2:</strong>{' '}
+                Environment variable (more secure)
+              </p>
+              <p className="mb-2 text-xs text-muted-foreground">
+                Add this to{' '}
+                <code className="rounded-sm bg-muted px-1">
+                  ~/.codex/config.toml
+                </code>
+                :
+              </p>
+              <div className="relative mb-2">
+                <pre className="overflow-x-auto rounded-md bg-muted/50 p-3 pr-12 text-xs">
+                  {codexConfigEnvVar}
+                </pre>
+                <AppButton
+                  type="button"
+                  variant="ghost"
+                  size="sm"
+                  className="absolute top-2 right-2"
+                  onClick={() => handleCopy(codexConfigEnvVar, 'codex-envvar')}
+                >
+                  {copied === 'codex-envvar' ? (
+                    <Check className="size-3.5" />
+                  ) : (
+                    <Copy className="size-3.5" />
+                  )}
+                </AppButton>
+              </div>
+              <p className="mb-2 text-xs text-muted-foreground">
+                Then set the environment variable:
+              </p>
+              <div className="relative">
+                <pre className="overflow-x-auto rounded-md bg-muted/50 p-3 pr-12 text-xs">
+                  {codexEnvVarInstructions}
+                </pre>
+                <AppButton
+                  type="button"
+                  variant="ghost"
+                  size="sm"
+                  className="absolute top-2 right-2"
+                  onClick={() =>
+                    handleCopy(
+                      codexEnvVarInstructions,
+                      'codex-envvar-instructions',
+                    )
+                  }
+                >
+                  {copied === 'codex-envvar-instructions' ? (
+                    <Check className="size-3.5" />
+                  ) : (
+                    <Copy className="size-3.5" />
+                  )}
+                </AppButton>
+              </div>
             </div>
           </div>
         )}

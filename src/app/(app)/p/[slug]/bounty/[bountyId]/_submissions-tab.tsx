@@ -29,7 +29,7 @@ import {
   submissionStatusLabels,
 } from '@/lib/status-colors'
 import { cn } from '@/lib/utils'
-import { AppButton, AppTextarea } from '@/components/app'
+import { AppButton, AppInput, AppTextarea } from '@/components/app'
 import { CommentInput } from '@/components/comments'
 import { SubmissionModal } from '@/components/submission/submission-modal'
 import { Avatar, AvatarFallback, AvatarImage } from '@/components/ui/avatar'
@@ -477,6 +477,7 @@ function SubmissionDetail({ submissionId, isFounder }: SubmissionDetailProps) {
   const { data: session } = useSession()
   const [reviewNote, setReviewNote] = useState('')
   const [reviewAction, setReviewAction] = useState<ReviewAction>('approve')
+  const [pointsAwardedInput, setPointsAwardedInput] = useState('')
   const [showReviewPopover, setShowReviewPopover] = useState(false)
   const [showRejectModal, setShowRejectModal] = useState(false)
   const [isSending, setIsSending] = useState(false)
@@ -503,6 +504,11 @@ function SubmissionDetail({ submissionId, isFounder }: SubmissionDetailProps) {
     { id: submissionId },
     { enabled: !!submissionId },
   )
+
+  useEffect(() => {
+    if (!submission) return
+    setPointsAwardedInput(String(submission.bounty.points ?? ''))
+  }, [submission])
 
   const utils = trpc.useUtils()
 
@@ -574,8 +580,8 @@ function SubmissionDetail({ submissionId, isFounder }: SubmissionDetailProps) {
         action: reviewAction === 'approve' ? 'approve' : 'requestInfo',
         note: reviewNote || undefined,
         pointsAwarded:
-          reviewAction === 'approve'
-            ? (submission.bounty.points ?? undefined)
+          reviewAction === 'approve' && pointsAwarded >= bountyPoints
+            ? pointsAwarded
             : undefined,
       })
     } finally {
@@ -665,6 +671,9 @@ function SubmissionDetail({ submissionId, isFounder }: SubmissionDetailProps) {
   const sortedEvents = [...submission.events].sort(
     (a, b) => new Date(a.createdAt).getTime() - new Date(b.createdAt).getTime(),
   )
+  const bountyPoints = submission.bounty.points ?? 0
+  const pointsAwarded = parseInt(pointsAwardedInput, 10) || 0
+  const approvePointsLabel = pointsAwarded || bountyPoints || '?'
 
   return (
     <div className="rounded-lg border border-border bg-card">
@@ -745,7 +754,7 @@ function SubmissionDetail({ submissionId, isFounder }: SubmissionDetailProps) {
                       {
                         value: 'approve',
                         label: 'Approve',
-                        desc: `Award ${submission.bounty.points ?? '?'} points`,
+                        desc: `Award ${approvePointsLabel} points`,
                       },
                       {
                         value: 'requestInfo',
@@ -786,6 +795,32 @@ function SubmissionDetail({ submissionId, isFounder }: SubmissionDetailProps) {
                       </label>
                     ))}
                   </div>
+
+                  {reviewAction === 'approve' && (
+                    <div className="mt-3 rounded-md border border-border bg-muted/40 px-3 py-2">
+                      <div className="flex items-center justify-between gap-3">
+                        <span className="text-xs text-muted-foreground">
+                          Points to award
+                        </span>
+                        <AppInput
+                          type="number"
+                          min={bountyPoints}
+                          value={pointsAwardedInput}
+                          onChange={(e) =>
+                            setPointsAwardedInput(e.target.value)
+                          }
+                          onBlur={() => {
+                            if (!pointsAwardedInput.trim()) return
+                            if (pointsAwarded < bountyPoints) {
+                              setPointsAwardedInput(String(bountyPoints))
+                            }
+                          }}
+                          disabled={isSending}
+                          className="h-8 w-24 text-center text-sm font-semibold"
+                        />
+                      </div>
+                    </div>
+                  )}
                 </div>
 
                 <div className="border-t border-border px-3 py-2">
@@ -793,6 +828,8 @@ function SubmissionDetail({ submissionId, isFounder }: SubmissionDetailProps) {
                     onClick={handleSubmitReview}
                     disabled={
                       isSending ||
+                      (reviewAction === 'approve' &&
+                        pointsAwarded < bountyPoints) ||
                       (reviewAction === 'comment' && !reviewNote.trim()) ||
                       ((reviewAction === 'requestInfo' ||
                         reviewAction === 'reject') &&

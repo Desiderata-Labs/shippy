@@ -71,6 +71,13 @@ export async function approveSubmission({
     throw new Error(`Submission not found: ${submissionId}`)
   }
 
+  const minimumPoints = submission.bounty.points
+  if (minimumPoints != null && pointsAwarded < minimumPoints) {
+    throw new Error(
+      `Points awarded (${pointsAwarded}) cannot be lower than bounty points (${minimumPoints}).`,
+    )
+  }
+
   const previousStatus = submission.status
   const project = submission.bounty.project
   const rewardPool = project.rewardPool

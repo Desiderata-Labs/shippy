@@ -89,6 +89,38 @@ describe('approveSubmission', () => {
         }),
       ).rejects.toThrow('Submission not found')
     })
+
+    test('throws when points awarded is below bounty points', async () => {
+      mockPrisma.submission.findUnique.mockResolvedValue({
+        id: 'sub-1',
+        status: SubmissionStatus.PENDING,
+        bountyId: 'bounty-1',
+        userId: 'user-1',
+        bounty: {
+          id: 'bounty-1',
+          title: 'Test Bounty',
+          number: 1,
+          points: 100,
+          claimMode: BountyClaimMode.SINGLE,
+          maxClaims: null,
+          project: {
+            id: 'project-1',
+            slug: 'test-project',
+            projectKey: 'TST',
+            rewardPool: null,
+          },
+        },
+      })
+
+      await expect(
+        approveSubmission({
+          prisma: mockPrisma as any,
+          submissionId: 'sub-1',
+          pointsAwarded: 50,
+          actorId: 'founder-1',
+        }),
+      ).rejects.toThrow('cannot be lower than bounty points')
+    })
   })
 
   describe('pool capacity expansion', () => {

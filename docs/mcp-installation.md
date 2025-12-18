@@ -83,6 +83,38 @@ Add this to `~/.codeium/windsurf/mcp_config.json`:
 
 > **Note:** Windsurf uses `serverUrl` instead of `url` for HTTP servers. See the [Windsurf MCP docs](https://docs.windsurf.com/windsurf/cascade/mcp).
 
+### Codex (OpenAI)
+
+Codex uses TOML configuration in `~/.codex/config.toml`. You have two options:
+
+**Option 1: Direct token (simpler)**
+
+Add this to `~/.codex/config.toml`:
+
+```toml
+[mcp_servers.shippy]
+url = "https://shippy.sh/mcp"
+http_headers = { "Authorization" = "Bearer shp_YOUR_TOKEN" }
+```
+
+**Option 2: Environment variable (more secure)**
+
+Add this to `~/.codex/config.toml`:
+
+```toml
+[mcp_servers.shippy]
+url = "https://shippy.sh/mcp"
+bearer_token_env_var = "SHIPPY_MCP_TOKEN"
+```
+
+Then set the environment variable in your shell (add to `~/.zshrc` or `~/.bashrc`):
+
+```bash
+export SHIPPY_MCP_TOKEN="shp_YOUR_TOKEN"
+```
+
+> **Note:** See the [Codex MCP documentation](https://developers.openai.com/codex/mcp/) for more configuration options.
+
 ### Claude Desktop
 
 Claude Desktop only supports stdio-based MCP servers, so you'll need [mcp-remote](https://www.npmjs.com/package/mcp-remote) to connect to Shippy's HTTP endpoint.

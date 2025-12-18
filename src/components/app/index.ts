@@ -17,6 +17,7 @@ export {
 } from './app-card'
 export { AppButton, appButtonVariants } from './app-button'
 export { AppInput } from './app-input'
+export { AppTabs, type AppTab } from './app-tabs'
 export { AppTextarea } from './app-textarea'
 
 // Note: OpenGraphImage is NOT exported here to avoid bundling next/og in client components.

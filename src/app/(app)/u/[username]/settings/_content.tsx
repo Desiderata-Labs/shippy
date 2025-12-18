@@ -9,7 +9,7 @@ import { redirect, useParams, useRouter } from 'next/navigation'
 import { routes } from '@/lib/routes'
 import { cn } from '@/lib/utils'
 import { useDebounce } from '@/hooks/use-debounce'
-import { AppButton, AppInput } from '@/components/app'
+import { AppButton, AppInput, AppTab, AppTabs } from '@/components/app'
 import { AppBackground } from '@/components/layout/app-background'
 import { ConfirmModal } from '@/components/ui/confirm-modal'
 import { RelativeTime } from '@/components/ui/relative-time'
@@ -448,15 +448,43 @@ function ConnectedAccountsSection() {
   )
 }
 
-function CursorConfigBlock({ token }: { token: string }) {
+type IdeType = 'cursor' | 'windsurf'
+
+const IDE_TABS: AppTab<IdeType>[] = [
+  { value: 'cursor', label: 'Cursor' },
+  { value: 'windsurf', label: 'Windsurf' },
+]
+
+function McpInstallBlock({ token }: { token: string }) {
+  const [activeIde, setActiveIde] = useState<IdeType>('cursor')
   const [copied, setCopied] = useState(false)
   const baseUrl = process.env.NEXT_PUBLIC_APP_URL || 'https://shippy.sh'
+  const isDev = process.env.NODE_ENV === 'development'
+  const serverName = isDev ? 'shippy-localhost' : 'shippy'
 
-  const config = JSON.stringify(
+  // Cursor config (uses "url" for HTTP servers)
+  // See: https://cursor.com/docs/context/mcp/install-links
+  const cursorServerConfig = {
+    url: `${baseUrl}/api/mcp`,
+    headers: {
+      Authorization: `Bearer ${token}`,
+    },
+  }
+  const encodedConfig = btoa(JSON.stringify(cursorServerConfig))
+  const cursorInstallLink = `cursor://anysphere.cursor-deeplink/mcp/install?name=${serverName}&config=${encodedConfig}`
+  const cursorFullConfig = JSON.stringify(
+    { mcpServers: { [serverName]: cursorServerConfig } },
+    null,
+    2,
+  )
+
+  // Windsurf config (uses "serverUrl" for HTTP servers)
+  // See: https://docs.windsurf.com/windsurf/cascade/mcp
+  const windsurfConfig = JSON.stringify(
     {
       mcpServers: {
-        shippy: {
-          url: `${baseUrl}/api/mcp`,
+        [serverName]: {
+          serverUrl: `${baseUrl}/api/mcp`,
           headers: {
             Authorization: `Bearer ${token}`,
           },
@@ -467,7 +495,7 @@ function CursorConfigBlock({ token }: { token: string }) {
     2,
   )
 
-  const handleCopy = () => {
+  const handleCopy = (config: string) => {
     navigator.clipboard.writeText(config)
     setCopied(true)
     toast.success('Config copied!')
@@ -475,29 +503,92 @@ function CursorConfigBlock({ token }: { token: string }) {
   }
 
   return (
-    <details className="mt-3">
-      <summary className="cursor-pointer text-xs text-muted-foreground hover:text-foreground">
-        Show Cursor config
-      </summary>
-      <div className="relative mt-2">
-        <pre className="overflow-x-auto rounded-md bg-muted/50 p-3 pr-12 text-xs">
-          {config}
-        </pre>
-        <AppButton
-          type="button"
-          variant="ghost"
-          size="sm"
-          className="absolute top-2 right-2"
-          onClick={handleCopy}
-        >
-          {copied ? (
-            <Check className="size-3.5" />
-          ) : (
-            <Copy className="size-3.5" />
-          )}
-        </AppButton>
+    <div className="mt-3 space-y-3">
+      <AppTabs
+        tabs={IDE_TABS}
+        activeTab={activeIde}
+        onTabChange={setActiveIde}
+      />
+
+      <div className="pt-2">
+        {activeIde === 'cursor' && (
+          <div className="space-y-3">
+            {/* Primary: Install link */}
+            <a
+              href={cursorInstallLink}
+              className="inline-flex items-center gap-2 rounded-md bg-foreground px-3 py-2 text-sm font-medium text-background transition-opacity hover:opacity-90"
+            >
+              <svg className="size-4" viewBox="0 0 24 24" fill="currentColor">
+                <path d="M3 3l18 9-18 9V3z" />
+              </svg>
+              Add to Cursor
+            </a>
+
+            {/* Fallback: Manual config */}
+            <details>
+              <summary className="cursor-pointer text-xs text-muted-foreground hover:text-foreground">
+                Manual setup (if install link doesn&apos;t work)
+              </summary>
+              <div className="relative mt-2">
+                <p className="mb-2 text-xs text-muted-foreground">
+                  Add this to{' '}
+                  <code className="rounded-sm bg-muted px-1">
+                    ~/.cursor/mcp.json
+                  </code>
+                  :
+                </p>
+                <pre className="overflow-x-auto rounded-md bg-muted/50 p-3 pr-12 text-xs">
+                  {cursorFullConfig}
+                </pre>
+                <AppButton
+                  type="button"
+                  variant="ghost"
+                  size="sm"
+                  className="absolute top-8 right-2"
+                  onClick={() => handleCopy(cursorFullConfig)}
+                >
+                  {copied ? (
+                    <Check className="size-3.5" />
+                  ) : (
+                    <Copy className="size-3.5" />
+                  )}
+                </AppButton>
+              </div>
+            </details>
+          </div>
+        )}
+
+        {activeIde === 'windsurf' && (
+          <div className="space-y-2">
+            <p className="text-xs text-muted-foreground">
+              Add this to{' '}
+              <code className="rounded-sm bg-muted px-1">
+                ~/.codeium/windsurf/mcp_config.json
+              </code>
+              :
+            </p>
+            <div className="relative">
+              <pre className="overflow-x-auto rounded-md bg-muted/50 p-3 pr-12 text-xs">
+                {windsurfConfig}
+              </pre>
+              <AppButton
+                type="button"
+                variant="ghost"
+                size="sm"
+                className="absolute top-2 right-2"
+                onClick={() => handleCopy(windsurfConfig)}
+              >
+                {copied ? (
+                  <Check className="size-3.5" />
+                ) : (
+                  <Copy className="size-3.5" />
+                )}
+              </AppButton>
+            </div>
+          </div>
+        )}
       </div>
-    </details>
+    </div>
   )
 }
 
@@ -588,7 +679,7 @@ function McpTokensSection() {
               )}
             </AppButton>
           </div>
-          <CursorConfigBlock token={newlyCreatedToken} />
+          <McpInstallBlock token={newlyCreatedToken} />
           <AppButton
             type="button"
             variant="ghost"

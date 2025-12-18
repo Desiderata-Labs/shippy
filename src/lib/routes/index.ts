@@ -1,5 +1,5 @@
 import { authPaths, authRoutes } from './auth'
-import { companyPaths, companyRoutes } from './company'
+import { companyPaths, companyRoutes, docsPaths, docsRoutes } from './company'
 import { dashboardPaths, dashboardRoutes } from './dashboard'
 import { discoverPaths, discoverRoutes } from './discover'
 import { projectPaths, projectRoutes } from './project'
@@ -13,6 +13,8 @@ export const publicRoutes = [
   companyRoutes.terms(),
   companyRoutes.privacy(),
   companyRoutes.mediaKit(),
+  docsRoutes.root(),
+  docsRoutes.mcpInstallation(),
 ]
 
 // All application routes
@@ -22,6 +24,7 @@ export const routes = {
   company: companyRoutes,
   dashboard: dashboardRoutes,
   discover: discoverRoutes,
+  docs: docsRoutes,
   project: projectRoutes,
   user: userRoutes,
 } as const
@@ -33,6 +36,7 @@ export const paths = {
   company: companyPaths,
   dashboard: dashboardPaths,
   discover: discoverPaths,
+  docs: docsPaths,
   project: projectPaths,
   user: userPaths,
 } as const

@@ -215,6 +215,36 @@ const components: Partial<Components> = {
       {children}
     </span>
   ),
+  // Remove default prose quotation marks from blockquotes
+  blockquote: ({ children, ...props }) => (
+    <blockquote
+      className="border-l-4 border-muted-foreground/30 pl-4 text-muted-foreground italic [&>p]:before:content-none [&>p]:after:content-none"
+      {...props}
+    >
+      {children}
+    </blockquote>
+  ),
+  // Style inline code without backticks (prose adds them via ::before/::after)
+  code: ({ children, className, ...props }) => {
+    // Check if this is a code block (has language class) vs inline code
+    const isCodeBlock = className?.includes('language-')
+    if (isCodeBlock) {
+      return (
+        <code className={className} {...props}>
+          {children}
+        </code>
+      )
+    }
+    // Inline code - style nicely, remove prose backticks via before:/after:content-none
+    return (
+      <code
+        className="rounded-sm bg-muted px-1.5 py-0.5 font-mono text-[0.9em] text-foreground before:content-none after:content-none"
+        {...props}
+      >
+        {children}
+      </code>
+    )
+  },
   a: ({ children, href, ...props }) => (
     <a
       className="font-bold text-primary hover:underline"

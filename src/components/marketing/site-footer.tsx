@@ -13,6 +13,13 @@ const footerSections = [
     ],
   },
   {
+    heading: 'Resources',
+    links: [
+      { label: 'Documentation', href: routes.docs.root() },
+      { label: 'MCP Installation', href: routes.docs.mcpInstallation() },
+    ],
+  },
+  {
     heading: 'Company',
     links: [
       { label: 'Media Kit', href: routes.company.mediaKit() },
@@ -27,7 +34,7 @@ export function SiteFooter() {
     <footer className="border-t border-border bg-muted/30">
       <div className="mx-auto max-w-7xl px-6 pt-16 pb-8">
         {/* Main footer content */}
-        <div className="grid gap-12 md:grid-cols-4">
+        <div className="grid gap-12 md:grid-cols-5">
           {/* Brand column */}
           <div className="md:col-span-2">
             <Link

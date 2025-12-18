@@ -21,9 +21,10 @@ See `prds/shippy.md` for the complete product specification, including:
 - MVP vs Later phases (Section 10)
 - Risks, Legal & Trust considerations (Section 12)
 
-## Domain
+## URLs
 
-https://shippy.sh
+- Website: https://shippy.sh
+- GitHub: https://github.com/Desiderata-Labs/shippy
 
 ## Team
 

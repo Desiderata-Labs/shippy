@@ -55,6 +55,15 @@ Open [http://localhost:3050](http://localhost:3050)
 | `pnpm db:migrate:create --name <name>` | Create new migration     |
 | `pnpm db:migrate:deploy`               | Apply migrations         |
 
+## MCP Server
+
+Shippy provides an MCP (Model Context Protocol) server so AI assistants can interact with bounties directly from your IDE.
+
+- **Setup guide**: [shippy.sh/docs/mcp-installation](https://shippy.sh/docs/mcp-installation)
+- **Docs endpoint** (no auth required): `https://shippy.sh/api/mcp/docs`
+
+The docs MCP server provides `list_docs` and `read_doc` tools for AI assistants to reference Shippy documentation.
+
 ## Documentation
 
 Full product spec: [`prds/shippy.md`](./prds/shippy.md)

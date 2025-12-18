@@ -61,6 +61,21 @@ export function supportsMaxClaims(mode: BountyClaimMode): boolean {
 }
 
 /**
+ * Whether the same user can submit multiple times for this bounty.
+ * - SINGLE: No, one submission per bounty
+ * - COMPETITIVE: No, racing for first approval
+ * - MULTIPLE: Yes, each completion gets points (e.g., referrals)
+ * - PERFORMANCE: Yes, multiple results tracked
+ */
+export function allowsMultipleSubmissionsPerUser(
+  mode: BountyClaimMode,
+): boolean {
+  return (
+    mode === BountyClaimMode.MULTIPLE || mode === BountyClaimMode.PERFORMANCE
+  )
+}
+
+/**
  * Whether the bounty should reopen when all claims are released.
  * Only SINGLE mode bounties reopen automatically.
  */

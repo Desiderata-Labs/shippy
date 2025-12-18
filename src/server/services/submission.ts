@@ -1,4 +1,5 @@
 import {
+  allowsMultipleSubmissionsPerUser,
   shouldCompleteBountyOnApproval,
   shouldExpireOtherClaimsOnApproval,
 } from '@/lib/bounty/claim-modes'
@@ -401,20 +402,24 @@ export async function createSubmission({
     })
   }
 
-  // Check for existing non-rejected submission
-  const existingSubmission = await prisma.submission.findFirst({
-    where: {
-      bountyId,
-      userId,
-      status: { notIn: [SubmissionStatus.REJECTED] },
-    },
-  })
+  // Check for existing non-rejected submission (unless mode allows multiple per user)
+  if (!allowsMultipleSubmissionsPerUser(bounty.claimMode as BountyClaimMode)) {
+    const existingSubmission = await prisma.submission.findFirst({
+      where: {
+        bountyId,
+        userId,
+        status: {
+          notIn: [SubmissionStatus.REJECTED, SubmissionStatus.WITHDRAWN],
+        },
+      },
+    })
 
-  if (existingSubmission) {
-    return {
-      success: false,
-      code: 'ALREADY_SUBMITTED',
-      message: 'You already have a submission for this bounty',
+    if (existingSubmission) {
+      return {
+        success: false,
+        code: 'ALREADY_SUBMITTED',
+        message: 'You already have a submission for this bounty',
+      }
     }
   }
 

@@ -78,6 +78,7 @@ export function SubmissionEditor({
       router.push(
         routes.project.submissionDetail({
           slug,
+          bountyId: bountyId!,
           submissionId: newSubmission.id,
           title: bounty?.title,
         }),
@@ -95,6 +96,7 @@ export function SubmissionEditor({
       router.push(
         routes.project.submissionDetail({
           slug,
+          bountyId: submission?.bountyId ?? '',
           submissionId: submissionId!,
           title: submission?.bounty?.title,
         }),
@@ -283,6 +285,7 @@ export function SubmissionEditor({
           }),
           submissionHref: routes.project.submissionDetail({
             slug,
+            bountyId: submission?.bountyId ?? '',
             submissionId: submissionId!,
             title: submission?.bounty?.title,
           }),

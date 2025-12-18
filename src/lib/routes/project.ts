@@ -22,11 +22,16 @@ export interface BountyParams extends ProjectParams {
   bountyId: string
   /** Optional bounty title for SEO-friendly URLs */
   title?: string
+  /** Optional tab (details or submissions) */
+  tab?: 'details' | 'submissions'
+  /** Optional submission ID for deep linking in review queue */
+  selectedSubmissionId?: string
 }
 
 export type BountyEditParams = BountyParams
 
 export interface SubmissionParams extends ProjectParams {
+  bountyId: string
   submissionId: string
   /** Optional bounty title for SEO-friendly URLs */
   title?: string
@@ -59,7 +64,7 @@ export const projectPaths = {
   bountyDetail: '/p/[slug]/bounty/[bountyId]',
   bountyEdit: '/p/[slug]/bounty/[bountyId]/edit',
   bountySubmit: '/p/[slug]/bounty/[bountyId]/submit',
-  submissionDetail: '/p/[slug]/submission/[submissionId]',
+  // submissionDetail now redirects to bounty detail with submissions tab (no separate page)
   submissionEdit: '/p/[slug]/submission/[submissionId]/edit',
   submissions: '/p/[slug]/submissions',
   newPayout: '/p/[slug]/payouts/new',
@@ -77,14 +82,28 @@ export const projectRoutes = {
   settings: (params: ProjectParams) => `/p/${params.slug}/settings`,
   integrations: (params: ProjectParams) => `/p/${params.slug}/integrations`,
   newBounty: (params: ProjectParams) => `/p/${params.slug}/bounties/new`,
-  bountyDetail: (params: BountyParams) =>
-    `/p/${params.slug}/bounty/${createIdSlug(params.bountyId, params.title)}`,
+  bountyDetail: (params: BountyParams) => {
+    const base = `/p/${params.slug}/bounty/${createIdSlug(params.bountyId, params.title)}`
+    const queryParams: string[] = []
+
+    // 'details' is the default tab, so no query param needed
+    if (params.tab && params.tab !== 'details') {
+      queryParams.push(`tab=${params.tab}`)
+    }
+
+    // Add submission ID for deep linking to review queue
+    if (params.selectedSubmissionId) {
+      queryParams.push(`id=${params.selectedSubmissionId}`)
+    }
+
+    return queryParams.length > 0 ? `${base}?${queryParams.join('&')}` : base
+  },
   bountyEdit: (params: BountyEditParams) =>
     `/p/${params.slug}/bounty/${createIdSlug(params.bountyId, params.title)}/edit`,
   bountySubmit: (params: BountySubmitParams) =>
     `/p/${params.slug}/bounty/${createIdSlug(params.bountyId, params.title)}/submit`,
   submissionDetail: (params: SubmissionParams) =>
-    `/p/${params.slug}/submission/${createIdSlug(params.submissionId, params.title)}`,
+    `/p/${params.slug}/bounty/${createIdSlug(params.bountyId, params.title)}?tab=submissions&id=${params.submissionId}`,
   submissionEdit: (params: SubmissionEditParams) =>
     `/p/${params.slug}/submission/${createIdSlug(params.submissionId, params.title)}/edit`,
   submissions: (params: ProjectParams) => `/p/${params.slug}/submissions`,

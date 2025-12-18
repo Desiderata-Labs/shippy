@@ -114,6 +114,7 @@ export const bountyRouter = router({
             include: {
               founder: { select: { id: true, name: true, image: true } },
               rewardPool: true,
+              githubConnection: { select: { repoFullName: true } },
             },
           },
           labels: {
@@ -135,9 +136,11 @@ export const bountyRouter = router({
               user: {
                 select: { id: true, name: true, image: true, username: true },
               },
+              githubPRLink: true,
               _count: { select: { events: true } },
             },
           },
+          githubIssueLink: true,
           events: {
             orderBy: { createdAt: 'asc' },
             include: {

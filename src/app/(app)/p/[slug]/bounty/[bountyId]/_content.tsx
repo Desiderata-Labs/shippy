@@ -685,15 +685,19 @@ export function BountyDetailContent() {
                   </div>
                 )}
 
-                {/* Activity timeline (events + submissions interleaved) */}
+                {/* Activity timeline (events + submissions + github links interleaved) */}
                 <div className="space-y-4">
                   {(() => {
-                    // Create unified timeline of events and submissions
+                    // Create unified timeline of events, submissions, and github links
                     type TimelineItem =
                       | { type: 'event'; data: (typeof bounty.events)[0] }
                       | {
                           type: 'submission'
                           data: (typeof bounty.submissions)[0]
+                        }
+                      | {
+                          type: 'githubIssueLink'
+                          data: NonNullable<typeof bounty.githubIssueLink>
                         }
 
                     const timeline: TimelineItem[] = [
@@ -705,6 +709,15 @@ export function BountyDetailContent() {
                         type: 'submission' as const,
                         data: s,
                       })),
+                      // Add GitHub issue link if present
+                      ...(bounty.githubIssueLink
+                        ? [
+                            {
+                              type: 'githubIssueLink' as const,
+                              data: bounty.githubIssueLink,
+                            },
+                          ]
+                        : []),
                     ].sort(
                       (a, b) =>
                         new Date(a.data.createdAt).getTime() -
@@ -762,6 +775,43 @@ export function BountyDetailContent() {
                     }
 
                     return timeline.map((item) => {
+                      // GitHub issue link (bounty created from GitHub issue)
+                      if (item.type === 'githubIssueLink') {
+                        const issueLink = item.data
+                        return (
+                          <div
+                            key={`gh-issue-${issueLink.id}`}
+                            className="text-xs"
+                          >
+                            <div className="flex items-start gap-2">
+                              <Link03 className="mt-0.5 size-3.5 text-muted-foreground" />
+                              <div className="flex flex-wrap items-center gap-x-1.5 gap-y-0.5">
+                                <span className="text-muted-foreground">
+                                  Linked to GitHub issue
+                                </span>
+                                <a
+                                  href={`https://github.com/${bounty.project.githubConnection?.repoFullName}/issues/${issueLink.issueNumber}`}
+                                  target="_blank"
+                                  rel="noopener noreferrer"
+                                  className="text-primary hover:underline"
+                                >
+                                  #{issueLink.issueNumber}
+                                </a>
+                                <span className="text-muted-foreground">·</span>
+                                <span className="text-xs text-muted-foreground">
+                                  {new Date(
+                                    issueLink.createdAt,
+                                  ).toLocaleDateString('en-US', {
+                                    month: 'short',
+                                    day: 'numeric',
+                                  })}
+                                </span>
+                              </div>
+                            </div>
+                          </div>
+                        )
+                      }
+
                       if (item.type === 'submission') {
                         const submission = item.data
                         const status =
@@ -779,6 +829,21 @@ export function BountyDetailContent() {
                                 <span className="text-muted-foreground">
                                   submitted work
                                 </span>
+                                {submission.githubPRLink && (
+                                  <>
+                                    <span className="text-muted-foreground">
+                                      via
+                                    </span>
+                                    <a
+                                      href={submission.githubPRLink.prUrl}
+                                      target="_blank"
+                                      rel="noopener noreferrer"
+                                      className="text-primary hover:underline"
+                                    >
+                                      PR #{submission.githubPRLink.prNumber}
+                                    </a>
+                                  </>
+                                )}
                                 <span className={cn('text-xs', status.color)}>
                                   ({status.label})
                                 </span>

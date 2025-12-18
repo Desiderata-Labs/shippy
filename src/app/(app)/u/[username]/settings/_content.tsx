@@ -448,11 +448,12 @@ function ConnectedAccountsSection() {
   )
 }
 
-type IdeType = 'cursor' | 'windsurf' | 'codex'
+type IdeType = 'cursor' | 'windsurf' | 'claude-code' | 'codex'
 
 const IDE_TABS: AppTab<IdeType>[] = [
   { value: 'cursor', label: 'Cursor' },
   { value: 'windsurf', label: 'Windsurf' },
+  { value: 'claude-code', label: 'Claude Code' },
   { value: 'codex', label: 'Codex' },
 ]
 
@@ -601,6 +602,51 @@ export SHIPPY_MCP_TOKEN="${token}"`
                 )}
               </AppButton>
             </div>
+          </div>
+        )}
+
+        {activeIde === 'claude-code' && (
+          <div className="space-y-2">
+            <p className="text-xs text-muted-foreground">
+              Run this command in your terminal:
+            </p>
+            <div className="relative">
+              <pre className="overflow-x-auto rounded-md bg-muted/50 p-3 pr-12 text-xs">
+                {`claude mcp add --transport http ${serverName} ${baseUrl}/mcp \\
+  --header "Authorization: Bearer ${token}"`}
+              </pre>
+              <AppButton
+                type="button"
+                variant="ghost"
+                size="sm"
+                className="absolute top-2 right-2"
+                onClick={() =>
+                  handleCopy(
+                    `claude mcp add --transport http ${serverName} ${baseUrl}/mcp --header "Authorization: Bearer ${token}"`,
+                    'claude-code',
+                  )
+                }
+              >
+                {copied === 'claude-code' ? (
+                  <Check className="size-3.5" />
+                ) : (
+                  <Copy className="size-3.5" />
+                )}
+              </AppButton>
+            </div>
+            <p className="text-xs text-muted-foreground">
+              This adds Shippy as an MCP server to your Claude Code
+              configuration. See the{' '}
+              <a
+                href="https://code.claude.com/docs/en/mcp"
+                target="_blank"
+                rel="noopener noreferrer"
+                className="text-primary hover:underline"
+              >
+                Claude Code MCP docs
+              </a>{' '}
+              for more details.
+            </p>
           </div>
         )}
 

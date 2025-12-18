@@ -148,16 +148,6 @@ export function BountiesTab({
           },
         ]
       : []),
-    ...(completedBounties.length > 0
-      ? [
-          {
-            key: 'completed',
-            label: 'Completed',
-            icon: <CheckCircle className={sectionIconClass} />,
-            bounties: sortByCreatedDesc(completedBounties),
-          },
-        ]
-      : []),
     ...(backlogBounties.length > 0
       ? [
           {
@@ -165,6 +155,16 @@ export function BountiesTab({
             label: 'Backlog',
             icon: <Contrast01 className="size-4 text-muted-foreground/50" />,
             bounties: sortByCreatedDesc(backlogBounties),
+          },
+        ]
+      : []),
+    ...(completedBounties.length > 0
+      ? [
+          {
+            key: 'completed',
+            label: 'Completed',
+            icon: <CheckCircle className={sectionIconClass} />,
+            bounties: sortByCreatedDesc(completedBounties),
           },
         ]
       : []),

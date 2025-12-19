@@ -32,6 +32,7 @@ import {
   submissionStatusColors,
   submissionStatusLabels,
 } from '@/lib/status-colors'
+import { UploadFolder } from '@/lib/uploads/folders'
 import { cn } from '@/lib/utils'
 import { AppButton, AppInput, AppTextarea } from '@/components/app'
 import { AttachmentList } from '@/components/attachments/attachment-list'
@@ -976,6 +977,8 @@ function SubmissionDetail({ submissionId, isFounder }: SubmissionDetailProps) {
                           isLoading={isUpdatingComment}
                           isEditing
                           placeholder="Edit your comment..."
+                          enableUploads
+                          uploadFolder={UploadFolder.SUBMISSIONS}
                         />
                       </div>
                     ) : (
@@ -1025,6 +1028,8 @@ function SubmissionDetail({ submissionId, isFounder }: SubmissionDetailProps) {
               onSubmit={handleSendComment}
               isLoading={isSending && !showReviewPopover}
               placeholder="Add a comment..."
+              enableUploads
+              uploadFolder={UploadFolder.SUBMISSIONS}
             />
           </div>
         )}

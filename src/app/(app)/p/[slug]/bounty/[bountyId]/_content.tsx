@@ -51,6 +51,7 @@ import {
   submissionStatusColors,
   submissionStatusLabels,
 } from '@/lib/status-colors'
+import { UploadFolder } from '@/lib/uploads/folders'
 import { cn } from '@/lib/utils'
 import { AppButton } from '@/components/app'
 import { AttachmentList } from '@/components/attachments/attachment-list'
@@ -1020,6 +1021,8 @@ export function BountyDetailContent() {
                                   isLoading={isUpdatingComment}
                                   isEditing
                                   placeholder="Edit your comment..."
+                                  enableUploads
+                                  uploadFolder={UploadFolder.BOUNTIES}
                                 />
                               </div>
                             ) : (
@@ -1078,6 +1081,8 @@ export function BountyDetailContent() {
                       onChange={setNewComment}
                       onSubmit={handlePostComment}
                       isLoading={isPostingComment}
+                      enableUploads
+                      uploadFolder={UploadFolder.BOUNTIES}
                     />
                   ) : (
                     <div className="rounded-lg border border-border px-4 py-3 text-center">

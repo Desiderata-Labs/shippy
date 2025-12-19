@@ -70,18 +70,32 @@ type MarkdownViewerProps = {
   maxHeightToReadMore?: number
 }
 
+// Domains that Next.js can optimize (configured in next.config.ts)
+const OPTIMIZABLE_DOMAINS = ['localhost.shippy.sh', 'assets.shippy.sh']
+
+function isOptimizableSrc(src: string): boolean {
+  try {
+    const url = new URL(src)
+    return OPTIMIZABLE_DOMAINS.some((domain) => url.hostname === domain)
+  } catch {
+    return false
+  }
+}
+
 const components: Partial<Components> = {
   img({ src, alt }) {
     if (!src || typeof src !== 'string') return null
+    const canOptimize = isOptimizableSrc(src)
     return (
       <span className="flex justify-center">
         <Image
           src={src}
           alt={alt ?? ''}
-          width={400}
-          height={300}
+          width={800}
+          height={600}
           className="h-auto max-w-full rounded-lg"
-          unoptimized
+          unoptimized={!canOptimize}
+          sizes="(max-width: 768px) 100vw, 800px"
         />
       </span>
     )

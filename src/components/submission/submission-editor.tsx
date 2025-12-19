@@ -11,6 +11,7 @@ import { redirect } from 'next/navigation'
 import { AttachmentReferenceType, ClaimStatus } from '@/lib/db/types'
 import { generateNanoId } from '@/lib/nanoid/client'
 import { routes } from '@/lib/routes'
+import { UploadFolder } from '@/lib/uploads/folders'
 import { AppButton } from '@/components/app'
 import { AttachmentUpload } from '@/components/attachments/attachment-upload'
 import { AppBackground } from '@/components/layout/app-background'
@@ -366,10 +367,20 @@ export function SubmissionEditor({
                 <MarkdownEditor
                   value={description}
                   onChange={setDescription}
-                  placeholder="Describe what you did, how it meets the requirements, and include any relevant links or notes..."
+                  placeholder="Describe what you did, how it meets the requirements, and include any relevant links or notes... (drag & drop images here)"
                   disabled={isLoading}
                   minHeight="280px"
                   contentClassName="text-sm"
+                  enableUploads
+                  uploadFolder={UploadFolder.SUBMISSIONS}
+                  uploadConfig={{
+                    referenceType:
+                      mode === 'create'
+                        ? AttachmentReferenceType.PENDING_SUBMISSION
+                        : AttachmentReferenceType.SUBMISSION,
+                    referenceId: entityId,
+                    bountyId: bountyId ?? submission?.bountyId,
+                  }}
                 />
               </div>
 

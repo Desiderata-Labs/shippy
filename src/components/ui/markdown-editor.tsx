@@ -18,6 +18,10 @@ import { LINK_MATCHERS } from '@/lib/lexical/auto-link-config'
 import { ClickableLinkPlugin } from '@/lib/lexical/clickable-link-plugin'
 import { editorTheme } from '@/lib/lexical/editor-theme'
 import {
+  FileDropPlugin,
+  type UploadConfig,
+} from '@/lib/lexical/file-drop-plugin'
+import {
   $convertFromMarkdownString,
   $convertToMarkdownString,
   markdownTransformers,
@@ -25,6 +29,7 @@ import {
 import { MentionNode } from '@/lib/lexical/mention-node'
 import { MentionPlugin } from '@/lib/lexical/mention-plugin'
 import { SyncPlugin } from '@/lib/lexical/sync-plugin'
+import { UploadFolder } from '@/lib/uploads/folders'
 import { cn } from '@/lib/utils'
 import { FloatingToolbar } from '@/components/ui/floating-toolbar'
 import { CodeHighlightNode, CodeNode } from '@lexical/code'
@@ -51,6 +56,12 @@ interface MarkdownEditorProps {
   hideMarkdownHint?: boolean
   /** Enable @mention autocomplete */
   enableMentions?: boolean
+  /** Enable drag-drop/paste file uploads (inserts markdown image/link syntax) */
+  enableUploads?: boolean
+  /** Folder to upload files to (required if enableUploads is true) */
+  uploadFolder?: UploadFolder
+  /** Optional config for creating attachment records in the database */
+  uploadConfig?: UploadConfig
 }
 
 export function MarkdownEditor({
@@ -65,6 +76,9 @@ export function MarkdownEditor({
   maxHeight = '50vh',
   hideMarkdownHint = false,
   enableMentions = false,
+  enableUploads = false,
+  uploadFolder,
+  uploadConfig,
 }: MarkdownEditorProps) {
   const initialValueRef = useRef(value)
 
@@ -120,7 +134,7 @@ export function MarkdownEditor({
 
   return (
     <LexicalComposer initialConfig={initialConfig}>
-      <div className={cn('relative', className)}>
+      <div className={cn('relative', className)} data-lexical-editor-container>
         <RichTextPlugin
           contentEditable={
             <ContentEditable
@@ -152,6 +166,12 @@ export function MarkdownEditor({
         <ClickableLinkPlugin />
         <FloatingToolbar />
         {enableMentions && <MentionPlugin />}
+        {enableUploads && uploadFolder && (
+          <FileDropPlugin
+            uploadFolder={uploadFolder}
+            uploadConfig={uploadConfig}
+          />
+        )}
         <MarkdownShortcutPlugin transformers={markdownTransformers} />
         <OnChangePlugin onChange={handleChange} ignoreSelectionChange />
         <SyncPlugin value={value} initialValueRef={initialValueRef} />

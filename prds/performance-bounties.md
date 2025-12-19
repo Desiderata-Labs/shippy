@@ -1,5 +1,7 @@
 # Performance Bounties PRD
 
+> **⚠️ On Hold**: The use cases here (referrals, leads, conversions) are being implemented via `prds/reward-codes.md` using MULTIPLE mode + external API. A separate PERFORMANCE mode may not be needed—revisit after reward codes ship.
+
 ## Overview
 
 A new claim mode where contributors earn points per verified result, not per task completion. Enables referral programs, lead generation, sales commissions, and other performance-based incentives.

@@ -1,5 +1,7 @@
 # Referral Bounties PRD
 
+> **⚠️ Superseded**: This PRD has been replaced by `prds/reward-codes.md`, which implements a simpler approach using MULTIPLE mode + external API instead of a separate PERFORMANCE mode.
+
 ## Overview
 
 Referral tracking for PERFORMANCE bounties. Contributors get unique referral links, earn points per verified signup.

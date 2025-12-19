@@ -4,13 +4,15 @@ import { useSession } from '@/lib/auth/react'
 import { trpc } from '@/lib/trpc/react'
 import { FileCheck03 } from '@untitled-ui/icons-react'
 import { Loader2 } from 'lucide-react'
-import { useState } from 'react'
+import { useMemo, useState } from 'react'
 import Link from 'next/link'
 import { useRouter } from 'next/navigation'
 import { redirect } from 'next/navigation'
-import { ClaimStatus } from '@/lib/db/types'
+import { AttachmentReferenceType, ClaimStatus } from '@/lib/db/types'
+import { generateNanoId } from '@/lib/nanoid/client'
 import { routes } from '@/lib/routes'
 import { AppButton } from '@/components/app'
+import { AttachmentUpload } from '@/components/attachments/attachment-upload'
 import { AppBackground } from '@/components/layout/app-background'
 import { ErrorState } from '@/components/ui/error-state'
 import { Markdown } from '@/components/ui/markdown'
@@ -38,6 +40,13 @@ export function SubmissionEditor({
   const [description, setDescription] = useState('')
   // Track previous submission to detect when we need to reinitialize
   const [prevSubmissionId, setPrevSubmissionId] = useState<string | null>(null)
+
+  // Generate a stable ID for new submissions (used for pending attachments)
+  // In edit mode, use the existing submissionId
+  const entityId = useMemo(
+    () => (mode === 'create' ? generateNanoId() : submissionId!),
+    [mode, submissionId],
+  )
 
   // Fetch bounty data for create mode (for acceptance criteria)
   const {
@@ -245,6 +254,7 @@ export function SubmissionEditor({
 
     if (mode === 'create') {
       await createSubmission.mutateAsync({
+        id: entityId, // Pre-generated ID for attachment association
         bountyId: bountyId!,
         description,
       })
@@ -360,6 +370,22 @@ export function SubmissionEditor({
                   disabled={isLoading}
                   minHeight="280px"
                   contentClassName="text-sm"
+                />
+              </div>
+
+              {/* Attachments */}
+              <Separator />
+              <div className="space-y-2 px-4 py-3">
+                <label className="block text-sm font-medium">Attachments</label>
+                <AttachmentUpload
+                  referenceType={
+                    mode === 'create'
+                      ? AttachmentReferenceType.PENDING_SUBMISSION
+                      : AttachmentReferenceType.SUBMISSION
+                  }
+                  referenceId={entityId}
+                  bountyId={bountyId ?? submission?.bountyId}
+                  disabled={isLoading}
                 />
               </div>
             </div>

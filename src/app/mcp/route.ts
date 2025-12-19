@@ -1,5 +1,6 @@
 import { prisma } from '@/lib/db/server'
 import {
+  AttachmentReferenceType,
   BountyClaimMode,
   BountyStatus,
   ClaimStatus,
@@ -7,7 +8,15 @@ import {
 } from '@/lib/db/types'
 import { extractBearerToken, verifyMcpToken } from '@/lib/mcp-token/server'
 import { toMarkdown } from '@/lib/mcp/to-markdown'
+import { generateNanoId } from '@/lib/nanoid/server'
 import { routes } from '@/lib/routes'
+import { UploadFolder } from '@/lib/uploads/folders'
+import { getSignedUrl } from '@/lib/uploads/r2'
+import {
+  createAttachment,
+  deleteAttachment,
+  listAttachments,
+} from '@/server/services/attachment'
 import {
   claimBounty,
   closeBounty,
@@ -1218,7 +1227,17 @@ server.registerTool(
       content: [
         {
           type: 'text' as const,
-          text: `Successfully claimed bounty "${identifier}". Your claim expires on ${result.claim.expiresAt.toISOString().split('T')[0]}. Submit your work before then!`,
+          text: `Successfully claimed bounty "${identifier}". Your claim expires on ${result.claim.expiresAt.toISOString().split('T')[0]}.
+
+## Next Steps to Submit Work
+
+1. If you need to attach files (screenshots, etc.):
+   a. Call \`generate_nanoid\` to get a submission ID
+   b. Call \`get_attachment_upload_url\` with referenceType="PENDING_SUBMISSION", the generated ID, and bountyId="${bountyId}"
+   c. Upload your file via HTTP PUT to the signedUrl
+   d. Call \`create_attachment\` to register it
+
+2. Call \`create_submission\` with your work description (and the generated ID if you uploaded attachments)`,
         },
       ],
     }
@@ -1549,9 +1568,15 @@ server.registerTool(
         .describe(
           'Description of your work and evidence of completion (markdown supported)',
         ),
+      id: z
+        .string()
+        .optional()
+        .describe(
+          'Optional pre-generated ID from generate_nanoid. Required if you uploaded attachments with PENDING_SUBMISSION.',
+        ),
     },
   },
-  async ({ identifier, description }, extra) => {
+  async ({ identifier, description, id }, extra) => {
     const authInfo = extra.authInfo
     if (!authInfo?.clientId) {
       return {
@@ -1615,6 +1640,7 @@ server.registerTool(
       userId,
       description,
       isDraft: false, // MCP submissions are always submitted immediately
+      id, // Pre-generated ID for attachment association
     })
 
     if (!result.success) {
@@ -1825,6 +1851,438 @@ server.registerTool(
           type: 'text' as const,
           text: toMarkdown(formatted, { namespace: 'my_submissions' }),
         },
+      ],
+    }
+  },
+)
+
+// ================================
+// Utility Tools
+// ================================
+
+server.registerTool(
+  'generate_nanoid',
+  {
+    description:
+      'Generate a unique ID for use when creating entities with attachments. Use this to get a submission or bounty ID before the entity exists, so you can upload attachments first.',
+    inputSchema: {},
+  },
+  async () => {
+    const id = generateNanoId()
+    return {
+      content: [
+        {
+          type: 'text' as const,
+          text: `Generated ID: ${id}
+
+Use this ID as the \`referenceId\` when uploading attachments via \`get_attachment_upload_url\` and \`create_attachment\`, then pass it as the \`id\` parameter when calling \`create_submission\` or \`create_bounty\`.`,
+        },
+      ],
+    }
+  },
+)
+
+// ================================
+// Attachment Tools
+// ================================
+
+server.registerTool(
+  'get_attachment_upload_url',
+  {
+    description:
+      'Get a signed URL to upload an attachment to a bounty or submission. Upload your file via HTTP PUT to the returned signedUrl, then call create_attachment to register it.',
+    inputSchema: {
+      referenceType: z
+        .enum(['BOUNTY', 'SUBMISSION', 'PENDING_BOUNTY', 'PENDING_SUBMISSION'])
+        .describe(
+          'Type of entity to attach to. Use PENDING_BOUNTY or PENDING_SUBMISSION when uploading before the entity is created.',
+        ),
+      referenceId: z
+        .string()
+        .describe(
+          'ID of the bounty/submission (or pre-generated ID for pending)',
+        ),
+      fileName: z.string().describe('Original filename with extension'),
+      contentType: z
+        .string()
+        .optional()
+        .describe('MIME type of the file (e.g., "image/png")'),
+      bountyId: z
+        .string()
+        .optional()
+        .describe(
+          'Required for PENDING_SUBMISSION: the bounty ID you are submitting to. Used to verify you have an active claim.',
+        ),
+      projectId: z
+        .string()
+        .optional()
+        .describe(
+          'Required for PENDING_BOUNTY: the project ID. Used to verify you are the founder.',
+        ),
+    },
+  },
+  async (
+    { referenceType, referenceId, fileName, contentType, bountyId, projectId },
+    extra,
+  ) => {
+    const authInfo = extra.authInfo
+    if (!authInfo?.clientId) {
+      return {
+        content: [
+          {
+            type: 'text' as const,
+            text: 'Authentication required. Generate a token in your Shippy user profile settings.',
+          },
+        ],
+      }
+    }
+
+    // Map reference type to upload folder
+    const folder =
+      referenceType === 'BOUNTY' || referenceType === 'PENDING_BOUNTY'
+        ? UploadFolder.BOUNTIES
+        : UploadFolder.SUBMISSIONS
+
+    // Permission checks
+    if (referenceType === 'BOUNTY') {
+      const bounty = await prisma.bounty.findUnique({
+        where: { id: referenceId },
+        include: { project: { select: { founderId: true } } },
+      })
+      if (!bounty) {
+        return {
+          content: [{ type: 'text' as const, text: 'Bounty not found.' }],
+        }
+      }
+      if (bounty.project.founderId !== authInfo.clientId) {
+        return {
+          content: [
+            {
+              type: 'text' as const,
+              text: 'Only the project founder can add attachments to bounties.',
+            },
+          ],
+        }
+      }
+    } else if (referenceType === 'SUBMISSION') {
+      const submission = await prisma.submission.findUnique({
+        where: { id: referenceId },
+        include: {
+          bounty: { include: { project: { select: { founderId: true } } } },
+        },
+      })
+      if (!submission) {
+        return {
+          content: [{ type: 'text' as const, text: 'Submission not found.' }],
+        }
+      }
+      const isSubmitter = submission.userId === authInfo.clientId
+      const isFounder =
+        submission.bounty.project.founderId === authInfo.clientId
+      if (!isSubmitter && !isFounder) {
+        return {
+          content: [
+            {
+              type: 'text' as const,
+              text: 'Only the submitter or founder can add attachments to submissions.',
+            },
+          ],
+        }
+      }
+    } else if (referenceType === 'PENDING_SUBMISSION') {
+      // Validate user has an active claim on the bounty
+      if (!bountyId) {
+        return {
+          content: [
+            {
+              type: 'text' as const,
+              text: 'bountyId is required for PENDING_SUBMISSION attachments.',
+            },
+          ],
+        }
+      }
+      const claim = await prisma.bountyClaim.findFirst({
+        where: {
+          bountyId,
+          userId: authInfo.clientId,
+          status: ClaimStatus.ACTIVE,
+        },
+      })
+      if (!claim) {
+        return {
+          content: [
+            {
+              type: 'text' as const,
+              text: 'You must have an active claim on this bounty to upload submission attachments.',
+            },
+          ],
+        }
+      }
+    } else if (referenceType === 'PENDING_BOUNTY') {
+      // Validate user is the project founder
+      if (!projectId) {
+        return {
+          content: [
+            {
+              type: 'text' as const,
+              text: 'projectId is required for PENDING_BOUNTY attachments.',
+            },
+          ],
+        }
+      }
+      const project = await prisma.project.findUnique({
+        where: { id: projectId },
+        select: { founderId: true },
+      })
+      if (!project) {
+        return {
+          content: [{ type: 'text' as const, text: 'Project not found.' }],
+        }
+      }
+      if (project.founderId !== authInfo.clientId) {
+        return {
+          content: [
+            {
+              type: 'text' as const,
+              text: 'Only the project founder can add attachments to bounties.',
+            },
+          ],
+        }
+      }
+    }
+
+    const result = await getSignedUrl({
+      fileName,
+      folder,
+      contentType,
+    })
+
+    return {
+      content: [
+        {
+          type: 'text' as const,
+          text: `## Upload URL Generated
+
+- **signedUrl**: ${result.signedUrl}
+- **publicUrl**: ${result.publicUrl}
+- **fileKey**: ${result.key}
+- **expiresIn**: 1 hour
+
+## Next Steps
+
+1. **Upload your file** via HTTP PUT to the signedUrl:
+   \`\`\`
+   PUT ${result.signedUrl}
+   Content-Type: <your-file-content-type>
+   Body: <file-bytes>
+   \`\`\`
+
+2. **Register the attachment** by calling \`create_attachment\` with:
+   - referenceType, referenceId (same as this call)
+   - fileName, fileSize, contentType (your file info)
+   - fileUrl: "${result.publicUrl}"
+   - fileKey: "${result.key}"
+   - bountyId/projectId (same as this call, if applicable)
+
+3. **Create your submission/bounty** with the same referenceId as the \`id\` parameter`,
+        },
+      ],
+    }
+  },
+)
+
+server.registerTool(
+  'create_attachment',
+  {
+    description:
+      'Register an attachment after uploading to the signed URL. Call this after successfully uploading to the signedUrl from get_attachment_upload_url.',
+    inputSchema: {
+      referenceType: z
+        .enum(['BOUNTY', 'SUBMISSION', 'PENDING_BOUNTY', 'PENDING_SUBMISSION'])
+        .describe('Type of entity this attachment belongs to'),
+      referenceId: z.string().describe('ID of the bounty/submission'),
+      fileName: z.string().describe('Original filename'),
+      fileUrl: z
+        .string()
+        .url()
+        .describe('The publicUrl from get_attachment_upload_url'),
+      fileKey: z
+        .string()
+        .describe('The fileKey from get_attachment_upload_url'),
+      fileSize: z.number().int().min(0).describe('File size in bytes'),
+      contentType: z.string().describe('MIME type of the file'),
+      bountyId: z
+        .string()
+        .optional()
+        .describe(
+          'Required for PENDING_SUBMISSION: the bounty ID you are submitting to.',
+        ),
+      projectId: z
+        .string()
+        .optional()
+        .describe('Required for PENDING_BOUNTY: the project ID.'),
+    },
+  },
+  async (
+    {
+      referenceType,
+      referenceId,
+      fileName,
+      fileUrl,
+      fileKey,
+      fileSize,
+      contentType,
+      bountyId,
+      projectId,
+    },
+    extra,
+  ) => {
+    const authInfo = extra.authInfo
+    if (!authInfo?.clientId) {
+      return {
+        content: [
+          {
+            type: 'text' as const,
+            text: 'Authentication required. Generate a token in your Shippy user profile settings.',
+          },
+        ],
+      }
+    }
+
+    const result = await createAttachment({
+      prisma,
+      userId: authInfo.clientId,
+      referenceType: referenceType as AttachmentReferenceType,
+      referenceId,
+      fileName,
+      fileUrl,
+      fileKey,
+      fileSize,
+      contentType,
+      bountyId,
+      projectId,
+    })
+
+    if (!result.success) {
+      return {
+        content: [{ type: 'text' as const, text: `Error: ${result.message}` }],
+        isError: true,
+      }
+    }
+
+    // Build next steps based on reference type
+    let nextSteps = ''
+    if (referenceType === 'PENDING_SUBMISSION') {
+      nextSteps = `\n\n## Next Step\nCall \`create_submission\` with id="${referenceId}" to create your submission with this attachment.`
+    } else if (referenceType === 'PENDING_BOUNTY') {
+      nextSteps = `\n\n## Next Step\nCall \`create_bounty\` with id="${referenceId}" to create your bounty with this attachment.`
+    }
+
+    return {
+      content: [
+        {
+          type: 'text' as const,
+          text: `Successfully registered attachment "${fileName}" (${result.attachment.id})${nextSteps}`,
+        },
+      ],
+    }
+  },
+)
+
+server.registerTool(
+  'list_attachments',
+  {
+    description: 'List attachments for a bounty or submission',
+    inputSchema: {
+      referenceType: z
+        .enum(['BOUNTY', 'SUBMISSION'])
+        .describe('Type of entity to list attachments for'),
+      referenceId: z.string().describe('ID of the bounty or submission'),
+    },
+  },
+  async ({ referenceType, referenceId }, extra) => {
+    const userId = extra.authInfo?.clientId
+
+    const attachments = await listAttachments({
+      prisma,
+      referenceType: referenceType as AttachmentReferenceType,
+      referenceId,
+      userId,
+    })
+
+    if (attachments.length === 0) {
+      return {
+        content: [{ type: 'text' as const, text: 'No attachments found.' }],
+      }
+    }
+
+    const formatted = attachments.map((a) => ({
+      id: a.id,
+      fileName: a.fileName,
+      fileUrl: a.fileUrl,
+      fileSize: a.fileSize,
+      contentType: a.contentType,
+      createdAt: a.createdAt.toISOString(),
+    }))
+
+    return {
+      content: [
+        {
+          type: 'text' as const,
+          text: toMarkdown(formatted, { namespace: 'attachments' }),
+        },
+      ],
+    }
+  },
+)
+
+server.registerTool(
+  'delete_attachment',
+  {
+    description:
+      'Delete an attachment from a bounty or submission (requires appropriate permissions)',
+    inputSchema: {
+      attachmentId: z.string().describe('ID of the attachment to delete'),
+    },
+  },
+  async ({ attachmentId }, extra) => {
+    const authInfo = extra.authInfo
+    if (!authInfo?.clientId) {
+      return {
+        content: [
+          {
+            type: 'text' as const,
+            text: 'Authentication required. Generate a token in your Shippy user profile settings.',
+          },
+        ],
+      }
+    }
+
+    const result = await deleteAttachment({
+      prisma,
+      userId: authInfo.clientId,
+      attachmentId,
+    })
+
+    if (!result.success) {
+      const errorMessages: Record<string, string> = {
+        NOT_FOUND: 'Attachment not found.',
+        FORBIDDEN: 'You do not have permission to delete this attachment.',
+      }
+      return {
+        content: [
+          {
+            type: 'text' as const,
+            text: errorMessages[result.code] ?? result.message,
+          },
+        ],
+        isError: true,
+      }
+    }
+
+    return {
+      content: [
+        { type: 'text' as const, text: 'Successfully deleted attachment.' },
       ],
     }
   },

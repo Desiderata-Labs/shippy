@@ -1,3 +1,4 @@
+import { attachmentRouter } from './attachment'
 import { bountyRouter } from './bounty'
 import { contributorRouter } from './contributor'
 import { labelRouter } from './label'
@@ -11,6 +12,7 @@ import { userRouter } from './user'
 import { router } from '@/server/trpc'
 
 export const appRouter = router({
+  attachment: attachmentRouter,
   project: projectRouter,
   bounty: bountyRouter,
   label: labelRouter,

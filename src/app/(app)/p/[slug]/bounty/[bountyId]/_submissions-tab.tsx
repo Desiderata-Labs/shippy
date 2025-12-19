@@ -23,13 +23,18 @@ import {
 import { Loader2 } from 'lucide-react'
 import { useCallback, useEffect, useState } from 'react'
 import { usePathname, useRouter, useSearchParams } from 'next/navigation'
-import { SubmissionEventType, SubmissionStatus } from '@/lib/db/types'
+import {
+  AttachmentReferenceType,
+  SubmissionEventType,
+  SubmissionStatus,
+} from '@/lib/db/types'
 import {
   submissionStatusColors,
   submissionStatusLabels,
 } from '@/lib/status-colors'
 import { cn } from '@/lib/utils'
 import { AppButton, AppInput, AppTextarea } from '@/components/app'
+import { AttachmentList } from '@/components/attachments/attachment-list'
 import { CommentInput } from '@/components/comments'
 import { SubmissionModal } from '@/components/submission/submission-modal'
 import { Avatar, AvatarFallback, AvatarImage } from '@/components/ui/avatar'
@@ -854,6 +859,14 @@ function SubmissionDetail({ submissionId, isFounder }: SubmissionDetailProps) {
       <div className="p-4">
         {/* Submission description */}
         <Markdown markdown={submission.description} proseSize="sm" />
+
+        {/* Attachments */}
+        <div className="mt-4">
+          <AttachmentList
+            referenceType={AttachmentReferenceType.SUBMISSION}
+            referenceId={submission.id}
+          />
+        </div>
 
         {/* Activity timeline */}
         {sortedEvents.length > 0 && (

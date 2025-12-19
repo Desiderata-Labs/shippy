@@ -4,6 +4,7 @@ import {
 } from '@/lib/bounty/claim-modes'
 import { prisma as globalPrisma } from '@/lib/db/server'
 import {
+  AttachmentReferenceType,
   BountyClaimMode,
   BountyEventType,
   BountyStatus,
@@ -317,6 +318,8 @@ export interface CreateBountyParams {
   prisma: PrismaClientOrTx
   projectId: string
   userId: string // User attempting to create (for auth check)
+  /** Optional pre-generated ID (for associating attachments uploaded before creation) */
+  id?: string
   title: string
   description: string
   points: number | null
@@ -375,6 +378,7 @@ export async function createBounty({
   prisma,
   projectId,
   userId,
+  id,
   title,
   description,
   points,
@@ -426,6 +430,7 @@ export async function createBounty({
 
   const bounty = await prisma.bounty.create({
     data: {
+      ...(id && { id }), // Use pre-generated ID if provided
       projectId,
       number: bountyNumber,
       title,
@@ -447,6 +452,20 @@ export async function createBounty({
       }),
     },
   })
+
+  // Associate any pending attachments with this bounty
+  if (id) {
+    await prisma.attachment.updateMany({
+      where: {
+        referenceType: AttachmentReferenceType.PENDING_BOUNTY,
+        referenceId: id,
+        userId, // Only associate attachments uploaded by this user
+      },
+      data: {
+        referenceType: AttachmentReferenceType.BOUNTY,
+      },
+    })
+  }
 
   // Add labels if provided
   if (labelIds.length > 0) {

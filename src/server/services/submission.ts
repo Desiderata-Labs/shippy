@@ -5,6 +5,7 @@ import {
 } from '@/lib/bounty/claim-modes'
 import { prisma as globalPrisma } from '@/lib/db/server'
 import {
+  AttachmentReferenceType,
   BountyClaimMode,
   BountyStatus,
   ClaimStatus,
@@ -467,6 +468,8 @@ export interface CreateSubmissionParams {
   prisma: PrismaClientOrTx
   bountyId: string
   userId: string
+  /** Optional pre-generated ID (for associating attachments uploaded before creation) */
+  id?: string
   description: string
   isDraft?: boolean
   /** GitHub PR link data (optional) */
@@ -505,6 +508,7 @@ export async function createSubmission({
   prisma,
   bountyId,
   userId,
+  id,
   description,
   isDraft = false,
   githubPRLink,
@@ -577,6 +581,7 @@ export async function createSubmission({
   // Create submission
   const submission = await prisma.submission.create({
     data: {
+      ...(id && { id }), // Use pre-generated ID if provided
       bountyId,
       userId,
       description,
@@ -593,6 +598,20 @@ export async function createSubmission({
       }),
     },
   })
+
+  // Associate any pending attachments with this submission
+  if (id) {
+    await prisma.attachment.updateMany({
+      where: {
+        referenceType: AttachmentReferenceType.PENDING_SUBMISSION,
+        referenceId: id,
+        userId, // Only associate attachments uploaded by this user
+      },
+      data: {
+        referenceType: AttachmentReferenceType.SUBMISSION,
+      },
+    })
+  }
 
   // Update claim status to SUBMITTED (if we have a claim)
   if (claim) {

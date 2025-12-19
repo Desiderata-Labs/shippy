@@ -1,5 +1,9 @@
 import { generateNanoId } from '@/lib/nanoid/server'
-import { PutObjectCommand, S3Client } from '@aws-sdk/client-s3'
+import {
+  DeleteObjectCommand,
+  PutObjectCommand,
+  S3Client,
+} from '@aws-sdk/client-s3'
 import { getSignedUrl as awsGetSignedUrl } from '@aws-sdk/s3-request-presigner'
 import mime from 'mime-types'
 import 'server-only'
@@ -59,4 +63,16 @@ export async function getSignedUrl({
     key: Key,
     publicUrl,
   }
+}
+
+/**
+ * Delete an object from R2 storage
+ */
+export async function deleteObject(key: string): Promise<void> {
+  const deleteCommand = new DeleteObjectCommand({
+    Bucket: R2_BUCKET_NAME,
+    Key: key,
+  })
+
+  await r2Client.send(deleteCommand)
 }

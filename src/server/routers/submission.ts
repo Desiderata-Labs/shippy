@@ -20,6 +20,7 @@ import { z } from 'zod/v4'
 
 // Validation schemas
 const createSubmissionSchema = z.object({
+  id: nanoId().optional(), // Optional pre-generated ID for attachment association
   bountyId: nanoId(),
   description: z.string().min(1),
   isDraft: z.boolean().default(false),
@@ -130,7 +131,6 @@ export const submissionRouter = router({
               },
             },
           },
-          attachments: true,
         },
       })
     }),
@@ -171,7 +171,6 @@ export const submissionRouter = router({
               },
             },
           },
-          attachments: true,
         },
       })
 
@@ -199,6 +198,7 @@ export const submissionRouter = router({
       // Use the shared submission creation service
       const result = await createSubmission({
         prisma: ctx.prisma,
+        id: input.id,
         bountyId: input.bountyId,
         userId: ctx.user.id,
         description: input.description,

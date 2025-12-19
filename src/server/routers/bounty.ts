@@ -31,6 +31,7 @@ import { z } from 'zod/v4'
 
 // Validation schemas
 const createBountySchema = z.object({
+  id: nanoId().optional(), // Optional pre-generated ID for attachment association
   projectId: nanoId(),
   title: z.string().min(1).max(200),
   description: z.string().min(1),
@@ -183,6 +184,7 @@ export const bountyRouter = router({
       return ctx.prisma.$transaction(async (tx) => {
         const result = await createBounty({
           prisma: tx,
+          id: input.id,
           projectId: input.projectId,
           userId: ctx.user.id,
           title: input.title,

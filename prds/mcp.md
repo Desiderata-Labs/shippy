@@ -37,6 +37,7 @@ This means founders can use MCP tools to manage their private projects when auth
 | `list_labels`         | List all labels for a project                   | Optional\*    |
 | `read_label`          | Get label details by ID                         | Optional\*    |
 | `list_my_submissions` | List user's submissions                         | Yes           |
+| `list_attachments`    | List attachments for a bounty or submission     | Optional\*    |
 
 \*Optional: Works without auth for public projects. With auth, also includes your private projects.
 
@@ -75,6 +76,23 @@ Note: `claim_bounty` and `create_submission` also respect visibility - you can't
 | `create_project`      | Create a new project with reward pool   | Yes (founder) |
 | `update_project`      | Update project settings and reward pool | Yes (founder) |
 | `update_project_logo` | Update or remove project logo           | Yes (founder) |
+
+### Attachment Operations
+
+| Tool                        | Description                                 | Auth Required        |
+| --------------------------- | ------------------------------------------- | -------------------- |
+| `get_attachment_upload_url` | Get a signed URL to upload a file to R2     | Yes + permission\*\* |
+| `create_attachment`         | Register an attachment after uploading      | Yes + permission\*\* |
+| `delete_attachment`         | Delete an attachment from bounty/submission | Yes + permission\*\* |
+| `list_attachments`          | List attachments for a bounty or submission | Optional\*           |
+
+\*\*Permission: For bounty attachments, must be founder. For submission attachments, must be submitter or founder. For pending attachments, must have active claim (submissions) or be founder (bounties).
+
+### Utility Operations
+
+| Tool              | Description                                                     | Auth Required |
+| ----------------- | --------------------------------------------------------------- | ------------- |
+| `generate_nanoid` | Generate a unique ID for pre-creating entities with attachments | No            |
 
 ### Authentication
 
@@ -199,6 +217,15 @@ export async function POST(req: Request) {
 4. ✅ **Labels**: `create_label`, `update_label`, `delete_label`, `list_labels`, `read_label`
 5. ✅ **Bounty Listing**: `list_bounties`
 
+### Phase 3 - Attachments ✅
+
+1. ✅ **Utility**: `generate_nanoid` for pre-generating entity IDs
+2. ✅ **Upload Flow**: `get_attachment_upload_url` with signed R2 URLs
+3. ✅ **Attachment CRUD**: `create_attachment`, `list_attachments`, `delete_attachment`
+4. ✅ **Pre-creation Support**: PENDING_BOUNTY and PENDING_SUBMISSION reference types
+5. ✅ **Guardrails**: Claim validation for submissions, founder validation for bounties
+6. ✅ **Flow Guidance**: Contextual next-step instructions in tool responses
+
 ## Dependencies
 
 ```bash
@@ -267,6 +294,53 @@ Once connected:
 > "Submit my work for SHP-15 with description: Implemented the dark mode toggle as requested. See PR #42."
 
 > "Release my claim on SHP-15"
+
+### For AI Agents (Submitting with Attachments)
+
+The MCP tools guide agents through the attachment upload flow with contextual next steps:
+
+```
+1. claim_bounty("SHP-42")
+   → Returns bountyId + step-by-step instructions
+
+2. generate_nanoid()
+   → Returns a pre-generated submission ID
+
+3. get_attachment_upload_url(
+     referenceType: "PENDING_SUBMISSION",
+     referenceId: "<generated-id>",
+     bountyId: "<bounty-id>",
+     fileName: "screenshot.png"
+   )
+   → Returns signedUrl, publicUrl, fileKey + PUT instructions
+
+4. HTTP PUT to signedUrl with file bytes
+
+5. create_attachment(
+     referenceType: "PENDING_SUBMISSION",
+     referenceId: "<generated-id>",
+     bountyId: "<bounty-id>",
+     fileName: "screenshot.png",
+     fileUrl: "<publicUrl>",
+     fileKey: "<fileKey>",
+     fileSize: 12345,
+     contentType: "image/png"
+   )
+   → Returns confirmation + "call create_submission with id=<generated-id>"
+
+6. create_submission(
+     identifier: "SHP-42",
+     description: "Here's my work...",
+     id: "<generated-id>"
+   )
+   → Submission created with attachments linked
+```
+
+**Guardrails:**
+
+- PENDING_SUBMISSION requires `bountyId` and validates the user has an active claim
+- PENDING_BOUNTY requires `projectId` and validates the user is the founder
+- Attachments for non-existent entities are rejected with "not found"
 
 ### For Founders
 

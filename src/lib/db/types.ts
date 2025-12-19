@@ -175,6 +175,18 @@ export enum NotificationReferenceType {
 }
 
 // ================================
+// Attachment Enums
+// ================================
+
+export enum AttachmentReferenceType {
+  BOUNTY = 'BOUNTY',
+  SUBMISSION = 'SUBMISSION',
+  // Pending types for attachments uploaded before entity is created
+  PENDING_BOUNTY = 'PENDING_BOUNTY',
+  PENDING_SUBMISSION = 'PENDING_SUBMISSION',
+}
+
+// ================================
 // Helper Types
 // ================================
 

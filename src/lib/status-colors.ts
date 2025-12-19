@@ -13,6 +13,11 @@ import { BountyStatus, SubmissionStatus } from '@/lib/db/types'
 // Closed: Muted - no longer active
 
 export const bountyStatusColors = {
+  [BountyStatus.SUGGESTED]: {
+    dot: 'bg-purple-500',
+    text: 'text-purple-500',
+    icon: 'text-purple-500',
+  },
   [BountyStatus.BACKLOG]: {
     dot: 'bg-muted-foreground/50',
     text: 'text-muted-foreground',
@@ -41,6 +46,7 @@ export const bountyStatusColors = {
 } as const
 
 export const bountyStatusLabels: Record<BountyStatus, string> = {
+  [BountyStatus.SUGGESTED]: 'Suggested',
   [BountyStatus.BACKLOG]: 'Backlog',
   [BountyStatus.OPEN]: 'Open',
   [BountyStatus.CLAIMED]: 'In Progress',

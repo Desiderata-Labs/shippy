@@ -33,6 +33,7 @@ model User {
   submissionEvents    SubmissionEvent[]
   payoutRecipients    PayoutRecipient[]
   bountyEvents        BountyEvent[]
+  suggestedBounties   Bounty[]             @relation("SuggestedBounties")
   notifications       Notification[]       @relation("NotificationRecipient")
   actedNotifications  Notification[]       @relation("NotificationActor")
   threadSubscriptions ThreadSubscription[]
@@ -208,8 +209,12 @@ model Bounty {
   number      Int
   title       String
   description String @db.Text // What's required, how success is verified
-  points      Int? // Point reward for completing this bounty (null = backlog, not yet estimated)
-  status      String @default("OPEN") // "BACKLOG" | "OPEN" | "CLAIMED" | "COMPLETED" | "CLOSED"
+  points      Int? // Point reward for completing this bounty (null = backlog/suggested, not yet estimated)
+  status      String @default("OPEN") // "SUGGESTED" | "BACKLOG" | "OPEN" | "CLAIMED" | "COMPLETED" | "CLOSED"
+
+  // Suggested bounty tracking (when a contributor suggests a bounty for founder review)
+  suggestedById String? // User who suggested the bounty (null = created by founder)
+  suggestedBy   User?   @relation("SuggestedBounties", fields: [suggestedById], references: [id], onDelete: SetNull)
 
   // Claim configuration
   claimMode       String   @default("SINGLE") // "SINGLE" (Exclusive) | "COMPETITIVE" (First wins) | "MULTIPLE" (All get points) | "PERFORMANCE" (Points per result)
@@ -231,6 +236,7 @@ model Bounty {
 
   @@index([projectId])
   @@index([status])
+  @@index([suggestedById])
   @@unique([projectId, number])
   @@map("bounty")
 }

@@ -324,32 +324,9 @@ describe('createAttachment', () => {
       }
     })
 
-    test('returns FORBIDDEN when user is not the founder', async () => {
-      mockPrisma.project.findUnique.mockResolvedValue({
-        id: 'project-1',
-        founderId: 'founder-1',
-      })
-
-      const result = await createAttachment({
-        prisma: mockPrisma as any,
-        userId: 'not-founder',
-        referenceType: AttachmentReferenceType.PENDING_BOUNTY,
-        referenceId: 'pending-bounty-id',
-        projectId: 'project-1',
-        ...baseAttachmentData,
-      })
-
-      expect(result.success).toBe(false)
-      if (!result.success) {
-        expect(result.code).toBe('FORBIDDEN')
-        expect(result.message).toContain('project founder')
-      }
-    })
-
     test('creates attachment when user is the founder', async () => {
       mockPrisma.project.findUnique.mockResolvedValue({
         id: 'project-1',
-        founderId: 'founder-1',
       })
       const createdAttachment = {
         id: 'att-1',
@@ -363,6 +340,34 @@ describe('createAttachment', () => {
       const result = await createAttachment({
         prisma: mockPrisma as any,
         userId: 'founder-1',
+        referenceType: AttachmentReferenceType.PENDING_BOUNTY,
+        referenceId: 'pending-bounty-id',
+        projectId: 'project-1',
+        ...baseAttachmentData,
+      })
+
+      expect(result.success).toBe(true)
+      if (result.success) {
+        expect(result.attachment).toEqual(createdAttachment)
+      }
+    })
+
+    test('creates attachment when user is a contributor (for bounty suggestions)', async () => {
+      mockPrisma.project.findUnique.mockResolvedValue({
+        id: 'project-1',
+      })
+      const createdAttachment = {
+        id: 'att-1',
+        referenceType: AttachmentReferenceType.PENDING_BOUNTY,
+        referenceId: 'pending-bounty-id',
+        userId: 'contributor-1',
+        ...baseAttachmentData,
+      }
+      mockPrisma.attachment.create.mockResolvedValue(createdAttachment)
+
+      const result = await createAttachment({
+        prisma: mockPrisma as any,
+        userId: 'contributor-1',
         referenceType: AttachmentReferenceType.PENDING_BOUNTY,
         referenceId: 'pending-bounty-id',
         projectId: 'project-1',

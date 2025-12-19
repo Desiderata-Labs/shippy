@@ -21,7 +21,7 @@
     "prepare": "husky",
     "db:migrate:create": "dotenv -e .env.local -- prisma migrate dev",
     "db:migrate:deploy": "dotenv -e .env.local -- prisma migrate deploy",
-    "db:migrate:deploy:prod": "MIGRATE_PROD=true prisma migrate deploy",
+    "db:migrate:deploy:prod": "echo 'Deploy migrations to PRODUCTION? Type \"yes\" to confirm:' && read ans && [ \"$ans\" = 'yes' ] && MIGRATE_PROD=true prisma migrate deploy || echo 'Aborted.'",
     "db:generate": "dotenv -e .env.local -- prisma generate",
     "db:studio": "dotenv -e .env.local -- prisma studio",
     "db:push": "dotenv -e .env.local -- prisma db push",

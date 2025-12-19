@@ -169,6 +169,7 @@ async function getProject(slug: string) {
     [BountyStatus.COMPLETED]: 2,
     [BountyStatus.CLOSED]: 3,
     [BountyStatus.BACKLOG]: 98,
+    [BountyStatus.SUGGESTED]: 99,
   }
   bountiesWithPendingCount.sort((a, b) => {
     const rankA = statusRank[a.status] ?? 99

@@ -61,6 +61,7 @@ export const projectPaths = {
   settings: '/p/[slug]/settings',
   integrations: '/p/[slug]/integrations',
   newBounty: '/p/[slug]/bounties/new',
+  suggestBounty: '/p/[slug]/bounties/suggest',
   bountyDetail: '/p/[slug]/bounty/[bountyId]',
   bountyEdit: '/p/[slug]/bounty/[bountyId]/edit',
   bountySubmit: '/p/[slug]/bounty/[bountyId]/submit',
@@ -82,6 +83,8 @@ export const projectRoutes = {
   settings: (params: ProjectParams) => `/p/${params.slug}/settings`,
   integrations: (params: ProjectParams) => `/p/${params.slug}/integrations`,
   newBounty: (params: ProjectParams) => `/p/${params.slug}/bounties/new`,
+  suggestBounty: (params: ProjectParams) =>
+    `/p/${params.slug}/bounties/suggest`,
   bountyDetail: (params: BountyParams) => {
     const base = `/p/${params.slug}/bounty/${createIdSlug(params.bountyId, params.title)}`
     const queryParams: string[] = []

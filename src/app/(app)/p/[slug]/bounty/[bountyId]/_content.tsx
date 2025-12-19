@@ -13,6 +13,7 @@ import {
   File06,
   FileCheck02,
   FileCheck03,
+  Lightbulb01,
   Link03,
   Pencil01,
   Plus,
@@ -119,6 +120,10 @@ export function BountyDetailContent() {
   // Close/reopen state
   const [showCloseModal, setShowCloseModal] = useState(false)
   const [closeReason, setCloseReason] = useState('')
+
+  // Suggestion approval state
+  const [showRejectModal, setShowRejectModal] = useState(false)
+  const [rejectReason, setRejectReason] = useState('')
 
   // Label management state
   const [showLabelPicker, setShowLabelPicker] = useState(false)
@@ -247,6 +252,26 @@ export function BountyDetailContent() {
   const reopenBounty = trpc.bounty.reopen.useMutation({
     onSuccess: () => {
       toast.success('Bounty reopened')
+      utils.bounty.getById.invalidate({ id: bountyId })
+    },
+    onError: (error) => {
+      toast.error(error.message)
+    },
+  })
+
+  const approveSuggestion = trpc.bounty.approveSuggestion.useMutation({
+    onSuccess: () => {
+      toast.success('Suggestion approved!')
+      utils.bounty.getById.invalidate({ id: bountyId })
+    },
+    onError: (error) => {
+      toast.error(error.message)
+    },
+  })
+
+  const rejectSuggestion = trpc.bounty.rejectSuggestion.useMutation({
+    onSuccess: () => {
+      toast.success('Suggestion rejected')
       utils.bounty.getById.invalidate({ id: bountyId })
     },
     onError: (error) => {
@@ -439,6 +464,9 @@ export function BountyDetailContent() {
       bountyStatusColors[bounty.status as BountyStatus]?.icon ??
       bountyStatusColors.OPEN.icon
 
+    if (bounty.status === BountyStatus.SUGGESTED) {
+      return <Lightbulb01 className={cn(sizeClass, colorClass)} />
+    }
     if (bounty.status === BountyStatus.COMPLETED) {
       return <CheckCircle className={cn(sizeClass, colorClass)} />
     }
@@ -583,6 +611,69 @@ export function BountyDetailContent() {
             </div>
           )}
         </div>
+
+        {/* Suggested bounty approval banner for founders */}
+        {bounty.status === BountyStatus.SUGGESTED && isFounder && (
+          <div className="mb-6 rounded-lg border bg-primary/5 p-4">
+            <div className="flex flex-col gap-4 sm:flex-row sm:items-center sm:justify-between">
+              <div className="flex items-start gap-3">
+                <Lightbulb01 className="mt-0.5 size-5 shrink-0 text-muted-foreground" />
+                <div>
+                  <p className="text-sm font-medium">
+                    This bounty was suggested by{' '}
+                    {bounty.suggestedBy?.username ? (
+                      <Link
+                        href={routes.user.profile({
+                          username: bounty.suggestedBy.username,
+                        })}
+                        className="text-foreground hover:underline"
+                      >
+                        @{bounty.suggestedBy.username}
+                      </Link>
+                    ) : (
+                      'a contributor'
+                    )}
+                  </p>
+                  <p className="mt-0.5 text-sm text-muted-foreground">
+                    Review the suggestion and approve it to make it claimable,
+                    or reject it with feedback.
+                  </p>
+                </div>
+              </div>
+              <div className="flex shrink-0 gap-2">
+                <AppButton
+                  variant="outline"
+                  size="sm"
+                  onClick={() => setShowRejectModal(true)}
+                  disabled={rejectSuggestion.isPending}
+                  className="cursor-pointer"
+                >
+                  {rejectSuggestion.isPending ? (
+                    <Loader2 className="mr-1.5 size-3.5 animate-spin" />
+                  ) : (
+                    <XCircle className="mr-1.5 size-3.5" />
+                  )}
+                  Reject
+                </AppButton>
+                <AppButton
+                  size="sm"
+                  onClick={() =>
+                    approveSuggestion.mutate({ bountyId: bounty.id })
+                  }
+                  disabled={approveSuggestion.isPending}
+                  className="cursor-pointer"
+                >
+                  {approveSuggestion.isPending ? (
+                    <Loader2 className="mr-1.5 size-3.5 animate-spin" />
+                  ) : (
+                    <Check className="mr-1.5 size-3.5" />
+                  )}
+                  Approve to Backlog
+                </AppButton>
+              </div>
+            </div>
+          </div>
+        )}
 
         {/* Tab navigation */}
         <div className="mb-6 border-b border-border">
@@ -924,6 +1015,7 @@ export function BountyDetailContent() {
                       // Status change event
                       if (event.type === BountyEventType.STATUS_CHANGE) {
                         const statusLabels: Record<string, string> = {
+                          [BountyStatus.SUGGESTED]: 'Suggested',
                           [BountyStatus.BACKLOG]: 'Backlog',
                           [BountyStatus.OPEN]: 'Open',
                           [BountyStatus.CLAIMED]: 'In Progress',
@@ -1142,7 +1234,14 @@ export function BountyDetailContent() {
               </div>
 
               {/* Actions */}
-              {bounty.status === BountyStatus.COMPLETED ? (
+              {bounty.status === BountyStatus.SUGGESTED ? (
+                <div className="rounded-md bg-primary/5 px-3 py-2 text-center text-xs text-muted-foreground/75">
+                  <Lightbulb01 className="mx-auto mb-1 size-4" />
+                  {isFounder
+                    ? 'Review this suggestion above'
+                    : 'Awaiting founder approval'}
+                </div>
+              ) : bounty.status === BountyStatus.COMPLETED ? (
                 <div className="rounded-md bg-primary/10 px-3 py-2 text-center text-xs text-primary">
                   <CheckCircle className="mx-auto mb-1 size-4" />
                   This bounty has been completed
@@ -1795,6 +1894,44 @@ export function BountyDetailContent() {
         onOpenChange={setShowSubmissionModal}
         mode="create"
         bountyId={bounty.id}
+      />
+
+      {/* Reject suggestion modal */}
+      <ConfirmModal
+        open={showRejectModal}
+        onClose={() => {
+          setShowRejectModal(false)
+          setRejectReason('')
+        }}
+        onConfirm={() => {
+          rejectSuggestion.mutate(
+            {
+              bountyId: bounty.id,
+              reason: rejectReason.trim() || undefined,
+            },
+            {
+              onSuccess: () => {
+                setShowRejectModal(false)
+                setRejectReason('')
+              },
+            },
+          )
+        }}
+        title="Reject this suggestion?"
+        description="The contributor will be notified that their suggestion was not accepted."
+        content={
+          <textarea
+            value={rejectReason}
+            onChange={(e) => setRejectReason(e.target.value)}
+            placeholder="Feedback for the contributor (optional)"
+            className="w-full resize-none rounded-md border border-border bg-background px-3 py-2 text-sm placeholder:text-muted-foreground focus:ring-2 focus:ring-ring focus:outline-none"
+            rows={3}
+          />
+        }
+        confirmText="Reject Suggestion"
+        cancelText="Cancel"
+        variant="destructive"
+        isLoading={rejectSuggestion.isPending}
       />
     </AppBackground>
   )

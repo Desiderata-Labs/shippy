@@ -6,6 +6,7 @@ import {
   Clock,
   Contrast01,
   FileCheck02,
+  Lightbulb01,
   Plus,
   SlashCircle01,
   Target01,
@@ -100,6 +101,7 @@ export function BountiesTab({
   })
 
   const {
+    suggested: suggestedBounties,
     open: openBounties,
     backlog: backlogBounties,
     needsReview: needsReviewBounties,
@@ -128,16 +130,22 @@ export function BountiesTab({
           },
         ]
       : []),
-    ...(inProgressBounties.length > 0
-      ? [
-          {
-            key: 'in_progress',
-            label: 'In Progress',
-            icon: <Clock className={sectionIconClass} />,
-            bounties: sortByCreatedDesc(inProgressBounties),
-          },
-        ]
-      : []),
+    ...(() => {
+      // For founders, exclude bounties already shown in needsReview
+      const bountiesToShow = isFounder
+        ? inProgressBounties.filter((b) => b._count.pendingSubmissions === 0)
+        : inProgressBounties
+      return bountiesToShow.length > 0
+        ? [
+            {
+              key: 'in_progress',
+              label: 'In Progress',
+              icon: <Clock className={sectionIconClass} />,
+              bounties: sortByCreatedDesc(bountiesToShow),
+            },
+          ]
+        : []
+    })(),
     ...(openBounties.length > 0
       ? [
           {
@@ -155,6 +163,17 @@ export function BountiesTab({
             label: 'Backlog',
             icon: <Contrast01 className="size-4 text-muted-foreground/50" />,
             bounties: sortByCreatedDesc(backlogBounties),
+          },
+        ]
+      : []),
+    // Suggested bounties below backlog (community can view/discuss ideas)
+    ...(suggestedBounties.length > 0
+      ? [
+          {
+            key: 'suggested',
+            label: 'Suggested',
+            icon: <Lightbulb01 className={sectionIconClass} />,
+            bounties: sortByCreatedDesc(suggestedBounties),
           },
         ]
       : []),
@@ -191,9 +210,9 @@ export function BountiesTab({
           <p className="mt-1.5 text-sm text-muted-foreground">
             {isFounder
               ? 'Create your first bounty to attract contributors.'
-              : 'Check back later for new opportunities.'}
+              : 'Have an idea? Suggest a bounty for the founder to review.'}
           </p>
-          {isFounder && (
+          {isFounder ? (
             <AppButton
               size="sm"
               asChild
@@ -202,6 +221,18 @@ export function BountiesTab({
               <Link href={routes.project.newBounty({ slug: projectSlug })}>
                 <Plus className="size-3.5" />
                 Create Bounty
+              </Link>
+            </AppButton>
+          ) : (
+            <AppButton
+              size="sm"
+              variant="outline"
+              asChild
+              className="mt-4 cursor-pointer gap-1.5"
+            >
+              <Link href={routes.project.suggestBounty({ slug: projectSlug })}>
+                <Lightbulb01 className="size-3.5" />
+                Suggest Bounty
               </Link>
             </AppButton>
           )}
@@ -223,7 +254,7 @@ export function BountiesTab({
             claimModeCounts={claimModeCounts}
           />
         </div>
-        {isFounder && (
+        {isFounder ? (
           <AppButton
             size="sm"
             asChild
@@ -232,6 +263,18 @@ export function BountiesTab({
             <Link href={routes.project.newBounty({ slug: projectSlug })}>
               <Plus className="size-3.5" />
               Create
+            </Link>
+          </AppButton>
+        ) : (
+          <AppButton
+            size="sm"
+            variant="outline"
+            asChild
+            className="shrink-0 cursor-pointer gap-1.5"
+          >
+            <Link href={routes.project.suggestBounty({ slug: projectSlug })}>
+              <Lightbulb01 className="size-3.5" />
+              Suggest
             </Link>
           </AppButton>
         )}
@@ -307,6 +350,7 @@ function BountyRow({
   projectKey,
   showNeedsReview,
 }: BountyRowProps) {
+  const isSuggested = bounty.status === BountyStatus.SUGGESTED
   const isBacklog = bounty.status === BountyStatus.BACKLOG
   const isOpen = bounty.status === BountyStatus.OPEN
   const isClaimed = bounty.status === BountyStatus.CLAIMED
@@ -335,6 +379,10 @@ function BountyRow({
       <span className="flex shrink-0 items-center justify-center">
         {showNeedsReview ? (
           <FileCheck02 className={cn('size-3.5', needsReviewColor.icon)} />
+        ) : isSuggested ? (
+          <Lightbulb01
+            className={cn('size-3.5', bountyStatusColors.SUGGESTED.icon)}
+          />
         ) : isCompleted ? (
           <CheckCircle
             className={cn('size-3.5', bountyStatusColors.COMPLETED.icon)}

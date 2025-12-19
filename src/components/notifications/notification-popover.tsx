@@ -49,6 +49,14 @@ function getNotificationDescription(
     case NotificationType.SUBMISSION_PR_MERGED:
       return `${actorName}'s PR was merged for "${title}" — review needed`
 
+    // Suggestions
+    case NotificationType.BOUNTY_SUGGESTED:
+      return `${actorName} suggested a new bounty: "${title}"`
+    case NotificationType.BOUNTY_SUGGESTION_APPROVED:
+      return `Your suggestion "${title}" was approved!`
+    case NotificationType.BOUNTY_SUGGESTION_REJECTED:
+      return `Your suggestion "${title}" was not accepted`
+
     // Claims
     case NotificationType.BOUNTY_CLAIMED:
       return `${actorName} claimed "${title}"`

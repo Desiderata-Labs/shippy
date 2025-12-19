@@ -23,6 +23,7 @@ import {
   createBounty,
   releaseClaim,
   reopenBounty,
+  suggestBounty,
   updateBounty,
 } from '@/server/services/bounty'
 import {
@@ -393,7 +394,6 @@ server.registerTool(
         .int()
         .min(1)
         .max(90)
-        .default(14)
         .optional()
         .describe(
           'Deadline for the work, e.g. days before a claim expires if no submission (1-90). Default: 14.',
@@ -522,11 +522,8 @@ server.registerTool(
     if (!result.success) {
       const errorMessages: Record<string, string> = {
         NOT_FOUND: `Bounty "${identifier}" not found.`,
-        FORBIDDEN:
-          'You do not have permission to update this bounty. Only the project founder can update bounties.',
         NO_CHANGES:
           'No changes detected. The provided values match the current bounty.',
-        INVALID_POINTS_CHANGE: result.message,
       }
       return {
         content: [
@@ -698,6 +695,105 @@ server.registerTool(
         {
           type: 'text' as const,
           text: `Successfully created bounty "${identifier}": ${result.bounty.title}\n\nStatus: ${result.bounty.status}\nPoints: ${result.bounty.points ?? 'Not set (backlog)'}\nURL: ${bountyUrl}`,
+        },
+      ],
+    }
+  },
+)
+
+server.registerTool(
+  'suggest_bounty',
+  {
+    description:
+      'Suggest a new bounty for a project (for contributors, not founders). The suggestion will be reviewed by the project founder before becoming available.',
+    inputSchema: {
+      projectSlug: z
+        .string()
+        .describe('Project slug (e.g., "shippy") to suggest the bounty for'),
+      title: z
+        .string()
+        .min(1)
+        .max(200)
+        .describe(
+          'Title for the bounty suggestion (plain text, max 200 chars)',
+        ),
+      description: z
+        .string()
+        .min(1)
+        .describe('Description of the bounty (markdown supported)'),
+      acceptance: z
+        .string()
+        .optional()
+        .describe(
+          'Suggested acceptance criteria / evidence requirements (markdown supported)',
+        ),
+    },
+  },
+  async ({ projectSlug, title, description, acceptance }, extra) => {
+    const authInfo = extra.authInfo
+    if (!authInfo?.clientId) {
+      return {
+        content: [
+          {
+            type: 'text' as const,
+            text: 'Authentication required. Generate a token in your Shippy user profile settings.',
+          },
+        ],
+      }
+    }
+
+    // Resolve project ID from slug
+    const project = await prisma.project.findFirst({
+      where: { slug: projectSlug },
+      select: { id: true, name: true, projectKey: true },
+    })
+
+    if (!project) {
+      return {
+        content: [
+          {
+            type: 'text' as const,
+            text: `Project "${projectSlug}" not found.`,
+          },
+        ],
+      }
+    }
+
+    // Call the shared suggest service
+    const result = await suggestBounty({
+      prisma,
+      projectId: project.id,
+      userId: authInfo.clientId,
+      title,
+      description,
+      evidenceDescription: acceptance,
+    })
+
+    if (!result.success) {
+      const errorMessages: Record<string, string> = {
+        NOT_FOUND: `Project "${projectSlug}" not found.`,
+        FOUNDER_CANNOT_SUGGEST:
+          'As the project founder, you should use create_bounty instead of suggest_bounty.',
+        NO_REWARD_POOL: 'This project does not have a reward pool configured.',
+      }
+      return {
+        content: [
+          {
+            type: 'text' as const,
+            text: errorMessages[result.code] ?? result.message,
+          },
+        ],
+      }
+    }
+
+    const identifier = `${project.projectKey}-${result.bounty.number}`
+    const bountyUrl = `${APP_URL}${routes.project.bountyDetail({ slug: projectSlug, bountyId: result.bounty.id })}`
+
+    return {
+      content: [
+        {
+          type: 'text' as const,
+          text: `Successfully suggested bounty "${identifier}": ${result.bounty.title}\n\nStatus: SUGGESTED (awaiting founder approval)\nURL: ${bountyUrl}\n\nThe project founder will review your suggestion and may approve it, modify it, or provide feedback.`,
         },
       ],
     }

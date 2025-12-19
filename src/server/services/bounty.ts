@@ -576,12 +576,37 @@ export async function updateBounty({
     return { success: false, code: 'NOT_FOUND', message: 'Bounty not found' }
   }
 
-  // Authorization: only founder can update
-  if (bounty.project.founderId !== userId) {
+  const isFounder = bounty.project.founderId === userId
+  const isSuggester =
+    bounty.status === BountyStatus.SUGGESTED && bounty.suggestedById === userId
+
+  // Authorization: founder can update any bounty, suggester can update their own suggestion
+  if (!isFounder && !isSuggester) {
     return {
       success: false,
       code: 'FORBIDDEN',
-      message: 'You do not own this project',
+      message: 'You do not have permission to update this bounty',
+    }
+  }
+
+  // Suggesters can only update content fields, not status/points/labels/claim settings
+  if (isSuggester && !isFounder) {
+    const restrictedFields = [
+      'points',
+      'status',
+      'labelIds',
+      'claimMode',
+      'claimExpiryDays',
+      'maxClaims',
+    ] as const
+    for (const field of restrictedFields) {
+      if (data[field] !== undefined) {
+        return {
+          success: false,
+          code: 'FORBIDDEN',
+          message: `Only the project founder can update ${field} on a bounty`,
+        }
+      }
     }
   }
 

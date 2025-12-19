@@ -1117,6 +1117,354 @@ describe('updateBounty', () => {
       expect(mockPrisma.bountyLabel.createMany).toHaveBeenCalled()
     })
   })
+
+  describe('suggester updates', () => {
+    test('suggester can update title of their own SUGGESTED bounty', async () => {
+      mockPrisma.bounty.findUnique.mockResolvedValue({
+        id: 'bounty-1',
+        title: 'Old Title',
+        description: 'Desc',
+        evidenceDescription: null,
+        points: null,
+        status: BountyStatus.SUGGESTED,
+        suggestedById: 'suggester-1',
+        project: { founderId: 'founder-1' },
+        labels: [],
+        claimMode: BountyClaimMode.SINGLE,
+        claimExpiryDays: 14,
+        maxClaims: null,
+      })
+      mockPrisma.bounty.update.mockResolvedValue({
+        id: 'bounty-1',
+        title: 'New Title',
+        description: 'Desc',
+        evidenceDescription: null,
+        points: null,
+        status: BountyStatus.SUGGESTED,
+        claimMode: BountyClaimMode.SINGLE,
+        claimExpiryDays: 14,
+        maxClaims: null,
+      })
+      mockPrisma.bountyEvent.create.mockResolvedValue({})
+
+      const result = await updateBounty({
+        prisma: mockPrisma as any,
+        bountyId: 'bounty-1',
+        userId: 'suggester-1',
+        data: { title: 'New Title' },
+      })
+
+      expect(result.success).toBe(true)
+      if (result.success) {
+        expect(result.bounty.title).toBe('New Title')
+      }
+    })
+
+    test('suggester can update description of their own SUGGESTED bounty', async () => {
+      mockPrisma.bounty.findUnique.mockResolvedValue({
+        id: 'bounty-1',
+        title: 'Title',
+        description: 'Old Desc',
+        evidenceDescription: null,
+        points: null,
+        status: BountyStatus.SUGGESTED,
+        suggestedById: 'suggester-1',
+        project: { founderId: 'founder-1' },
+        labels: [],
+        claimMode: BountyClaimMode.SINGLE,
+        claimExpiryDays: 14,
+        maxClaims: null,
+      })
+      mockPrisma.bounty.update.mockResolvedValue({
+        id: 'bounty-1',
+        title: 'Title',
+        description: 'New Desc',
+        evidenceDescription: null,
+        points: null,
+        status: BountyStatus.SUGGESTED,
+        claimMode: BountyClaimMode.SINGLE,
+        claimExpiryDays: 14,
+        maxClaims: null,
+      })
+      mockPrisma.bountyEvent.create.mockResolvedValue({})
+
+      const result = await updateBounty({
+        prisma: mockPrisma as any,
+        bountyId: 'bounty-1',
+        userId: 'suggester-1',
+        data: { description: 'New Desc' },
+      })
+
+      expect(result.success).toBe(true)
+      if (result.success) {
+        expect(result.bounty.description).toBe('New Desc')
+      }
+    })
+
+    test('suggester can update evidenceDescription of their own SUGGESTED bounty', async () => {
+      mockPrisma.bounty.findUnique.mockResolvedValue({
+        id: 'bounty-1',
+        title: 'Title',
+        description: 'Desc',
+        evidenceDescription: null,
+        points: null,
+        status: BountyStatus.SUGGESTED,
+        suggestedById: 'suggester-1',
+        project: { founderId: 'founder-1' },
+        labels: [],
+        claimMode: BountyClaimMode.SINGLE,
+        claimExpiryDays: 14,
+        maxClaims: null,
+      })
+      mockPrisma.bounty.update.mockResolvedValue({
+        id: 'bounty-1',
+        title: 'Title',
+        description: 'Desc',
+        evidenceDescription: 'Provide screenshots',
+        points: null,
+        status: BountyStatus.SUGGESTED,
+        claimMode: BountyClaimMode.SINGLE,
+        claimExpiryDays: 14,
+        maxClaims: null,
+      })
+      mockPrisma.bountyEvent.create.mockResolvedValue({})
+
+      const result = await updateBounty({
+        prisma: mockPrisma as any,
+        bountyId: 'bounty-1',
+        userId: 'suggester-1',
+        data: { evidenceDescription: 'Provide screenshots' },
+      })
+
+      expect(result.success).toBe(true)
+      if (result.success) {
+        expect(result.bounty.evidenceDescription).toBe('Provide screenshots')
+      }
+    })
+
+    test('suggester cannot update points on their SUGGESTED bounty', async () => {
+      mockPrisma.bounty.findUnique.mockResolvedValue({
+        id: 'bounty-1',
+        title: 'Title',
+        description: 'Desc',
+        evidenceDescription: null,
+        points: null,
+        status: BountyStatus.SUGGESTED,
+        suggestedById: 'suggester-1',
+        project: { founderId: 'founder-1' },
+        labels: [],
+        claimMode: BountyClaimMode.SINGLE,
+        claimExpiryDays: 14,
+        maxClaims: null,
+      })
+
+      const result = await updateBounty({
+        prisma: mockPrisma as any,
+        bountyId: 'bounty-1',
+        userId: 'suggester-1',
+        data: { points: 100 },
+      })
+
+      expect(result.success).toBe(false)
+      if (!result.success) {
+        expect(result.code).toBe('FORBIDDEN')
+        expect(result.message).toContain('points')
+      }
+    })
+
+    test('suggester cannot update status on their SUGGESTED bounty', async () => {
+      mockPrisma.bounty.findUnique.mockResolvedValue({
+        id: 'bounty-1',
+        title: 'Title',
+        description: 'Desc',
+        evidenceDescription: null,
+        points: null,
+        status: BountyStatus.SUGGESTED,
+        suggestedById: 'suggester-1',
+        project: { founderId: 'founder-1' },
+        labels: [],
+        claimMode: BountyClaimMode.SINGLE,
+        claimExpiryDays: 14,
+        maxClaims: null,
+      })
+
+      const result = await updateBounty({
+        prisma: mockPrisma as any,
+        bountyId: 'bounty-1',
+        userId: 'suggester-1',
+        data: { status: BountyStatus.OPEN },
+      })
+
+      expect(result.success).toBe(false)
+      if (!result.success) {
+        expect(result.code).toBe('FORBIDDEN')
+        expect(result.message).toContain('status')
+      }
+    })
+
+    test('suggester cannot update labelIds on their SUGGESTED bounty', async () => {
+      mockPrisma.bounty.findUnique.mockResolvedValue({
+        id: 'bounty-1',
+        title: 'Title',
+        description: 'Desc',
+        evidenceDescription: null,
+        points: null,
+        status: BountyStatus.SUGGESTED,
+        suggestedById: 'suggester-1',
+        project: { founderId: 'founder-1' },
+        labels: [],
+        claimMode: BountyClaimMode.SINGLE,
+        claimExpiryDays: 14,
+        maxClaims: null,
+      })
+
+      const result = await updateBounty({
+        prisma: mockPrisma as any,
+        bountyId: 'bounty-1',
+        userId: 'suggester-1',
+        data: { labelIds: ['label-1'] },
+      })
+
+      expect(result.success).toBe(false)
+      if (!result.success) {
+        expect(result.code).toBe('FORBIDDEN')
+        expect(result.message).toContain('labelIds')
+      }
+    })
+
+    test('suggester cannot update claimMode on their SUGGESTED bounty', async () => {
+      mockPrisma.bounty.findUnique.mockResolvedValue({
+        id: 'bounty-1',
+        title: 'Title',
+        description: 'Desc',
+        evidenceDescription: null,
+        points: null,
+        status: BountyStatus.SUGGESTED,
+        suggestedById: 'suggester-1',
+        project: { founderId: 'founder-1' },
+        labels: [],
+        claimMode: BountyClaimMode.SINGLE,
+        claimExpiryDays: 14,
+        maxClaims: null,
+      })
+
+      const result = await updateBounty({
+        prisma: mockPrisma as any,
+        bountyId: 'bounty-1',
+        userId: 'suggester-1',
+        data: { claimMode: BountyClaimMode.COMPETITIVE },
+      })
+
+      expect(result.success).toBe(false)
+      if (!result.success) {
+        expect(result.code).toBe('FORBIDDEN')
+        expect(result.message).toContain('claimMode')
+      }
+    })
+
+    test('suggester cannot update another users SUGGESTED bounty', async () => {
+      mockPrisma.bounty.findUnique.mockResolvedValue({
+        id: 'bounty-1',
+        title: 'Title',
+        description: 'Desc',
+        evidenceDescription: null,
+        points: null,
+        status: BountyStatus.SUGGESTED,
+        suggestedById: 'other-suggester',
+        project: { founderId: 'founder-1' },
+        labels: [],
+        claimMode: BountyClaimMode.SINGLE,
+        claimExpiryDays: 14,
+        maxClaims: null,
+      })
+
+      const result = await updateBounty({
+        prisma: mockPrisma as any,
+        bountyId: 'bounty-1',
+        userId: 'suggester-1',
+        data: { title: 'Hacked Title' },
+      })
+
+      expect(result.success).toBe(false)
+      if (!result.success) {
+        expect(result.code).toBe('FORBIDDEN')
+      }
+    })
+
+    test('suggester cannot update their bounty after it is approved (OPEN status)', async () => {
+      mockPrisma.bounty.findUnique.mockResolvedValue({
+        id: 'bounty-1',
+        title: 'Title',
+        description: 'Desc',
+        evidenceDescription: null,
+        points: 100,
+        status: BountyStatus.OPEN,
+        suggestedById: 'suggester-1',
+        project: { founderId: 'founder-1' },
+        labels: [],
+        claimMode: BountyClaimMode.SINGLE,
+        claimExpiryDays: 14,
+        maxClaims: null,
+      })
+
+      const result = await updateBounty({
+        prisma: mockPrisma as any,
+        bountyId: 'bounty-1',
+        userId: 'suggester-1',
+        data: { title: 'New Title' },
+      })
+
+      expect(result.success).toBe(false)
+      if (!result.success) {
+        expect(result.code).toBe('FORBIDDEN')
+      }
+    })
+
+    test('founder can still update all fields on SUGGESTED bounty', async () => {
+      mockPrisma.bounty.findUnique.mockResolvedValue({
+        id: 'bounty-1',
+        title: 'Old Title',
+        description: 'Desc',
+        evidenceDescription: null,
+        points: null,
+        status: BountyStatus.SUGGESTED,
+        suggestedById: 'suggester-1',
+        project: { founderId: 'founder-1' },
+        labels: [],
+        claimMode: BountyClaimMode.SINGLE,
+        claimExpiryDays: 14,
+        maxClaims: null,
+      })
+      mockPrisma.bounty.update.mockResolvedValue({
+        id: 'bounty-1',
+        title: 'New Title',
+        description: 'Desc',
+        evidenceDescription: null,
+        points: 100,
+        status: BountyStatus.OPEN,
+        claimMode: BountyClaimMode.COMPETITIVE,
+        claimExpiryDays: 7,
+        maxClaims: 5,
+      })
+      mockPrisma.bountyEvent.create.mockResolvedValue({})
+
+      const result = await updateBounty({
+        prisma: mockPrisma as any,
+        bountyId: 'bounty-1',
+        userId: 'founder-1',
+        data: {
+          title: 'New Title',
+          points: 100,
+          status: BountyStatus.OPEN,
+          claimMode: BountyClaimMode.COMPETITIVE,
+          claimExpiryDays: 7,
+          maxClaims: 5,
+        },
+      })
+
+      expect(result.success).toBe(true)
+    })
+  })
 })
 
 // ================================

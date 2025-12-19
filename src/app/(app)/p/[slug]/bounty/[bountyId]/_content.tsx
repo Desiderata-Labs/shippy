@@ -35,6 +35,7 @@ import {
 } from '@/lib/bounty/claim-modes'
 import { getLabelColor } from '@/lib/bounty/tag-colors'
 import {
+  AttachmentReferenceType,
   BountyClaimMode,
   BountyEventType,
   BountyStatus,
@@ -52,6 +53,7 @@ import {
 } from '@/lib/status-colors'
 import { cn } from '@/lib/utils'
 import { AppButton } from '@/components/app'
+import { AttachmentList } from '@/components/attachments/attachment-list'
 import { CommentInput } from '@/components/comments'
 import { AppBackground } from '@/components/layout/app-background'
 import { SubmissionModal } from '@/components/submission/submission-modal'
@@ -665,6 +667,12 @@ export function BountyDetailContent() {
               <>
                 {/* Description */}
                 <Markdown markdown={bounty.description} proseSize="sm" />
+
+                {/* Attachments */}
+                <AttachmentList
+                  referenceType={AttachmentReferenceType.BOUNTY}
+                  referenceId={bounty.id}
+                />
 
                 {/* Acceptance Criteria */}
                 {bounty.evidenceDescription && (

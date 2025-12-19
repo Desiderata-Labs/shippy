@@ -5,8 +5,10 @@ import { trpc } from '@/lib/trpc/react'
 import { FileCheck03 } from '@untitled-ui/icons-react'
 import { Loader2 } from 'lucide-react'
 import { useRef, useState } from 'react'
-import { ClaimStatus } from '@/lib/db/types'
+import { AttachmentReferenceType, ClaimStatus } from '@/lib/db/types'
+import { generateNanoId } from '@/lib/nanoid/client'
 import { AppButton } from '@/components/app'
+import { AttachmentUpload } from '@/components/attachments/attachment-upload'
 import {
   Dialog,
   DialogContent,
@@ -38,6 +40,8 @@ export function SubmissionModal({
   const { data: session } = useSession()
   const [draftDescription, setDraftDescription] = useState<string | null>(null)
   const resetTimerRef = useRef<ReturnType<typeof setTimeout> | null>(null)
+  // Pre-generate ID for pending submissions (allows attachments before submit)
+  const [pendingSubmissionId] = useState(() => generateNanoId())
 
   // Fetch bounty data for create mode (for acceptance criteria)
   const { data: bounty, isLoading: bountyLoading } =
@@ -116,6 +120,7 @@ export function SubmissionModal({
 
     if (mode === 'create') {
       await createSubmission.mutateAsync({
+        id: pendingSubmissionId,
         bountyId,
         description,
       })
@@ -200,6 +205,32 @@ export function SubmissionModal({
                     minHeight="240px"
                     contentClassName="text-sm"
                   />
+                </div>
+              </div>
+
+              {/* Attachments */}
+              <div className="rounded-lg border border-border bg-accent">
+                <div className="px-4 py-3">
+                  <label className="mb-2 block text-sm font-medium">
+                    Attachments
+                  </label>
+                  {mode === 'edit' ? (
+                    // Edit mode: show existing attachments + upload
+                    <AttachmentUpload
+                      referenceType={AttachmentReferenceType.SUBMISSION}
+                      referenceId={submissionId!}
+                      bountyId={bountyId}
+                      disabled={isLoading}
+                    />
+                  ) : (
+                    // Create mode: show pending attachments + upload
+                    <AttachmentUpload
+                      referenceType={AttachmentReferenceType.PENDING_SUBMISSION}
+                      referenceId={pendingSubmissionId}
+                      bountyId={bountyId}
+                      disabled={isLoading}
+                    />
+                  )}
                 </div>
               </div>
             </div>

@@ -37,6 +37,7 @@ model User {
   actedNotifications  Notification[]       @relation("NotificationActor")
   threadSubscriptions ThreadSubscription[]
   mcpAccessTokens     McpAccessToken[]
+  attachments         Attachment[]
 
   @@index([username])
   @@map("user")
@@ -321,7 +322,6 @@ model Submission {
 
   // Relations
   events       SubmissionEvent[]
-  attachments  SubmissionAttachment[]
   githubPRLink GitHubPRLink?
 
   @@index([bountyId])
@@ -360,21 +360,30 @@ model SubmissionEvent {
   @@map("submission_event")
 }
 
-/// File attachments for submissions (stored in R2)
-model SubmissionAttachment {
-  id           String     @id @default(dbgenerated("nanoid()"))
-  submissionId String
-  submission   Submission @relation(fields: [submissionId], references: [id], onDelete: Cascade)
+/// Generic file attachments (stored in R2) - used for bounties, submissions, comments, etc.
+model Attachment {
+  id String @id @default(dbgenerated("nanoid()"))
 
+  // Polymorphic reference (like Notification)
+  referenceType String // "BOUNTY" | "SUBMISSION" | "BOUNTY_COMMENT" | "SUBMISSION_COMMENT"
+  referenceId   String // ID of the bounty/submission/event
+
+  // Uploader
+  userId String
+  user   User   @relation(fields: [userId], references: [id], onDelete: Cascade)
+
+  // File metadata
   fileName    String
-  fileUrl     String // R2 URL
+  fileUrl     String // R2 public URL
+  fileKey     String // R2 object key (for deletion)
   fileSize    Int // Size in bytes
   contentType String
 
   createdAt DateTime @default(now()) @db.Timestamptz(3)
 
-  @@index([submissionId])
-  @@map("submission_attachment")
+  @@index([referenceType, referenceId])
+  @@index([userId])
+  @@map("attachment")
 }
 
 // ================================

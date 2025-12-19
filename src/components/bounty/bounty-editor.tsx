@@ -10,7 +10,7 @@ import {
   Users01,
 } from '@untitled-ui/icons-react'
 import { Loader2 } from 'lucide-react'
-import { useEffect, useState } from 'react'
+import { useEffect, useMemo, useState } from 'react'
 import Link from 'next/link'
 import { useRouter } from 'next/navigation'
 import { redirect } from 'next/navigation'
@@ -21,14 +21,17 @@ import {
 } from '@/lib/bounty/claim-modes'
 import { getLabelColor } from '@/lib/bounty/tag-colors'
 import {
+  AttachmentReferenceType,
   BountyClaimMode,
   BountyStatus,
   DEFAULT_CLAIM_EXPIRY_DAYS,
   generateRandomLabelColor,
 } from '@/lib/db/types'
+import { generateNanoId } from '@/lib/nanoid/client'
 import { ProjectTab, routes } from '@/lib/routes'
 import { cn } from '@/lib/utils'
 import { AppButton, AppInput } from '@/components/app'
+import { AttachmentUpload } from '@/components/attachments/attachment-upload'
 import { AppBackground } from '@/components/layout/app-background'
 import { Badge } from '@/components/ui/badge'
 import { ErrorState } from '@/components/ui/error-state'
@@ -141,6 +144,13 @@ export function BountyEditor({ mode, slug, bountyId }: BountyEditorProps) {
   )
   const [maxClaims, setMaxClaims] = useState<number | undefined>(undefined)
   const [evidenceDescription, setEvidenceDescription] = useState('')
+
+  // Generate a stable ID for new bounties (used for pending attachments)
+  // In edit mode, use the existing bountyId
+  const entityId = useMemo(
+    () => (mode === 'create' ? generateNanoId() : bountyId!),
+    [mode, bountyId],
+  )
 
   // Create label popover state
   const [showCreateLabel, setShowCreateLabel] = useState(false)
@@ -469,6 +479,7 @@ export function BountyEditor({ mode, slug, bountyId }: BountyEditorProps) {
 
       if (mode === 'create') {
         await createBounty.mutateAsync({
+          id: entityId, // Pre-generated ID for attachment association
           projectId: project.id,
           title,
           description,
@@ -615,6 +626,26 @@ export function BountyEditor({ mode, slug, bountyId }: BountyEditorProps) {
                     disabled={isLoading}
                     minHeight="80px"
                     contentClassName="text-sm"
+                  />
+                </div>
+
+                <Separator />
+
+                {/* Attachments */}
+                <Separator />
+                <div className="space-y-2 px-4 py-3">
+                  <span className="text-xs text-muted-foreground">
+                    Attachments
+                  </span>
+                  <AttachmentUpload
+                    referenceType={
+                      mode === 'create'
+                        ? AttachmentReferenceType.PENDING_BOUNTY
+                        : AttachmentReferenceType.BOUNTY
+                    }
+                    referenceId={entityId}
+                    projectId={project.id}
+                    disabled={isLoading}
                   />
                 </div>
 

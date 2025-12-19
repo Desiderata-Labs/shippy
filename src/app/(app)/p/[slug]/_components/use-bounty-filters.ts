@@ -183,6 +183,9 @@ export function useBountyFilters<T extends FilterableBounty>({
       [BountyStatus.CLOSED]: bounties.filter(
         (b) => b.status === BountyStatus.CLOSED,
       ).length,
+      [BountyStatus.SUGGESTED]: bounties.filter(
+        (b) => b.status === BountyStatus.SUGGESTED,
+      ).length,
     }),
     [bounties],
   )
@@ -235,16 +238,21 @@ export function useBountyFilters<T extends FilterableBounty>({
 
   // Group filtered bounties by status
   const groupedBounties = useMemo(() => {
+    const suggested = filteredBounties.filter(
+      (b) => b.status === BountyStatus.SUGGESTED,
+    )
     const open = filteredBounties.filter((b) => b.status === BountyStatus.OPEN)
     const backlog = filteredBounties.filter(
       (b) => b.status === BountyStatus.BACKLOG,
     )
+    // needsReview: CLAIMED bounties with pending submissions (for founder view)
     const needsReview = filteredBounties.filter(
-      (b) => b._count.pendingSubmissions > 0,
-    )
-    const inProgress = filteredBounties.filter(
       (b) =>
-        b.status === BountyStatus.CLAIMED && b._count.pendingSubmissions === 0,
+        b.status === BountyStatus.CLAIMED && b._count.pendingSubmissions > 0,
+    )
+    // inProgress: all CLAIMED bounties (those in needsReview shown separately for founders)
+    const inProgress = filteredBounties.filter(
+      (b) => b.status === BountyStatus.CLAIMED,
     )
     const completed = filteredBounties.filter(
       (b) => b.status === BountyStatus.COMPLETED,
@@ -253,7 +261,15 @@ export function useBountyFilters<T extends FilterableBounty>({
       (b) => b.status === BountyStatus.CLOSED,
     )
 
-    return { open, backlog, needsReview, inProgress, completed, closed }
+    return {
+      suggested,
+      open,
+      backlog,
+      needsReview,
+      inProgress,
+      completed,
+      closed,
+    }
   }, [filteredBounties])
 
   return {

@@ -53,7 +53,7 @@ type CreateAttachmentParams = {
   contentType: string
   // Required for PENDING_SUBMISSION - validates user has an active claim
   bountyId?: string
-  // Required for PENDING_BOUNTY - validates user is the founder
+  // Required for PENDING_BOUNTY - validates project exists
   projectId?: string
 }
 
@@ -103,7 +103,8 @@ export async function createAttachment({
       }
     }
   } else if (referenceType === AttachmentReferenceType.PENDING_BOUNTY) {
-    // For pending bounties, validate user is the project founder
+    // For pending bounties, validate project exists
+    // Any authenticated user can add attachments (founders creating, contributors suggesting)
     if (!projectId) {
       return {
         success: false,
@@ -113,7 +114,7 @@ export async function createAttachment({
     }
     const project = await prisma.project.findUnique({
       where: { id: projectId },
-      select: { founderId: true },
+      select: { id: true },
     })
     if (!project) {
       return {
@@ -122,13 +123,7 @@ export async function createAttachment({
         message: 'Project not found',
       }
     }
-    if (project.founderId !== userId) {
-      return {
-        success: false,
-        code: 'FORBIDDEN',
-        message: 'Only the project founder can add attachments to bounties',
-      }
-    }
+    // Allow any authenticated user - the bounty creation/suggestion will validate permissions
   } else if (!isPendingType(referenceType)) {
     // Verify user has permission to add attachments to existing entities
     if (referenceType === AttachmentReferenceType.BOUNTY) {

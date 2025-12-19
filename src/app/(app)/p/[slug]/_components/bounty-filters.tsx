@@ -6,6 +6,7 @@ import {
   Clock,
   Contrast01,
   FilterLines,
+  Lightbulb01,
   SlashCircle01,
   Tag01,
   Users01,
@@ -73,6 +74,12 @@ const STATUS_OPTIONS: Array<{
     label: 'Backlog',
     icon: <Contrast01 className="size-3.5" />,
     dotClass: bountyStatusColors.BACKLOG.dot,
+  },
+  {
+    value: BountyStatus.SUGGESTED,
+    label: 'Suggested',
+    icon: <Lightbulb01 className="size-3.5" />,
+    dotClass: bountyStatusColors.SUGGESTED.dot,
   },
   {
     value: BountyStatus.CLOSED,

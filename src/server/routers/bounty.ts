@@ -14,11 +14,14 @@ import {
   resolveMentionedUserIds,
 } from './notification'
 import {
+  approveSuggestion,
   claimBounty,
   closeBounty,
   createBounty,
+  rejectSuggestion,
   releaseClaim,
   reopenBounty,
+  suggestBounty,
   updateBounty,
 } from '@/server/services/bounty'
 import {
@@ -59,6 +62,28 @@ const updateBountySchema = z.object({
   claimMode: z.nativeEnum(BountyClaimMode).optional(),
   claimExpiryDays: z.number().int().min(1).max(90).optional(),
   maxClaims: z.number().int().min(1).optional().nullable(),
+})
+
+const suggestBountySchema = z.object({
+  id: nanoId().optional(), // Optional pre-generated ID for attachment association
+  projectId: nanoId(),
+  title: z.string().min(1).max(200),
+  description: z.string().min(1),
+  evidenceDescription: z.string().optional(),
+})
+
+const approveSuggestionSchema = z.object({
+  bountyId: nanoId(),
+  points: z.number().int().min(1).nullable().optional(), // null = approve to backlog
+  title: z.string().min(1).max(200).optional(),
+  description: z.string().min(1).optional(),
+  evidenceDescription: z.string().optional().nullable(),
+  labelIds: z.array(nanoId()).optional(),
+})
+
+const rejectSuggestionSchema = z.object({
+  bountyId: nanoId(),
+  reason: z.string().max(1000).optional(),
 })
 
 export const bountyRouter = router({
@@ -117,6 +142,9 @@ export const bountyRouter = router({
               rewardPool: true,
               githubConnection: { select: { repoFullName: true } },
             },
+          },
+          suggestedBy: {
+            select: { id: true, name: true, image: true, username: true },
           },
           labels: {
             include: { label: true },
@@ -620,6 +648,127 @@ export const bountyRouter = router({
         }
 
         // Fetch full bounty to return (matching previous behavior)
+        return tx.bounty.findUniqueOrThrow({
+          where: { id: input.bountyId },
+        })
+      })
+    }),
+
+  /**
+   * Suggest a bounty (contributor only)
+   * Creates a bounty in SUGGESTED status for founder review
+   */
+  suggest: protectedProcedure
+    .input(suggestBountySchema)
+    .mutation(async ({ ctx, input }) => {
+      // Use transaction to wrap the shared service
+      return ctx.prisma.$transaction(async (tx) => {
+        const result = await suggestBounty({
+          prisma: tx,
+          id: input.id,
+          projectId: input.projectId,
+          userId: ctx.user.id,
+          title: input.title,
+          description: input.description,
+          evidenceDescription: input.evidenceDescription,
+        })
+
+        if (!result.success) {
+          const errorMap: Record<
+            string,
+            'NOT_FOUND' | 'FORBIDDEN' | 'BAD_REQUEST'
+          > = {
+            NOT_FOUND: 'NOT_FOUND',
+            FOUNDER_CANNOT_SUGGEST: 'BAD_REQUEST',
+            NO_REWARD_POOL: 'BAD_REQUEST',
+          }
+          throw userError(
+            errorMap[result.code] ?? 'BAD_REQUEST',
+            result.message,
+          )
+        }
+
+        // Fetch the full bounty to return
+        return tx.bounty.findUniqueOrThrow({
+          where: { id: result.bounty.id },
+        })
+      })
+    }),
+
+  /**
+   * Approve a suggested bounty (founder only)
+   * Moves from SUGGESTED to BACKLOG or OPEN
+   */
+  approveSuggestion: protectedProcedure
+    .input(approveSuggestionSchema)
+    .mutation(async ({ ctx, input }) => {
+      // Use transaction to wrap the shared service
+      return ctx.prisma.$transaction(async (tx) => {
+        const result = await approveSuggestion({
+          prisma: tx,
+          bountyId: input.bountyId,
+          userId: ctx.user.id,
+          points: input.points,
+          title: input.title,
+          description: input.description,
+          evidenceDescription: input.evidenceDescription,
+          labelIds: input.labelIds,
+        })
+
+        if (!result.success) {
+          const errorMap: Record<
+            string,
+            'NOT_FOUND' | 'FORBIDDEN' | 'BAD_REQUEST'
+          > = {
+            NOT_FOUND: 'NOT_FOUND',
+            FORBIDDEN: 'FORBIDDEN',
+            NOT_SUGGESTED: 'BAD_REQUEST',
+          }
+          throw userError(
+            errorMap[result.code] ?? 'BAD_REQUEST',
+            result.message,
+          )
+        }
+
+        // Fetch the full bounty to return
+        return tx.bounty.findUniqueOrThrow({
+          where: { id: input.bountyId },
+        })
+      })
+    }),
+
+  /**
+   * Reject a suggested bounty (founder only)
+   * Moves from SUGGESTED to CLOSED
+   */
+  rejectSuggestion: protectedProcedure
+    .input(rejectSuggestionSchema)
+    .mutation(async ({ ctx, input }) => {
+      // Use transaction to wrap the shared service
+      return ctx.prisma.$transaction(async (tx) => {
+        const result = await rejectSuggestion({
+          prisma: tx,
+          bountyId: input.bountyId,
+          userId: ctx.user.id,
+          reason: input.reason,
+        })
+
+        if (!result.success) {
+          const errorMap: Record<
+            string,
+            'NOT_FOUND' | 'FORBIDDEN' | 'BAD_REQUEST'
+          > = {
+            NOT_FOUND: 'NOT_FOUND',
+            FORBIDDEN: 'FORBIDDEN',
+            NOT_SUGGESTED: 'BAD_REQUEST',
+          }
+          throw userError(
+            errorMap[result.code] ?? 'BAD_REQUEST',
+            result.message,
+          )
+        }
+
+        // Fetch the full bounty to return
         return tx.bounty.findUniqueOrThrow({
           where: { id: input.bountyId },
         })

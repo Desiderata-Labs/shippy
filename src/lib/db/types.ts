@@ -24,6 +24,7 @@ export enum ProfitBasis {
 // ================================
 
 export enum BountyStatus {
+  SUGGESTED = 'SUGGESTED', // Suggested by contributor, awaiting founder approval
   BACKLOG = 'BACKLOG', // No points assigned yet, not claimable
   OPEN = 'OPEN',
   CLAIMED = 'CLAIMED', // All claim slots filled (for SINGLE mode)
@@ -148,6 +149,11 @@ export enum NotificationType {
   // Mentions (when @mentioned in a comment)
   BOUNTY_MENTION = 'BOUNTY_MENTION',
   SUBMISSION_MENTION = 'SUBMISSION_MENTION',
+
+  // Bounty suggestions
+  BOUNTY_SUGGESTED = 'BOUNTY_SUGGESTED', // Contributor suggested a bounty
+  BOUNTY_SUGGESTION_APPROVED = 'BOUNTY_SUGGESTION_APPROVED', // Founder approved suggestion
+  BOUNTY_SUGGESTION_REJECTED = 'BOUNTY_SUGGESTION_REJECTED', // Founder rejected suggestion
 
   // Submissions
   SUBMISSION_CREATED = 'SUBMISSION_CREATED',

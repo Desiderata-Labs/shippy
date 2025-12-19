@@ -44,7 +44,7 @@ export const attachmentRouter = router({
         contentType: z.string().min(1),
         // Required for PENDING_SUBMISSION - validates user has an active claim
         bountyId: nanoId().optional(),
-        // Required for PENDING_BOUNTY - validates user is the founder
+        // Required for PENDING_BOUNTY - validates project exists
         projectId: nanoId().optional(),
       }),
     )

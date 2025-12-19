@@ -74,6 +74,14 @@ export async function claimBounty({
   }
 
   // Validate bounty status
+  if (bounty.status === BountyStatus.SUGGESTED) {
+    return {
+      success: false,
+      code: 'BACKLOG', // Reuse BACKLOG code - both mean "not claimable"
+      message: 'This bounty is pending approval and cannot be claimed yet',
+    }
+  }
+
   if (bounty.status === BountyStatus.BACKLOG) {
     return {
       success: false,
@@ -568,12 +576,37 @@ export async function updateBounty({
     return { success: false, code: 'NOT_FOUND', message: 'Bounty not found' }
   }
 
-  // Authorization: only founder can update
-  if (bounty.project.founderId !== userId) {
+  const isFounder = bounty.project.founderId === userId
+  const isSuggester =
+    bounty.status === BountyStatus.SUGGESTED && bounty.suggestedById === userId
+
+  // Authorization: founder can update any bounty, suggester can update their own suggestion
+  if (!isFounder && !isSuggester) {
     return {
       success: false,
       code: 'FORBIDDEN',
-      message: 'You do not own this project',
+      message: 'You do not have permission to update this bounty',
+    }
+  }
+
+  // Suggesters can only update content fields, not status/points/labels/claim settings
+  if (isSuggester && !isFounder) {
+    const restrictedFields = [
+      'points',
+      'status',
+      'labelIds',
+      'claimMode',
+      'claimExpiryDays',
+      'maxClaims',
+    ] as const
+    for (const field of restrictedFields) {
+      if (data[field] !== undefined) {
+        return {
+          success: false,
+          code: 'FORBIDDEN',
+          message: `Only the project founder can update ${field} on a bounty`,
+        }
+      }
     }
   }
 
@@ -1014,6 +1047,404 @@ export async function reopenBounty({
       toStatus: newStatus,
     },
   })
+
+  return {
+    success: true,
+    bounty: { id: updated.id, status: updated.status },
+  }
+}
+
+// ================================
+// Suggest Bounty Service
+// ================================
+
+export interface SuggestBountyParams {
+  prisma: PrismaClientOrTx
+  projectId: string
+  userId: string // Contributor suggesting the bounty
+  /** Optional pre-generated ID (for associating attachments uploaded before creation) */
+  id?: string
+  title: string
+  description: string
+  /** Description of evidence required for submission */
+  evidenceDescription?: string
+}
+
+export interface SuggestBountyResult {
+  success: true
+  bounty: {
+    id: string
+    number: number
+    status: string
+    title: string
+    description: string
+  }
+}
+
+export type SuggestBountyError =
+  | { success: false; code: 'NOT_FOUND'; message: string }
+  | { success: false; code: 'FOUNDER_CANNOT_SUGGEST'; message: string }
+  | { success: false; code: 'NO_REWARD_POOL'; message: string }
+
+/**
+ * Suggest a bounty - allows contributors to suggest new bounties for founder review
+ *
+ * This handles:
+ * - Validating project exists
+ * - Checking user is not the founder (founders should use createBounty)
+ * - Validating reward pool exists
+ * - Reserving bounty number atomically
+ * - Creating bounty with SUGGESTED status (no points, not claimable)
+ * - Notifying founder
+ */
+export async function suggestBounty({
+  prisma,
+  projectId,
+  userId,
+  id,
+  title,
+  description,
+  evidenceDescription,
+}: SuggestBountyParams): Promise<SuggestBountyResult | SuggestBountyError> {
+  // Verify project exists and has a reward pool
+  const project = await prisma.project.findUnique({
+    where: { id: projectId },
+    include: { rewardPool: true },
+  })
+
+  if (!project) {
+    return { success: false, code: 'NOT_FOUND', message: 'Project not found' }
+  }
+
+  // Founders should use createBounty, not suggest
+  if (project.founderId === userId) {
+    return {
+      success: false,
+      code: 'FOUNDER_CANNOT_SUGGEST',
+      message:
+        'As the project founder, you should create bounties directly instead of suggesting them',
+    }
+  }
+
+  if (!project.rewardPool) {
+    return {
+      success: false,
+      code: 'NO_REWARD_POOL',
+      message: 'Project does not have a reward pool',
+    }
+  }
+
+  // Reserve number + create bounty atomically
+  const updatedProject = await prisma.project.update({
+    where: { id: projectId },
+    data: { nextBountyNumber: { increment: 1 } },
+    select: { nextBountyNumber: true },
+  })
+  const bountyNumber = updatedProject.nextBountyNumber - 1
+
+  const bounty = await prisma.bounty.create({
+    data: {
+      ...(id && { id }), // Use pre-generated ID if provided
+      projectId,
+      number: bountyNumber,
+      title,
+      description,
+      points: null, // Suggested bounties have no points initially
+      status: BountyStatus.SUGGESTED,
+      suggestedById: userId,
+      claimMode: BountyClaimMode.SINGLE, // Default
+      claimExpiryDays: 14, // Default
+      evidenceDescription,
+    },
+  })
+
+  // Associate any pending attachments with this bounty
+  if (id) {
+    await prisma.attachment.updateMany({
+      where: {
+        referenceType: AttachmentReferenceType.PENDING_BOUNTY,
+        referenceId: id,
+        userId, // Only associate attachments uploaded by this user
+      },
+      data: {
+        referenceType: AttachmentReferenceType.BOUNTY,
+      },
+    })
+  }
+
+  // Notify founder about the suggestion (fire and forget)
+  createNotifications({
+    prisma: globalPrisma,
+    type: NotificationType.BOUNTY_SUGGESTED,
+    referenceType: NotificationReferenceType.BOUNTY,
+    referenceId: bounty.id,
+    actorId: userId,
+    recipientIds: [project.founderId],
+  }).catch((err) => {
+    console.error('Failed to create suggestion notification:', err)
+  })
+
+  return {
+    success: true,
+    bounty: {
+      id: bounty.id,
+      number: bounty.number,
+      status: bounty.status,
+      title: bounty.title,
+      description: bounty.description,
+    },
+  }
+}
+
+// ================================
+// Approve Suggestion Service
+// ================================
+
+export interface ApproveSuggestionParams {
+  prisma: PrismaClientOrTx
+  bountyId: string
+  userId: string // Founder approving the suggestion
+  /** Points to assign (null = keep in backlog) */
+  points?: number | null
+  /** Optional updated title */
+  title?: string
+  /** Optional updated description */
+  description?: string
+  /** Optional updated evidence description */
+  evidenceDescription?: string | null
+  /** Optional label IDs to attach */
+  labelIds?: string[]
+}
+
+export interface ApproveSuggestionResult {
+  success: true
+  bounty: {
+    id: string
+    number: number
+    status: string
+    title: string
+    points: number | null
+  }
+}
+
+export type ApproveSuggestionError =
+  | { success: false; code: 'NOT_FOUND'; message: string }
+  | { success: false; code: 'FORBIDDEN'; message: string }
+  | { success: false; code: 'NOT_SUGGESTED'; message: string }
+
+/**
+ * Approve a suggested bounty - moves it from SUGGESTED to BACKLOG or OPEN
+ *
+ * This handles:
+ * - Validating bounty exists
+ * - Validating ownership (founder check)
+ * - Checking bounty is in SUGGESTED status
+ * - Optionally assigning points and updating fields
+ * - Transitioning to BACKLOG (no points) or OPEN (with points)
+ * - Adding labels if provided
+ * - Notifying the suggester
+ */
+export async function approveSuggestion({
+  prisma,
+  bountyId,
+  userId,
+  points,
+  title,
+  description,
+  evidenceDescription,
+  labelIds,
+}: ApproveSuggestionParams): Promise<
+  ApproveSuggestionResult | ApproveSuggestionError
+> {
+  const bounty = await prisma.bounty.findUnique({
+    where: { id: bountyId },
+    include: {
+      project: { select: { founderId: true } },
+    },
+  })
+
+  if (!bounty) {
+    return { success: false, code: 'NOT_FOUND', message: 'Bounty not found' }
+  }
+
+  if (bounty.project.founderId !== userId) {
+    return {
+      success: false,
+      code: 'FORBIDDEN',
+      message: 'You do not own this project',
+    }
+  }
+
+  if (bounty.status !== BountyStatus.SUGGESTED) {
+    return {
+      success: false,
+      code: 'NOT_SUGGESTED',
+      message: 'Only suggested bounties can be approved',
+    }
+  }
+
+  // Determine new status based on points
+  const finalPoints = points !== undefined ? points : null
+  const newStatus =
+    finalPoints === null ? BountyStatus.BACKLOG : BountyStatus.OPEN
+
+  // Update the bounty
+  const updated = await prisma.bounty.update({
+    where: { id: bountyId },
+    data: {
+      status: newStatus,
+      points: finalPoints,
+      ...(title && { title }),
+      ...(description && { description }),
+      ...(evidenceDescription !== undefined && { evidenceDescription }),
+    },
+  })
+
+  // Add labels if provided
+  if (labelIds && labelIds.length > 0) {
+    await prisma.bountyLabel.createMany({
+      data: labelIds.map((labelId) => ({
+        bountyId,
+        labelId,
+      })),
+    })
+  }
+
+  // Create status change event
+  await prisma.bountyEvent.create({
+    data: {
+      bountyId,
+      userId,
+      type: BountyEventType.STATUS_CHANGE,
+      fromStatus: BountyStatus.SUGGESTED,
+      toStatus: newStatus,
+      note: 'Suggestion approved',
+    },
+  })
+
+  // Notify the suggester (fire and forget)
+  if (bounty.suggestedById) {
+    createNotifications({
+      prisma: globalPrisma,
+      type: NotificationType.BOUNTY_SUGGESTION_APPROVED,
+      referenceType: NotificationReferenceType.BOUNTY,
+      referenceId: bountyId,
+      actorId: userId,
+      recipientIds: [bounty.suggestedById],
+    }).catch((err) => {
+      console.error('Failed to create approval notification:', err)
+    })
+  }
+
+  return {
+    success: true,
+    bounty: {
+      id: updated.id,
+      number: updated.number,
+      status: updated.status,
+      title: updated.title,
+      points: updated.points,
+    },
+  }
+}
+
+// ================================
+// Reject Suggestion Service
+// ================================
+
+export interface RejectSuggestionParams {
+  prisma: PrismaClientOrTx
+  bountyId: string
+  userId: string // Founder rejecting the suggestion
+  reason?: string
+}
+
+export interface RejectSuggestionResult {
+  success: true
+  bounty: { id: string; status: string }
+}
+
+export type RejectSuggestionError =
+  | { success: false; code: 'NOT_FOUND'; message: string }
+  | { success: false; code: 'FORBIDDEN'; message: string }
+  | { success: false; code: 'NOT_SUGGESTED'; message: string }
+
+/**
+ * Reject a suggested bounty - moves it to CLOSED status
+ *
+ * This handles:
+ * - Validating bounty exists
+ * - Validating ownership (founder check)
+ * - Checking bounty is in SUGGESTED status
+ * - Transitioning to CLOSED
+ * - Notifying the suggester with optional reason
+ */
+export async function rejectSuggestion({
+  prisma,
+  bountyId,
+  userId,
+  reason,
+}: RejectSuggestionParams): Promise<
+  RejectSuggestionResult | RejectSuggestionError
+> {
+  const bounty = await prisma.bounty.findUnique({
+    where: { id: bountyId },
+    include: {
+      project: { select: { founderId: true } },
+    },
+  })
+
+  if (!bounty) {
+    return { success: false, code: 'NOT_FOUND', message: 'Bounty not found' }
+  }
+
+  if (bounty.project.founderId !== userId) {
+    return {
+      success: false,
+      code: 'FORBIDDEN',
+      message: 'You do not own this project',
+    }
+  }
+
+  if (bounty.status !== BountyStatus.SUGGESTED) {
+    return {
+      success: false,
+      code: 'NOT_SUGGESTED',
+      message: 'Only suggested bounties can be rejected',
+    }
+  }
+
+  // Update the bounty to CLOSED
+  const updated = await prisma.bounty.update({
+    where: { id: bountyId },
+    data: { status: BountyStatus.CLOSED },
+  })
+
+  // Create status change event with reason in content field (displayed in activity feed)
+  await prisma.bountyEvent.create({
+    data: {
+      bountyId,
+      userId,
+      type: BountyEventType.STATUS_CHANGE,
+      fromStatus: BountyStatus.SUGGESTED,
+      toStatus: BountyStatus.CLOSED,
+      content: reason || 'Suggestion rejected',
+    },
+  })
+
+  // Notify the suggester (fire and forget)
+  if (bounty.suggestedById) {
+    createNotifications({
+      prisma: globalPrisma,
+      type: NotificationType.BOUNTY_SUGGESTION_REJECTED,
+      referenceType: NotificationReferenceType.BOUNTY,
+      referenceId: bountyId,
+      actorId: userId,
+      recipientIds: [bounty.suggestedById],
+    }).catch((err) => {
+      console.error('Failed to create rejection notification:', err)
+    })
+  }
 
   return {
     success: true,

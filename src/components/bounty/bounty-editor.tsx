@@ -29,6 +29,7 @@ import {
 } from '@/lib/db/types'
 import { generateNanoId } from '@/lib/nanoid/client'
 import { ProjectTab, routes } from '@/lib/routes'
+import { UploadFolder } from '@/lib/uploads/folders'
 import { cn } from '@/lib/utils'
 import { AppButton, AppInput } from '@/components/app'
 import { AttachmentUpload } from '@/components/attachments/attachment-upload'
@@ -608,10 +609,20 @@ export function BountyEditor({ mode, slug, bountyId }: BountyEditorProps) {
                   <MarkdownEditor
                     value={description}
                     onChange={setDescription}
-                    placeholder="Add description..."
+                    placeholder="Add description... (drag & drop images here)"
                     disabled={isLoading}
                     minHeight="120px"
                     contentClassName="text-sm"
+                    enableUploads
+                    uploadFolder={UploadFolder.BOUNTIES}
+                    uploadConfig={{
+                      referenceType:
+                        mode === 'create'
+                          ? AttachmentReferenceType.PENDING_BOUNTY
+                          : AttachmentReferenceType.BOUNTY,
+                      referenceId: entityId,
+                      projectId: project.id,
+                    }}
                   />
                 </div>
 
@@ -622,10 +633,20 @@ export function BountyEditor({ mode, slug, bountyId }: BountyEditorProps) {
                   <MarkdownEditor
                     value={evidenceDescription}
                     onChange={setEvidenceDescription}
-                    placeholder="Acceptance criteria (optional)... What proof should contributors provide?"
+                    placeholder="Acceptance criteria (optional)... What proof should contributors provide? (drag & drop images here)"
                     disabled={isLoading}
                     minHeight="80px"
                     contentClassName="text-sm"
+                    enableUploads
+                    uploadFolder={UploadFolder.BOUNTIES}
+                    uploadConfig={{
+                      referenceType:
+                        mode === 'create'
+                          ? AttachmentReferenceType.PENDING_BOUNTY
+                          : AttachmentReferenceType.BOUNTY,
+                      referenceId: entityId,
+                      projectId: project.id,
+                    }}
                   />
                 </div>
 

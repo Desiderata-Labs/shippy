@@ -7,6 +7,7 @@ import { Loader2 } from 'lucide-react'
 import { useRef, useState } from 'react'
 import { AttachmentReferenceType, ClaimStatus } from '@/lib/db/types'
 import { generateNanoId } from '@/lib/nanoid/client'
+import { UploadFolder } from '@/lib/uploads/folders'
 import { AppButton } from '@/components/app'
 import { AttachmentUpload } from '@/components/attachments/attachment-upload'
 import {
@@ -200,10 +201,21 @@ export function SubmissionModal({
                   <MarkdownEditor
                     value={description}
                     onChange={(value) => setDraftDescription(value)}
-                    placeholder="Describe what you did, how it meets the requirements, and include any relevant links or notes..."
+                    placeholder="Describe what you did, how it meets the requirements, and include any relevant links or notes... (drag & drop images here)"
                     disabled={isLoading}
                     minHeight="240px"
                     contentClassName="text-sm"
+                    enableUploads
+                    uploadFolder={UploadFolder.SUBMISSIONS}
+                    uploadConfig={{
+                      referenceType:
+                        mode === 'create'
+                          ? AttachmentReferenceType.PENDING_SUBMISSION
+                          : AttachmentReferenceType.SUBMISSION,
+                      referenceId:
+                        mode === 'create' ? pendingSubmissionId : submissionId!,
+                      bountyId,
+                    }}
                   />
                 </div>
               </div>

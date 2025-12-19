@@ -3,6 +3,7 @@
 import { ArrowCircleUp } from '@untitled-ui/icons-react'
 import { Loader2 } from 'lucide-react'
 import { useCallback, useEffect, useRef } from 'react'
+import { UploadFolder } from '@/lib/uploads/folders'
 import { cn } from '@/lib/utils'
 import { MarkdownEditor } from '@/components/ui/markdown-editor'
 
@@ -18,6 +19,10 @@ interface CommentInputProps {
   onCancel?: () => void
   /** Whether this is in edit mode */
   isEditing?: boolean
+  /** Enable drag-drop/paste image uploads (images are inserted inline, not tracked as attachments) */
+  enableUploads?: boolean
+  /** Folder to upload files to (required if enableUploads is true) */
+  uploadFolder?: UploadFolder
 }
 
 export function CommentInput({
@@ -30,6 +35,8 @@ export function CommentInput({
   className,
   onCancel,
   isEditing = false,
+  enableUploads = false,
+  uploadFolder,
 }: CommentInputProps) {
   const containerRef = useRef<HTMLDivElement>(null)
 
@@ -78,6 +85,8 @@ export function CommentInput({
           contentClassName="text-sm"
           hideMarkdownHint
           enableMentions
+          enableUploads={enableUploads}
+          uploadFolder={uploadFolder}
         />
       </div>
       <div className="absolute right-3 bottom-3 flex items-center gap-1">

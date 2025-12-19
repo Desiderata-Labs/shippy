@@ -3,6 +3,7 @@ import {
   NotificationType,
   PayoutRecipientStatus,
   PayoutStatus,
+  PoolType,
   SubmissionStatus,
 } from '@/lib/db/types'
 import { nanoId } from '@/lib/nanoid/zod'
@@ -76,12 +77,17 @@ function serializeRecipient<T extends { amountCents: bigint }>(
 }
 
 // Validation schemas
+// For PROFIT_SHARE: use reportedProfitCents (pool amount = profit * percentage)
+// For FIXED_BUDGET: use distributionCents (direct amount from budget)
 const createPayoutSchema = z.object({
   projectId: nanoId(),
   periodStart: z.coerce.date(),
   periodEnd: z.coerce.date(),
   periodLabel: z.string().min(1).max(50),
-  reportedProfitCents: z.number().int().min(0),
+  // PROFIT_SHARE: reported profit amount
+  reportedProfitCents: z.number().int().min(0).optional(),
+  // FIXED_BUDGET: direct distribution amount
+  distributionCents: z.number().int().min(1).optional(),
 })
 
 const markSentSchema = z.object({
@@ -123,13 +129,26 @@ export const payoutRouter = router({
               slug: true,
               founderId: true,
               payoutVisibility: true,
-              rewardPool: {
+              rewardPools: {
+                where: { isDefault: true },
+                take: 1,
                 select: {
+                  poolType: true,
                   poolPercentage: true,
                   poolCapacity: true,
                   platformFeePercentage: true,
+                  budgetCents: true,
+                  spentCents: true,
                 },
               },
+            },
+          },
+          // Include the specific reward pool this payout was made from
+          rewardPool: {
+            select: {
+              poolType: true,
+              poolPercentage: true,
+              budgetCents: true,
             },
           },
           recipients: {
@@ -219,28 +238,40 @@ export const payoutRouter = router({
 
   /**
    * Calculate potential payout (preview before creating)
+   * Supports both PROFIT_SHARE and FIXED_BUDGET pool types
    */
   previewPayout: protectedProcedure
     .input(
       z.object({
         projectId: nanoId(),
-        reportedProfitCents: z.number().int().min(0),
+        // PROFIT_SHARE: reported profit amount
+        reportedProfitCents: z.number().int().min(0).optional(),
+        // FIXED_BUDGET: direct distribution amount
+        distributionCents: z.number().int().min(1).optional(),
       }),
     )
     .query(async ({ ctx, input }) => {
       // Verify ownership
       const project = await ctx.prisma.project.findUnique({
         where: { id: input.projectId },
-        include: { rewardPool: true },
+        include: {
+          rewardPools: {
+            where: { isDefault: true },
+            take: 1,
+          },
+        },
       })
 
       if (!project || project.founderId !== ctx.user.id) {
         throw userError('FORBIDDEN', 'Access denied')
       }
 
-      if (!project.rewardPool) {
+      const rewardPool = project.rewardPools[0]
+      if (!rewardPool) {
         throw userError('BAD_REQUEST', 'Project has no reward pool')
       }
+
+      const poolType = rewardPool.poolType || PoolType.PROFIT_SHARE
 
       // Get all contributors with points
       const contributors = await getContributorPoints(
@@ -248,23 +279,41 @@ export const payoutRouter = router({
         input.projectId,
       )
 
-      // Calculate amounts using capacity-based model
-      const poolPercentage = project.rewardPool.poolPercentage
-      const poolCapacity = project.rewardPool.poolCapacity
-      const platformFeePercentage = project.rewardPool.platformFeePercentage
-
-      const poolAmountCents = Math.floor(
-        (input.reportedProfitCents * poolPercentage) / 100,
-      )
-      const platformFeeCents = Math.floor(
-        (poolAmountCents * platformFeePercentage) / 100,
-      )
-      const maxDistributableCents = poolAmountCents - platformFeeCents
-
+      const poolCapacity = rewardPool.poolCapacity
+      const platformFeePercentage = rewardPool.platformFeePercentage
       const totalEarnedPoints = contributors.reduce(
         (sum, c) => sum + c.points,
         0,
       )
+
+      let poolAmountCents: number
+      let reportedProfitCents: number
+      let poolPercentage: number
+
+      if (poolType === PoolType.FIXED_BUDGET) {
+        // FIXED_BUDGET: distributionCents is the pool amount directly
+        const distributionCents = input.distributionCents ?? 0
+        const budgetCents = Number(rewardPool.budgetCents ?? 0)
+        const spentCents = Number(rewardPool.spentCents ?? 0)
+        const remainingBudget = budgetCents - spentCents
+
+        // Can't distribute more than remaining budget
+        poolAmountCents = Math.min(distributionCents, remainingBudget)
+        reportedProfitCents = 0 // Not applicable for fixed budget
+        poolPercentage = 0 // Not applicable for fixed budget
+      } else {
+        // PROFIT_SHARE: calculate pool amount from profit percentage
+        poolPercentage = rewardPool.poolPercentage ?? 0
+        reportedProfitCents = input.reportedProfitCents ?? 0
+        poolAmountCents = Math.floor(
+          (reportedProfitCents * poolPercentage) / 100,
+        )
+      }
+
+      const platformFeeCents = Math.floor(
+        (poolAmountCents * platformFeePercentage) / 100,
+      )
+      const maxDistributableCents = poolAmountCents - platformFeeCents
 
       // Use capacity as denominator, but cap at 100% if earned > capacity
       const effectiveDenominator = Math.max(poolCapacity, totalEarnedPoints)
@@ -277,7 +326,7 @@ export const payoutRouter = router({
 
       const breakdown = contributors.map((c) => {
         const amountCents =
-          effectiveDenominator > 0
+          effectiveDenominator > 0 && totalEarnedPoints > 0
             ? Math.floor(
                 (distributedAmountCents * c.points) / totalEarnedPoints,
               )
@@ -295,8 +344,16 @@ export const payoutRouter = router({
         }
       })
 
+      // For FIXED_BUDGET, include budget info
+      const budgetInfo = poolType === PoolType.FIXED_BUDGET ? {
+        budgetCents: Number(rewardPool.budgetCents ?? 0),
+        spentCents: Number(rewardPool.spentCents ?? 0),
+        remainingCents: Number(rewardPool.budgetCents ?? 0) - Number(rewardPool.spentCents ?? 0),
+      } : null
+
       return {
-        reportedProfitCents: input.reportedProfitCents,
+        poolType,
+        reportedProfitCents,
         poolPercentage,
         poolCapacity,
         poolAmountCents,
@@ -306,11 +363,13 @@ export const payoutRouter = router({
         distributedAmountCents,
         totalEarnedPoints,
         breakdown,
+        budgetInfo,
       }
     }),
 
   /**
    * Create a payout (founder only)
+   * Supports both PROFIT_SHARE and FIXED_BUDGET pool types
    */
   create: protectedProcedure
     .input(createPayoutSchema)
@@ -318,16 +377,24 @@ export const payoutRouter = router({
       // Verify ownership
       const project = await ctx.prisma.project.findUnique({
         where: { id: input.projectId },
-        include: { rewardPool: true },
+        include: {
+          rewardPools: {
+            where: { isDefault: true },
+            take: 1,
+          },
+        },
       })
 
       if (!project || project.founderId !== ctx.user.id) {
         throw userError('FORBIDDEN', 'Access denied')
       }
 
-      if (!project.rewardPool) {
+      const rewardPool = project.rewardPools[0]
+      if (!rewardPool) {
         throw userError('BAD_REQUEST', 'Project has no reward pool')
       }
+
+      const poolType = rewardPool.poolType || PoolType.PROFIT_SHARE
 
       // Get all contributors with points
       const contributors = await getContributorPoints(
@@ -339,14 +406,42 @@ export const payoutRouter = router({
         throw userError('BAD_REQUEST', 'No contributors with points to pay out')
       }
 
-      // Calculate amounts using capacity-based model
-      const poolPercentage = project.rewardPool.poolPercentage
-      const poolCapacity = project.rewardPool.poolCapacity
-      const platformFeePercentage = project.rewardPool.platformFeePercentage
+      // Calculate amounts based on pool type
+      const poolCapacity = rewardPool.poolCapacity
+      const platformFeePercentage = rewardPool.platformFeePercentage
 
-      const poolAmountCents = Math.floor(
-        (input.reportedProfitCents * poolPercentage) / 100,
-      )
+      let poolAmountCents: number
+      let reportedProfitCents: number
+
+      if (poolType === PoolType.FIXED_BUDGET) {
+        // FIXED_BUDGET: distributionCents is the pool amount directly
+        if (!input.distributionCents || input.distributionCents <= 0) {
+          throw userError('BAD_REQUEST', 'Distribution amount is required for fixed budget pools')
+        }
+        
+        const budgetCents = Number(rewardPool.budgetCents ?? 0)
+        const spentCents = Number(rewardPool.spentCents ?? 0)
+        const remainingBudget = budgetCents - spentCents
+
+        if (input.distributionCents > remainingBudget) {
+          throw userError('BAD_REQUEST', `Cannot distribute more than remaining budget ($${(remainingBudget / 100).toFixed(2)})`)
+        }
+
+        poolAmountCents = input.distributionCents
+        reportedProfitCents = 0 // Not applicable
+      } else {
+        // PROFIT_SHARE: calculate pool amount from profit percentage
+        if (!input.reportedProfitCents || input.reportedProfitCents <= 0) {
+          throw userError('BAD_REQUEST', 'Reported profit is required for profit share pools')
+        }
+        
+        const poolPercentage = rewardPool.poolPercentage ?? 0
+        reportedProfitCents = input.reportedProfitCents
+        poolAmountCents = Math.floor(
+          (reportedProfitCents * poolPercentage) / 100,
+        )
+      }
+
       const platformFeeCents = Math.floor(
         (poolAmountCents * platformFeePercentage) / 100,
       )
@@ -363,44 +458,59 @@ export const payoutRouter = router({
           poolCapacity,
       )
 
-      // Create payout with recipients
-      const payout = await ctx.prisma.payout.create({
-        data: {
-          projectId: input.projectId,
-          periodStart: input.periodStart,
-          periodEnd: input.periodEnd,
-          periodLabel: input.periodLabel,
-          reportedProfitCents: input.reportedProfitCents,
-          poolAmountCents,
-          platformFeeCents,
-          totalPointsAtPayout: totalEarnedPoints,
-          poolCapacityAtPayout: poolCapacity,
-          recipients: {
-            create: contributors.map((c) => {
-              const amountCents = Math.floor(
-                (distributedAmountCents * c.points) / totalEarnedPoints,
-              )
-              // sharePercent is % of total pool (including platform fee)
-              const sharePercent =
-                poolAmountCents > 0 ? (amountCents / poolAmountCents) * 100 : 0
-              return {
-                userId: c.userId,
-                pointsAtPayout: c.points,
-                sharePercent,
-                amountCents,
-              }
-            }),
+      // Create payout with recipients (use transaction for FIXED_BUDGET to update spentCents)
+      const payout = await ctx.prisma.$transaction(async (tx) => {
+        // For FIXED_BUDGET, update the spentCents on the reward pool
+        if (poolType === PoolType.FIXED_BUDGET) {
+          await tx.rewardPool.update({
+            where: { id: rewardPool.id },
+            data: {
+              spentCents: {
+                increment: poolAmountCents,
+              },
+            },
+          })
+        }
+
+        return tx.payout.create({
+          data: {
+            projectId: input.projectId,
+            rewardPoolId: rewardPool.id,
+            periodStart: input.periodStart,
+            periodEnd: input.periodEnd,
+            periodLabel: input.periodLabel,
+            reportedProfitCents, // Use our calculated value (0 for FIXED_BUDGET)
+            poolAmountCents,
+            platformFeeCents,
+            totalPointsAtPayout: totalEarnedPoints,
+            poolCapacityAtPayout: poolCapacity,
+            recipients: {
+              create: contributors.map((c) => {
+                const amountCents = Math.floor(
+                  (distributedAmountCents * c.points) / totalEarnedPoints,
+                )
+                // sharePercent is % of total pool (including platform fee)
+                const sharePercent =
+                  poolAmountCents > 0 ? (amountCents / poolAmountCents) * 100 : 0
+                return {
+                  userId: c.userId,
+                  pointsAtPayout: c.points,
+                  sharePercent,
+                  amountCents,
+                }
+              }),
+            },
           },
-        },
-        include: {
-          recipients: {
-            include: {
-              user: {
-                select: { id: true, name: true, image: true, email: true },
+          include: {
+            recipients: {
+              include: {
+                user: {
+                  select: { id: true, name: true, image: true, email: true },
+                },
               },
             },
           },
-        },
+        })
       })
 
       // Notify all recipients about the payout announcement

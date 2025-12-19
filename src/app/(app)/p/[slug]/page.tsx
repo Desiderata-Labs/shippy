@@ -47,7 +47,10 @@ async function getProject(slug: string) {
       founder: {
         select: { id: true, name: true, username: true, image: true },
       },
-      rewardPool: true,
+      rewardPools: {
+        where: { isDefault: true },
+        take: 1,
+      },
       bounties: {
         // Always include past bounties (COMPLETED/CLOSED), not just active ones.
         orderBy: [{ createdAt: 'desc' }],
@@ -181,8 +184,12 @@ async function getProject(slug: string) {
     return new Date(b.createdAt).getTime() - new Date(a.createdAt).getTime()
   })
 
+  // Extract the default pool for backward compatibility with components
+  const rewardPool = project.rewardPools[0] ?? null
+
   return {
     ...project,
+    rewardPool, // Provide single pool for backward compatibility
     bounties: bountiesWithPendingCount,
     payoutVisibility: project.payoutVisibility as PayoutVisibility,
     stats: {

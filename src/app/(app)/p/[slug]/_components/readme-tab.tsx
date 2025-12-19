@@ -1,6 +1,7 @@
 'use client'
 
 import { InfoCircle } from '@untitled-ui/icons-react'
+import { PoolType } from '@/lib/db/types'
 import { Markdown } from '@/components/ui/markdown'
 
 interface ReadmeTabProps {
@@ -8,9 +9,11 @@ interface ReadmeTabProps {
     name: string
     description: string | null
     rewardPool: {
-      poolPercentage: number
-      payoutFrequency: string
-      commitmentEndsAt: Date
+      poolType?: string | null
+      poolPercentage: number | null
+      payoutFrequency: string | null
+      commitmentEndsAt: Date | null
+      budgetCents?: bigint | number | null
     } | null
   }
 }
@@ -33,32 +36,56 @@ export function ReadmeTab({ project }: ReadmeTabProps) {
 
       {/* How It Works (if reward pool exists) */}
       {project.rewardPool && (
-        <div className="mt-10 rounded-lg border border-border p-4">
-          <div>
-            <h3 className="text-lg font-semibold">How to Earn</h3>
-            <p className="text-sm text-muted-foreground">
-              Complete bounties, earn points, get paid
-            </p>
-          </div>
-          <div className="mt-4 grid gap-3 sm:grid-cols-3">
-            <StepCard
-              number={1}
-              title="Claim a bounty"
-              description="Find work that matches your skills"
-            />
-            <StepCard
-              number={2}
-              title="Ship the work"
-              description="Complete the task and submit proof"
-            />
-            <StepCard
-              number={3}
-              title="Get paid"
-              description="Earn recurring payouts from points"
-            />
-          </div>
-        </div>
+        <HowToEarnSection poolType={project.rewardPool.poolType || PoolType.PROFIT_SHARE} />
       )}
+    </div>
+  )
+}
+
+function HowToEarnSection({ poolType }: { poolType: string }) {
+  // Pool-type-specific content
+  const content: Record<string, { subtitle: string; step3: { title: string; description: string } }> = {
+    [PoolType.PROFIT_SHARE]: {
+      subtitle: 'Complete bounties, earn points, get paid',
+      step3: {
+        title: 'Get paid',
+        description: 'Earn recurring payouts from points',
+      },
+    },
+    [PoolType.FIXED_BUDGET]: {
+      subtitle: 'Complete bounties and earn from the reward pool',
+      step3: {
+        title: 'Get paid',
+        description: 'Earn your share from the budget pool',
+      },
+    },
+  }
+
+  const { subtitle, step3 } = content[poolType] ?? content[PoolType.PROFIT_SHARE]
+
+  return (
+    <div className="mt-10 rounded-lg border border-border p-4">
+      <div>
+        <h3 className="text-lg font-semibold">How to Earn</h3>
+        <p className="text-sm text-muted-foreground">{subtitle}</p>
+      </div>
+      <div className="mt-4 grid gap-3 sm:grid-cols-3">
+        <StepCard
+          number={1}
+          title="Claim a bounty"
+          description="Find work that matches your skills"
+        />
+        <StepCard
+          number={2}
+          title="Ship the work"
+          description="Complete the task and submit proof"
+        />
+        <StepCard
+          number={3}
+          title={step3.title}
+          description={step3.description}
+        />
+      </div>
     </div>
   )
 }

@@ -3,13 +3,10 @@
 import { useSession } from '@/lib/auth/react'
 import { trpc } from '@/lib/trpc/react'
 import {
-  Calendar,
-  Clock,
   Eye,
   EyeOff,
   Globe02,
   MessageTextSquare02,
-  PieChart01,
 } from '@untitled-ui/icons-react'
 import { Check, Loader2, X } from 'lucide-react'
 import { useEffect, useState } from 'react'
@@ -20,6 +17,7 @@ import {
   CommitmentMonths,
   PayoutFrequency,
   PayoutVisibility,
+  PoolType,
   ProfitBasis,
 } from '@/lib/db/types'
 import {
@@ -28,24 +26,19 @@ import {
 } from '@/lib/project-key/shared'
 import { routes } from '@/lib/routes'
 import { slugify } from '@/lib/slugify'
-import { cn } from '@/lib/utils'
 import { useDebounce } from '@/hooks/use-debounce'
-import { AppButton, AppInput } from '@/components/app'
+import { AppButton } from '@/components/app'
 import { AppBackground } from '@/components/layout/app-background'
 import { ProjectLogoUpload } from '@/components/project/project-logo-upload'
+import {
+  MiniPoolConfig,
+  type PoolConfigState,
+} from '@/components/reward-pool/mini-pool-config'
 import { ErrorState } from '@/components/ui/error-state'
 import { MarkdownEditor } from '@/components/ui/markdown-editor'
 import { NotFoundState } from '@/components/ui/not-found-state'
-import {
-  Select,
-  SelectContent,
-  SelectItem,
-  SelectTrigger,
-  SelectValue,
-} from '@/components/ui/select'
 import { Separator } from '@/components/ui/separator'
 import { Skeleton } from '@/components/ui/skeleton'
-import { Slider } from '@/components/ui/slider'
 import { Switch } from '@/components/ui/switch'
 import {
   Tooltip,
@@ -75,13 +68,17 @@ export function ProjectEditor({ mode, username, slug }: ProjectEditorProps) {
   const [logoUrl, setLogoUrl] = useState<string | null>(null)
   const [websiteUrl, setWebsiteUrl] = useState('')
   const [discordUrl, setDiscordUrl] = useState('')
-  const [poolPercentage, setPoolPercentage] = useState(10)
-  const [payoutFrequency, setPayoutFrequency] = useState<PayoutFrequency>(
-    PayoutFrequency.MONTHLY,
-  )
-  const [commitmentMonths, setCommitmentMonths] = useState<CommitmentMonths>(
-    CommitmentMonths.FIVE_YEARS,
-  )
+  // Pool configuration (for create mode, this is editable; for edit mode, shows current pool)
+  const [poolConfig, setPoolConfig] = useState<PoolConfigState>({
+    poolType: PoolType.PROFIT_SHARE,
+    poolPercentage: 10,
+    payoutFrequency: PayoutFrequency.MONTHLY,
+    commitmentMonths: CommitmentMonths.FIVE_YEARS,
+    budgetDollars: 5000,
+  })
+  const updatePoolConfig = (updates: Partial<PoolConfigState>) => {
+    setPoolConfig((prev) => ({ ...prev, ...updates }))
+  }
   const [payoutVisibility, setPayoutVisibility] = useState<PayoutVisibility>(
     PayoutVisibility.PRIVATE,
   )
@@ -116,21 +113,29 @@ export function ProjectEditor({ mode, username, slug }: ProjectEditorProps) {
       setWebsiteUrl(project.websiteUrl ?? '')
       setDiscordUrl(project.discordUrl ?? '')
       if (project.rewardPool) {
-        setPoolPercentage(project.rewardPool.poolPercentage)
-        setPayoutFrequency(
-          project.rewardPool.payoutFrequency as PayoutFrequency,
-        )
         // Convert commitment months number to enum
         const months = project.rewardPool.commitmentMonths
-        if (months === 6) setCommitmentMonths(CommitmentMonths.SIX_MONTHS)
-        else if (months === 12) setCommitmentMonths(CommitmentMonths.ONE_YEAR)
-        else if (months === 24) setCommitmentMonths(CommitmentMonths.TWO_YEARS)
-        else if (months === 36)
-          setCommitmentMonths(CommitmentMonths.THREE_YEARS)
-        else if (months === 60) setCommitmentMonths(CommitmentMonths.FIVE_YEARS)
-        else if (months === 120) setCommitmentMonths(CommitmentMonths.TEN_YEARS)
-        else if (months === 9999) setCommitmentMonths(CommitmentMonths.FOREVER)
-        else setCommitmentMonths(CommitmentMonths.FIVE_YEARS)
+        let commitmentEnum = CommitmentMonths.FIVE_YEARS
+        if (months === 6) commitmentEnum = CommitmentMonths.SIX_MONTHS
+        else if (months === 12) commitmentEnum = CommitmentMonths.ONE_YEAR
+        else if (months === 24) commitmentEnum = CommitmentMonths.TWO_YEARS
+        else if (months === 36) commitmentEnum = CommitmentMonths.THREE_YEARS
+        else if (months === 60) commitmentEnum = CommitmentMonths.FIVE_YEARS
+        else if (months === 120) commitmentEnum = CommitmentMonths.TEN_YEARS
+        else if (months === 9999) commitmentEnum = CommitmentMonths.FOREVER
+
+        setPoolConfig({
+          poolType:
+            (project.rewardPool.poolType as PoolType) ?? PoolType.PROFIT_SHARE,
+          poolPercentage: project.rewardPool.poolPercentage ?? 10,
+          payoutFrequency:
+            (project.rewardPool.payoutFrequency as PayoutFrequency) ??
+            PayoutFrequency.MONTHLY,
+          commitmentMonths: commitmentEnum,
+          budgetDollars: project.rewardPool.budgetCents
+            ? Number(project.rewardPool.budgetCents) / 100
+            : 5000,
+        })
       }
       setPayoutVisibility(project.payoutVisibility as PayoutVisibility)
       setInitialized(true)
@@ -287,8 +292,17 @@ export function ProjectEditor({ mode, username, slug }: ProjectEditorProps) {
       ? true
       : !isCheckingKey && keyAvailability?.available)
 
+  // Validation depends on pool type
+  const isPoolValid =
+    poolConfig.poolType === PoolType.PROFIT_SHARE
+      ? poolConfig.poolPercentage > 0
+      : poolConfig.budgetDollars > 0
+
   const isValid =
-    name.trim() && isSlugValid && isProjectKeyValid && poolPercentage > 0
+    name.trim() &&
+    isSlugValid &&
+    isProjectKeyValid &&
+    (mode === 'edit' || isPoolValid)
 
   // Auto-generate slug from name
   const handleNameChange = (value: string) => {
@@ -367,10 +381,19 @@ export function ProjectEditor({ mode, username, slug }: ProjectEditorProps) {
           logoUrl: logoUrl || undefined,
           websiteUrl: websiteUrl || undefined,
           discordUrl: discordUrl || undefined,
-          poolPercentage,
-          payoutFrequency,
-          profitBasis: ProfitBasis.NET_PROFIT,
-          commitmentMonths,
+          // Pool configuration
+          poolType: poolConfig.poolType,
+          // PROFIT_SHARE fields
+          ...(poolConfig.poolType === PoolType.PROFIT_SHARE && {
+            poolPercentage: poolConfig.poolPercentage,
+            payoutFrequency: poolConfig.payoutFrequency,
+            profitBasis: ProfitBasis.NET_PROFIT,
+            commitmentMonths: poolConfig.commitmentMonths,
+          }),
+          // FIXED_BUDGET fields
+          ...(poolConfig.poolType === PoolType.FIXED_BUDGET && {
+            budgetCents: Math.round(poolConfig.budgetDollars * 100),
+          }),
           payoutVisibility,
         })
       } else {
@@ -392,9 +415,9 @@ export function ProjectEditor({ mode, username, slug }: ProjectEditorProps) {
           // Only include reward pool updates if allowed
           ...(project!.canEditRewardPool
             ? {
-                poolPercentage,
-                payoutFrequency,
-                commitmentMonths,
+                poolPercentage: poolConfig.poolPercentage,
+                payoutFrequency: poolConfig.payoutFrequency,
+                commitmentMonths: poolConfig.commitmentMonths,
               }
             : {}),
         })
@@ -617,10 +640,10 @@ export function ProjectEditor({ mode, username, slug }: ProjectEditorProps) {
               {mode === 'edit' && !canEditRewardPool && (
                 <div className="rounded-lg border border-muted bg-muted/30 p-4 text-sm text-muted-foreground">
                   <p className="mb-3 font-medium text-foreground">
-                    Profit Share (locked)
+                    Reward Pool (locked)
                   </p>
                   <p className="mb-3">
-                    Profit share settings are locked because contributors have
+                    Reward pool settings are locked because contributors have
                     already claimed or completed bounties on this project. This
                     protects contributors who committed based on your original
                     terms.
@@ -645,7 +668,7 @@ export function ProjectEditor({ mode, username, slug }: ProjectEditorProps) {
                       <span className="font-medium text-foreground">
                         Commitment Period:
                       </span>{' '}
-                      {commitmentLabel[commitmentMonths]}
+                      {commitmentLabel[poolConfig.commitmentMonths]}
                     </p>
                   </div>
                 </div>
@@ -672,176 +695,14 @@ export function ProjectEditor({ mode, username, slug }: ProjectEditorProps) {
 
               <Separator />
 
-              {/* Profit Share Settings - only show if editable */}
+              {/* Reward Pool Settings - only show if editable */}
               {canEditRewardPool && (
-                <div className="space-y-4 pt-2">
-                  <span className="text-xs font-medium text-muted-foreground">
-                    Profit Share
-                  </span>
-
-                  {/* Pool Percentage */}
-                  <div className="space-y-3 pt-2">
-                    {/* Label with inline input */}
-                    <div className="flex items-center justify-between">
-                      <div className="flex items-center gap-2">
-                        <PieChart01 className="size-3.5 text-muted-foreground" />
-                        <span className="text-xs text-muted-foreground">
-                          Profit share
-                        </span>
-                      </div>
-                      <div className="flex items-center">
-                        <AppInput
-                          type="number"
-                          min="1"
-                          max="100"
-                          value={poolPercentage || ''}
-                          onChange={(e) =>
-                            setPoolPercentage(parseInt(e.target.value) || 0)
-                          }
-                          onBlur={() => {
-                            if (poolPercentage < 1) setPoolPercentage(1)
-                            if (poolPercentage > 100) setPoolPercentage(100)
-                          }}
-                          disabled={isLoading}
-                          className="h-7 w-20 text-center text-sm font-semibold"
-                        />
-                        <span className="ml-1 text-sm text-muted-foreground">
-                          %
-                        </span>
-                      </div>
-                    </div>
-
-                    {/* Slider */}
-                    <Slider
-                      value={[poolPercentage]}
-                      onValueChange={([value]) => setPoolPercentage(value)}
-                      min={1}
-                      max={50}
-                      step={1}
-                      disabled={isLoading}
-                      className="py-1"
-                    />
-
-                    {/* Quick selects */}
-                    <div className="flex flex-wrap gap-1">
-                      {[5, 10, 15, 20].map((preset) => (
-                        <button
-                          key={preset}
-                          type="button"
-                          onClick={() => setPoolPercentage(preset)}
-                          disabled={isLoading}
-                          className={cn(
-                            'cursor-pointer rounded-md border px-2 py-0.5 text-xs font-medium transition-colors',
-                            poolPercentage === preset
-                              ? 'border-primary bg-primary/10 text-primary'
-                              : 'border-border bg-muted/50 text-muted-foreground hover:bg-muted',
-                          )}
-                        >
-                          {preset}%
-                        </button>
-                      ))}
-                    </div>
-
-                    {/* Example info */}
-                    <div className="rounded-md bg-primary/5 px-3 py-2 text-xs">
-                      <span className="whitespace-nowrap text-muted-foreground">
-                        e.g. $
-                        {((10000 * poolPercentage) / 100).toLocaleString()} of
-                        $10,000 profit → contributors
-                      </span>
-                    </div>
-                  </div>
-
-                  <Separator />
-
-                  {/* Payout Frequency */}
-                  <div className="flex items-center justify-between">
-                    <Tooltip>
-                      <TooltipTrigger asChild>
-                        <span className="flex cursor-help items-center gap-1 text-xs text-muted-foreground">
-                          <Clock className="size-3" />
-                          Payout Frequency
-                        </span>
-                      </TooltipTrigger>
-                      <TooltipContent className="max-w-xs text-wrap">
-                        How often you&apos;ll run payouts to contributors
-                      </TooltipContent>
-                    </Tooltip>
-                    <Select
-                      value={payoutFrequency}
-                      onValueChange={(v: PayoutFrequency) =>
-                        setPayoutFrequency(v)
-                      }
-                      disabled={isLoading}
-                    >
-                      <SelectTrigger className="h-7 w-24 rounded-md border-border text-xs">
-                        <SelectValue />
-                      </SelectTrigger>
-                      <SelectContent>
-                        <SelectItem value={PayoutFrequency.MONTHLY}>
-                          Monthly
-                        </SelectItem>
-                        <SelectItem value={PayoutFrequency.QUARTERLY}>
-                          Quarterly
-                        </SelectItem>
-                      </SelectContent>
-                    </Select>
-                  </div>
-
-                  {/* Commitment Period */}
-                  <div className="flex items-center justify-between">
-                    <Tooltip>
-                      <TooltipTrigger asChild>
-                        <span className="flex cursor-help items-center gap-1 text-xs text-muted-foreground">
-                          <Calendar className="size-3" />
-                          Commitment
-                        </span>
-                      </TooltipTrigger>
-                      <TooltipContent className="max-w-xs text-wrap">
-                        How long you commit to running the profit share and
-                        paying contributors
-                      </TooltipContent>
-                    </Tooltip>
-                    <Select
-                      value={commitmentMonths}
-                      onValueChange={(v: CommitmentMonths) =>
-                        setCommitmentMonths(v)
-                      }
-                      disabled={isLoading}
-                    >
-                      <SelectTrigger className="h-7 w-24 rounded-md border-border text-xs">
-                        <SelectValue>
-                          {commitmentLabel[commitmentMonths]}
-                        </SelectValue>
-                      </SelectTrigger>
-                      <SelectContent>
-                        <SelectItem value={CommitmentMonths.SIX_MONTHS}>
-                          6 months
-                        </SelectItem>
-                        <SelectItem value={CommitmentMonths.ONE_YEAR}>
-                          1 year
-                        </SelectItem>
-                        <SelectItem value={CommitmentMonths.TWO_YEARS}>
-                          2 years
-                        </SelectItem>
-                        <SelectItem value={CommitmentMonths.THREE_YEARS}>
-                          3 years
-                        </SelectItem>
-                        <SelectItem value={CommitmentMonths.FIVE_YEARS}>
-                          5 years
-                        </SelectItem>
-                        <SelectItem value={CommitmentMonths.TEN_YEARS}>
-                          10 years
-                        </SelectItem>
-                        <SelectItem value={CommitmentMonths.FOREVER}>
-                          Forever
-                        </SelectItem>
-                      </SelectContent>
-                    </Select>
-                  </div>
-
-                  <Separator />
-                </div>
+                <MiniPoolConfig
+                  state={poolConfig}
+                  onChange={updatePoolConfig}
+                  disabled={isLoading}
+                  showPoolTypePicker={mode === 'create'}
+                />
               )}
 
               {/* Payout Visibility - always editable */}

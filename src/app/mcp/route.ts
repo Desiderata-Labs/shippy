@@ -216,7 +216,11 @@ server.registerTool(
       where: { slug, ...projectVisibilityFilter(userId) },
       include: {
         founder: { select: { name: true, username: true } },
-        rewardPool: { select: { poolPercentage: true, payoutFrequency: true } },
+        rewardPools: {
+          where: { isDefault: true },
+          take: 1,
+          select: { poolPercentage: true, payoutFrequency: true },
+        },
         _count: {
           select: { bounties: { where: { status: BountyStatus.OPEN } } },
         },
@@ -295,7 +299,11 @@ server.registerTool(
       },
       include: {
         founder: { select: { name: true, username: true } },
-        rewardPool: { select: { poolPercentage: true, payoutFrequency: true } },
+        rewardPools: {
+          where: { isDefault: true },
+          take: 1,
+          select: { poolPercentage: true, payoutFrequency: true },
+        },
         _count: {
           select: { bounties: { where: { status: BountyStatus.OPEN } } },
         },
@@ -2264,10 +2272,14 @@ function formatProject(project: {
   discordUrl: string | null
   createdAt: Date
   founder?: { name: string; username: string | null }
-  rewardPool?: { poolPercentage: number; payoutFrequency: string } | null
+  rewardPools?: Array<{
+    poolPercentage: number | null
+    payoutFrequency: string | null
+  }>
   _count?: { bounties: number }
 }) {
   const baseUrl = APP_URL
+  const rewardPool = project.rewardPools?.[0]
   return {
     name: project.name,
     slug: project.slug,
@@ -2278,8 +2290,8 @@ function formatProject(project: {
     websiteUrl: project.websiteUrl,
     discordUrl: project.discordUrl,
     founder: project.founder?.name,
-    rewardPoolPercentage: project.rewardPool?.poolPercentage,
-    payoutFrequency: project.rewardPool?.payoutFrequency,
+    rewardPoolPercentage: rewardPool?.poolPercentage,
+    payoutFrequency: rewardPool?.payoutFrequency,
     openBounties: project._count?.bounties ?? 0,
     createdAt: project.createdAt.toISOString(),
   }

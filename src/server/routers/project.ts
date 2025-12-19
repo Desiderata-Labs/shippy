@@ -3,6 +3,7 @@ import {
   CommitmentMonths,
   PayoutFrequency,
   PayoutVisibility,
+  PoolType,
   ProfitBasis,
   SubmissionStatus,
 } from '@/lib/db/types'
@@ -50,9 +51,13 @@ const createProjectSchema = z.object({
   logoUrl: z.string().url().optional(),
   websiteUrl: z.string().url().optional(),
   discordUrl: z.string().url().optional(),
-  // Reward pool config
-  poolPercentage: z.number().int().min(1).max(100),
-  payoutFrequency: z.enum([PayoutFrequency.MONTHLY, PayoutFrequency.QUARTERLY]),
+  // Pool type (defaults to PROFIT_SHARE for backwards compatibility)
+  poolType: z.enum(PoolType).optional().default(PoolType.PROFIT_SHARE),
+  // PROFIT_SHARE pool config (required if poolType is PROFIT_SHARE)
+  poolPercentage: z.number().int().min(1).max(100).optional(),
+  payoutFrequency: z
+    .enum([PayoutFrequency.MONTHLY, PayoutFrequency.QUARTERLY])
+    .optional(),
   profitBasis: z
     .enum([ProfitBasis.NET_PROFIT, ProfitBasis.GROSS_REVENUE])
     .optional(),
@@ -66,7 +71,10 @@ const createProjectSchema = z.object({
       CommitmentMonths.TEN_YEARS,
       CommitmentMonths.FOREVER,
     ])
-    .transform(Number),
+    .transform(Number)
+    .optional(),
+  // FIXED_BUDGET pool config
+  budgetCents: z.number().int().min(100).optional(), // At least $1
   payoutVisibility: z
     .enum([PayoutVisibility.PRIVATE, PayoutVisibility.PUBLIC])
     .optional()
@@ -197,7 +205,10 @@ export const projectRouter = router({
           founder: {
             select: { id: true, name: true, image: true },
           },
-          rewardPool: true,
+          rewardPools: {
+            where: { isDefault: true },
+            take: 1,
+          },
           bounties: {
             // Always include past bounties (COMPLETED/CLOSED), not just active ones.
             orderBy: [{ createdAt: 'desc' }],
@@ -235,8 +246,12 @@ export const projectRouter = router({
         },
       })
 
+      // Extract default pool for backward compatibility
+      const rewardPool = project.rewardPools[0] ?? null
+
       return {
         ...project,
+        rewardPool, // Provide single pool for backward compatibility
         canEditRewardPool: hasClaimedOrCompletedBounties === 0,
       }
     }),
@@ -279,7 +294,10 @@ export const projectRouter = router({
           founder: {
             select: { id: true, name: true, image: true },
           },
-          rewardPool: true,
+          rewardPools: {
+            where: { isDefault: true },
+            take: 1,
+          },
           _count: {
             select: {
               bounties: { where: { status: BountyStatus.OPEN } },
@@ -294,8 +312,14 @@ export const projectRouter = router({
         nextCursor = nextItem?.id
       }
 
+      // Add backward-compatible rewardPool property
+      const projectsWithPool = projects.map((p) => ({
+        ...p,
+        rewardPool: p.rewardPools[0] ?? null,
+      }))
+
       return {
-        projects,
+        projects: projectsWithPool,
         nextCursor,
       }
     }),
@@ -333,14 +357,17 @@ export const projectRouter = router({
           orderBy = [{ createdAt: 'desc' as const }]
       }
 
-      return ctx.prisma.project.findMany({
+      const projects = await ctx.prisma.project.findMany({
         where: { founderId: ctx.user.id },
         orderBy,
         include: {
           founder: {
             select: { id: true, name: true, image: true },
           },
-          rewardPool: true,
+          rewardPools: {
+            where: { isDefault: true },
+            take: 1,
+          },
           _count: {
             select: {
               bounties: { where: { status: BountyStatus.OPEN } },
@@ -348,6 +375,12 @@ export const projectRouter = router({
           },
         },
       })
+
+      // Add backward-compatible rewardPool property
+      return projects.map((p) => ({
+        ...p,
+        rewardPool: p.rewardPools[0] ?? null,
+      }))
     }),
 
   /**
@@ -368,10 +401,12 @@ export const projectRouter = router({
         logoUrl: input.logoUrl,
         websiteUrl: input.websiteUrl,
         discordUrl: input.discordUrl,
+        poolType: input.poolType,
         poolPercentage: input.poolPercentage,
         payoutFrequency: input.payoutFrequency,
         profitBasis: input.profitBasis,
         commitmentMonths: input.commitmentMonths,
+        budgetCents: input.budgetCents,
         payoutVisibility: input.payoutVisibility,
       })
 
@@ -470,7 +505,9 @@ export const projectRouter = router({
       const project = await ctx.prisma.project.findUnique({
         where: { id: input.projectId },
         include: {
-          rewardPool: {
+          rewardPools: {
+            where: { isDefault: true },
+            take: 1,
             include: {
               expansionEvents: {
                 orderBy: { createdAt: 'desc' },
@@ -486,7 +523,8 @@ export const projectRouter = router({
         },
       })
 
-      if (!project || !project.rewardPool) {
+      const rewardPool = project?.rewardPools[0]
+      if (!project || !rewardPool) {
         throw userError('NOT_FOUND', 'Project or reward pool not found')
       }
 
@@ -509,11 +547,11 @@ export const projectRouter = router({
       const earnedPoints = earnedResult._sum.pointsAwarded ?? 0
 
       return {
-        poolCapacity: project.rewardPool.poolCapacity,
+        poolCapacity: rewardPool.poolCapacity,
         allocatedPoints,
         earnedPoints,
-        availablePoints: project.rewardPool.poolCapacity - allocatedPoints,
-        expansionEvents: project.rewardPool.expansionEvents,
+        availablePoints: rewardPool.poolCapacity - allocatedPoints,
+        expansionEvents: rewardPool.expansionEvents,
       }
     }),
 
@@ -715,7 +753,12 @@ export const projectRouter = router({
     .mutation(async ({ ctx, input }) => {
       const project = await ctx.prisma.project.findUnique({
         where: { id: input.projectId },
-        include: { rewardPool: true },
+        include: {
+          rewardPools: {
+            where: { isDefault: true },
+            take: 1,
+          },
+        },
       })
 
       if (!project) {
@@ -729,11 +772,12 @@ export const projectRouter = router({
         )
       }
 
-      if (!project.rewardPool) {
+      const rewardPool = project.rewardPools[0]
+      if (!rewardPool) {
         throw userError('BAD_REQUEST', 'Project has no reward pool')
       }
 
-      const previousCapacity = project.rewardPool.poolCapacity
+      const previousCapacity = rewardPool.poolCapacity
 
       if (input.newCapacity <= previousCapacity) {
         throw userError(
@@ -749,12 +793,12 @@ export const projectRouter = router({
       // Update capacity and create expansion event
       const [updatedPool] = await ctx.prisma.$transaction([
         ctx.prisma.rewardPool.update({
-          where: { id: project.rewardPool.id },
+          where: { id: rewardPool.id },
           data: { poolCapacity: input.newCapacity },
         }),
         ctx.prisma.poolExpansionEvent.create({
           data: {
-            rewardPoolId: project.rewardPool.id,
+            rewardPoolId: rewardPool.id,
             previousCapacity,
             newCapacity: input.newCapacity,
             reason: input.reason,

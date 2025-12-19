@@ -6,9 +6,11 @@ import {
   ChevronRight,
   Target01,
   Users01,
+  Wallet02,
 } from '@untitled-ui/icons-react'
 import Image from 'next/image'
 import Link from 'next/link'
+import { PoolType } from '@/lib/db/types'
 import { routes } from '@/lib/routes'
 import { cn } from '@/lib/utils'
 import { Skeleton } from '@/components/ui/skeleton'
@@ -24,9 +26,12 @@ export interface ProjectCardProject {
     name: string | null
   }
   rewardPool: {
-    poolPercentage: number
-    payoutFrequency: string
-    commitmentEndsAt: Date | string
+    poolType?: string | null
+    poolPercentage: number | null
+    payoutFrequency: string | null
+    commitmentEndsAt: Date | string | null
+    budgetCents?: bigint | number | null
+    spentCents?: bigint | number | null
   } | null
   _count: {
     bounties: number
@@ -93,23 +98,65 @@ export function ProjectCard({ project }: ProjectCardProps) {
             </span>
           </span>
           {project.rewardPool && (
-            <>
-              <span className="flex items-center gap-1 font-medium">
-                <BankNote03 className="size-3.5 opacity-50" />
-                {project.rewardPool.poolPercentage}% profit share
-              </span>
-              <span className="flex items-center gap-1">
-                <Calendar className="size-3.5 opacity-50" />
-                {project.rewardPool.payoutFrequency === 'MONTHLY'
-                  ? 'Monthly'
-                  : 'Quarterly'}
-              </span>
-            </>
+            <PoolTypeDisplay rewardPool={project.rewardPool} />
           )}
         </div>
       </div>
     </Link>
   )
+}
+
+function formatCurrency(cents: number | bigint): string {
+  const value = typeof cents === 'bigint' ? Number(cents) : cents
+  return new Intl.NumberFormat('en-US', {
+    style: 'currency',
+    currency: 'USD',
+    minimumFractionDigits: 0,
+    maximumFractionDigits: 0,
+  }).format(value / 100)
+}
+
+function PoolTypeDisplay({
+  rewardPool,
+}: {
+  rewardPool: NonNullable<ProjectCardProject['rewardPool']>
+}) {
+  const poolType = rewardPool.poolType || PoolType.PROFIT_SHARE
+
+  // PROFIT_SHARE pool type
+  if (poolType === PoolType.PROFIT_SHARE && rewardPool.poolPercentage != null) {
+    return (
+      <>
+        <span className="flex items-center gap-1 font-medium">
+          <BankNote03 className="size-3.5 opacity-50" />
+          {rewardPool.poolPercentage}% profit share
+        </span>
+        {rewardPool.payoutFrequency && (
+          <span className="flex items-center gap-1">
+            <Calendar className="size-3.5 opacity-50" />
+            {rewardPool.payoutFrequency === 'MONTHLY' ? 'Monthly' : 'Quarterly'}
+          </span>
+        )}
+      </>
+    )
+  }
+
+  // FIXED_BUDGET pool type
+  if (poolType === PoolType.FIXED_BUDGET && rewardPool.budgetCents != null) {
+    const budget = Number(rewardPool.budgetCents)
+    const spent = Number(rewardPool.spentCents || 0)
+    const remaining = budget - spent
+    const remainingPercent = budget > 0 ? Math.round((remaining / budget) * 100) : 0
+
+    return (
+      <span className="flex items-center gap-1 font-medium">
+        <Wallet02 className="size-3.5 opacity-50" />
+        {formatCurrency(budget)} budget ({remainingPercent}% left)
+      </span>
+    )
+  }
+
+  return null
 }
 
 export function ProjectCardSkeleton() {

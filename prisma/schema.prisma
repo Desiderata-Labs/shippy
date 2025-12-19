@@ -120,7 +120,7 @@ model Project {
   nextBountyNumber Int @default(1)
 
   // Relations
-  rewardPool       RewardPool?
+  rewardPools      RewardPool[] // Multiple pools per project
   bounties         Bounty[]
   payouts          Payout[]
   labels           Label[]
@@ -133,42 +133,63 @@ model Project {
 }
 
 /// The reward pool defines how much profit/revenue is shared with contributors
+/// Supports multiple pool types: PROFIT_SHARE, FIXED_BUDGET, PER_BOUNTY
 model RewardPool {
-  id        String   @id @default(dbgenerated("nanoid()"))
-  projectId String   @unique
-  project   Project  @relation(fields: [projectId], references: [id], onDelete: Cascade)
+  id        String  @id @default(dbgenerated("nanoid()"))
+  projectId String // No longer @unique - allows multiple pools per project
+  project   Project @relation(fields: [projectId], references: [id], onDelete: Cascade)
 
-  // Pool configuration
-  poolPercentage   Int // Percentage of profit/revenue (e.g., 10 = 10%)
+  // Pool identity
+  name      String? // Optional name (e.g., "Sales Pool", "Security Bounties")
+  isDefault Boolean @default(true) // Default pool for bounties in this project
+  status    String  @default("ACTIVE") // "ACTIVE" | "EXHAUSTED" | "SUNSET" | "CLOSED"
+
+  // Pool type: determines which fields are used
+  poolType String @default("PROFIT_SHARE") // "PROFIT_SHARE" | "FIXED_BUDGET" | "PER_BOUNTY"
+
+  // PROFIT_SHARE configuration (original fields, now nullable for other pool types)
+  poolPercentage   Int? // Percentage of profit/revenue (e.g., 10 = 10%)
   poolCapacity     Int      @default(1000) // Total points representing 100% of pool (1 pt = 0.1%)
-  payoutFrequency  String // "MONTHLY" | "QUARTERLY" - stored as string, typed via TS
-  profitBasis      String   @default("NET_PROFIT") // "NET_PROFIT" | "GROSS_REVENUE"
-  commitmentMonths Int      @default(12) // Commitment period in months
-  commitmentEndsAt DateTime @db.Timestamptz(3) // When the pool commitment ends
+  payoutFrequency  String? // "MONTHLY" | "QUARTERLY" - stored as string, typed via TS
+  profitBasis      String?  @default("NET_PROFIT") // "NET_PROFIT" | "GROSS_REVENUE"
+  commitmentMonths Int? // Commitment period in months
+  commitmentEndsAt DateTime? @db.Timestamptz(3) // When the pool commitment ends
 
-  // Platform fee (percentage of pool that goes to Shippy)
+  // FIXED_BUDGET / PER_BOUNTY configuration
+  budgetCents BigInt? // Total budget in cents (e.g., 500000 = $5,000)
+  spentCents  BigInt? @default(0) // Amount already spent/committed
+
+  // Platform fee (applies to all pool types)
   platformFeePercentage Int @default(10) // 10% of the pool
 
   createdAt DateTime @default(now()) @db.Timestamptz(3)
   updatedAt DateTime @updatedAt @db.Timestamptz(3)
 
   // Relations
+  bounties        Bounty[]
+  payouts         Payout[]
   expansionEvents PoolExpansionEvent[]
 
+  @@index([projectId])
+  @@index([projectId, isDefault])
   @@map("reward_pool")
 }
 
-/// Tracks pool capacity expansions for transparency
+/// Tracks pool capacity/budget expansions for transparency
 model PoolExpansionEvent {
   id           String     @id @default(dbgenerated("nanoid()"))
   rewardPoolId String
   rewardPool   RewardPool @relation(fields: [rewardPoolId], references: [id], onDelete: Cascade)
 
-  // Expansion details
+  // Capacity expansion details (PROFIT_SHARE pools)
   previousCapacity Int // Capacity before expansion
   newCapacity      Int // Capacity after expansion
   reason           String  @db.Text // Founder-provided reason for expansion
   dilutionPercent  Decimal @db.Decimal(5, 2) // Calculated dilution (e.g., 16.7%)
+
+  // Budget expansion details (FIXED_BUDGET pools)
+  previousBudgetCents BigInt? // Budget before expansion
+  newBudgetCents      BigInt? // Budget after expansion
 
   createdAt DateTime @default(now()) @db.Timestamptz(3)
 
@@ -202,6 +223,10 @@ model Bounty {
   projectId String
   project   Project @relation(fields: [projectId], references: [id], onDelete: Cascade)
 
+  // Pool association (optional - uses project's default pool if null)
+  rewardPoolId String?
+  rewardPool   RewardPool? @relation(fields: [rewardPoolId], references: [id], onDelete: SetNull)
+
   // Bounty details
   /// Per-project sequential number used in display IDs (e.g., "OTH-32")
   number      Int
@@ -209,6 +234,9 @@ model Bounty {
   description String @db.Text // What's required, how success is verified
   points      Int? // Point reward for completing this bounty (null = backlog, not yet estimated)
   status      String @default("OPEN") // "BACKLOG" | "OPEN" | "CLAIMED" | "COMPLETED" | "CLOSED"
+
+  // For PER_BOUNTY pools: explicit dollar value
+  rewardCents BigInt? // Reward in cents (e.g., 50000 = $500)
 
   // Claim configuration
   claimMode       String   @default("SINGLE") // "SINGLE" (Exclusive) | "COMPETITIVE" (First wins) | "MULTIPLE" (All get points) | "PERFORMANCE" (Points per result)
@@ -229,6 +257,7 @@ model Bounty {
   githubIssueLink GitHubIssueLink?
 
   @@index([projectId])
+  @@index([rewardPoolId])
   @@index([status])
   @@unique([projectId, number])
   @@map("bounty")
@@ -381,11 +410,15 @@ model SubmissionAttachment {
 // Shippy - Payout Models
 // ================================
 
-/// A payout represents a distribution of the reward pool for a period
+/// A payout represents a distribution of a reward pool for a period
 model Payout {
   id        String  @id @default(dbgenerated("nanoid()"))
   projectId String
   project   Project @relation(fields: [projectId], references: [id], onDelete: Cascade)
+
+  // Pool reference (payouts are per-pool)
+  rewardPoolId String
+  rewardPool   RewardPool @relation(fields: [rewardPoolId], references: [id], onDelete: Cascade)
 
   // Period
   periodStart DateTime @db.Timestamptz(3)
@@ -394,8 +427,8 @@ model Payout {
 
   // Financials (all in cents to avoid floating point issues)
   // Using BigInt for cents to support amounts up to ~$92 quadrillion
-  reportedProfitCents  BigInt // Profit/revenue reported by founder
-  poolAmountCents      BigInt // Pool amount (profit * pool %)
+  reportedProfitCents  BigInt // Profit/revenue reported by founder (PROFIT_SHARE) or budget disbursed (FIXED_BUDGET/PER_BOUNTY)
+  poolAmountCents      BigInt // Pool amount (profit * pool %) or budget amount
   platformFeeCents     BigInt // Platform fee (pool * platform %)
   totalPointsAtPayout  Int // Total earned points at time of payout (for calculating shares)
   poolCapacityAtPayout Int // Pool capacity at time of payout (for calculating utilization)
@@ -412,6 +445,7 @@ model Payout {
   recipients PayoutRecipient[]
 
   @@index([projectId])
+  @@index([rewardPoolId])
   @@index([status])
   @@map("payout")
 }

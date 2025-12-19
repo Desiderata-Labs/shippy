@@ -39,6 +39,7 @@ import {
   BountyEventType,
   BountyStatus,
   ClaimStatus,
+  PoolType,
   SubmissionStatus,
   generateRandomLabelColor,
 } from '@/lib/db/types'
@@ -1223,23 +1224,59 @@ export function BountyDetailContent() {
                   </span>
                 </div>
 
-                {/* Points earnings estimate */}
-                {bounty.project.rewardPool && bounty.points !== null && (
-                  <div className="rounded-md bg-primary/5 px-3 py-2 text-right text-xs text-muted-foreground/70">
-                    (e.g. $
-                    {(
-                      (10000 *
-                        bounty.project.rewardPool.poolPercentage *
-                        (bounty.points /
-                          bounty.project.rewardPool.poolCapacity)) /
-                      100
-                    ).toLocaleString(undefined, {
-                      minimumFractionDigits: 0,
-                      maximumFractionDigits: 0,
-                    })}{' '}
-                    paid per $10k profit)
-                  </div>
-                )}
+                {/* Pool-type-aware earnings info */}
+                {bounty.project.rewardPool &&
+                  (() => {
+                    const pool = bounty.project.rewardPool
+                    const poolType = pool.poolType || PoolType.PROFIT_SHARE
+
+                    // PROFIT_SHARE: Show estimated earnings per $10k profit
+                    if (
+                      poolType === PoolType.PROFIT_SHARE &&
+                      pool.poolPercentage != null &&
+                      bounty.points !== null
+                    ) {
+                      return (
+                        <div className="rounded-md bg-primary/5 px-3 py-2 text-right text-xs text-muted-foreground/70">
+                          (e.g. $
+                          {(
+                            (10000 *
+                              pool.poolPercentage *
+                              (bounty.points / pool.poolCapacity)) /
+                            100
+                          ).toLocaleString(undefined, {
+                            minimumFractionDigits: 0,
+                            maximumFractionDigits: 0,
+                          })}{' '}
+                          paid per $10k profit)
+                        </div>
+                      )
+                    }
+
+                    // FIXED_BUDGET: Show estimated $ value based on pool budget and capacity
+                    if (
+                      poolType === PoolType.FIXED_BUDGET &&
+                      pool.budgetCents != null &&
+                      bounty.points !== null
+                    ) {
+                      const budgetDollars = Number(pool.budgetCents) / 100
+                      const capacity = pool.poolCapacity ?? 1000
+                      const estimatedValue =
+                        (budgetDollars * bounty.points) / capacity
+                      return (
+                        <div className="rounded-md bg-amber-500/5 px-3 py-2 text-right text-xs text-muted-foreground/70">
+                          ≈ $
+                          {estimatedValue.toLocaleString(undefined, {
+                            minimumFractionDigits: 0,
+                            maximumFractionDigits: 0,
+                          })}{' '}
+                          of ${budgetDollars.toLocaleString()} budget
+                        </div>
+                      )
+                    }
+
+                    return null
+                  })()}
 
                 {/* Assignees */}
                 {(() => {
@@ -1637,41 +1674,45 @@ export function BountyDetailContent() {
                   </span>
                 </div>
 
-                {/* Profit share ends */}
-                {commitmentDate && (
-                  <div className="flex items-center justify-between py-1">
-                    <Tooltip>
-                      <TooltipTrigger asChild>
-                        <span className="flex cursor-help items-center gap-1 text-xs text-muted-foreground">
-                          <Target01 className="size-3 text-foreground opacity-50" />
-                          Profit Share Ends
-                        </span>
-                      </TooltipTrigger>
-                      <TooltipContent className="max-w-xs">
-                        {isForeverCommitment
-                          ? 'The founder has committed to paying contributors indefinitely.'
-                          : 'The founder has committed to paying contributors until this date.'}
-                      </TooltipContent>
-                    </Tooltip>
-                    <span className="text-xs" suppressHydrationWarning>
-                      {isForeverCommitment ? (
-                        'Never'
-                      ) : new Date(commitmentDate) < new Date() ? (
-                        <span className="text-destructive">Expired</span>
-                      ) : (
-                        new Date(commitmentDate).toLocaleDateString('en-US', {
-                          month: 'short',
-                          day: 'numeric',
-                          year: 'numeric',
-                        })
-                      )}
-                    </span>
-                  </div>
-                )}
+                {/* Profit share ends - only for PROFIT_SHARE pools */}
+                {commitmentDate &&
+                  (bounty.project.rewardPool?.poolType ||
+                    PoolType.PROFIT_SHARE) === PoolType.PROFIT_SHARE && (
+                    <div className="flex items-center justify-between py-1">
+                      <Tooltip>
+                        <TooltipTrigger asChild>
+                          <span className="flex cursor-help items-center gap-1 text-xs text-muted-foreground">
+                            <Target01 className="size-3 text-foreground opacity-50" />
+                            Profit Share Ends
+                          </span>
+                        </TooltipTrigger>
+                        <TooltipContent className="max-w-xs">
+                          {isForeverCommitment
+                            ? 'The founder has committed to paying contributors indefinitely.'
+                            : 'The founder has committed to paying contributors until this date.'}
+                        </TooltipContent>
+                      </Tooltip>
+                      <span className="text-xs" suppressHydrationWarning>
+                        {isForeverCommitment ? (
+                          'Never'
+                        ) : new Date(commitmentDate) < new Date() ? (
+                          <span className="text-destructive">Expired</span>
+                        ) : (
+                          new Date(commitmentDate).toLocaleDateString('en-US', {
+                            month: 'short',
+                            day: 'numeric',
+                            year: 'numeric',
+                          })
+                        )}
+                      </span>
+                    </div>
+                  )}
               </div>
 
-              {/* Profit share warning */}
+              {/* Profit share warning - only for PROFIT_SHARE pools */}
               {bounty.project.rewardPool &&
+                (bounty.project.rewardPool.poolType ||
+                  PoolType.PROFIT_SHARE) === PoolType.PROFIT_SHARE &&
                 commitmentRemaining !== null &&
                 commitmentRemaining < 90 && (
                   <div className="rounded-lg border border-amber-500/20 bg-amber-500/10 p-3">

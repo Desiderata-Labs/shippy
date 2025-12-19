@@ -124,7 +124,7 @@ export const userRouter = router({
           orderBy = [{ createdAt: 'desc' as const }]
       }
 
-      return ctx.prisma.project.findMany({
+      const projects = await ctx.prisma.project.findMany({
         where: {
           founderId: user.id,
           isPublic: true,
@@ -134,7 +134,10 @@ export const userRouter = router({
           founder: {
             select: { id: true, name: true, image: true },
           },
-          rewardPool: true,
+          rewardPools: {
+            where: { isDefault: true },
+            take: 1,
+          },
           _count: {
             select: {
               bounties: { where: { status: BountyStatus.OPEN } },
@@ -142,6 +145,12 @@ export const userRouter = router({
           },
         },
       })
+
+      // Add backward-compatible rewardPool property
+      return projects.map((p) => ({
+        ...p,
+        rewardPool: p.rewardPools[0] ?? null,
+      }))
     }),
 
   /**

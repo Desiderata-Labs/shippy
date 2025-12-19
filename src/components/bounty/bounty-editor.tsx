@@ -4,10 +4,12 @@ import { useSession } from '@/lib/auth/react'
 import { trpc } from '@/lib/trpc/react'
 import {
   Clock,
+  CoinsStacked01,
   PieChart01,
   Plus,
   RefreshCcw01,
   Users01,
+  Wallet02,
 } from '@untitled-ui/icons-react'
 import { Loader2 } from 'lucide-react'
 import { useEffect, useState } from 'react'
@@ -24,6 +26,7 @@ import {
   BountyClaimMode,
   BountyStatus,
   DEFAULT_CLAIM_EXPIRY_DAYS,
+  PoolType,
   generateRandomLabelColor,
 } from '@/lib/db/types'
 import { ProjectTab, routes } from '@/lib/routes'
@@ -141,6 +144,9 @@ export function BountyEditor({ mode, slug, bountyId }: BountyEditorProps) {
   )
   const [maxClaims, setMaxClaims] = useState<number | undefined>(undefined)
   const [evidenceDescription, setEvidenceDescription] = useState('')
+  const [selectedPoolId, setSelectedPoolId] = useState<string | undefined>(
+    undefined,
+  )
 
   // Create label popover state
   const [showCreateLabel, setShowCreateLabel] = useState(false)
@@ -187,6 +193,12 @@ export function BountyEditor({ mode, slug, bountyId }: BountyEditorProps) {
       { enabled: !!project?.id },
     )
 
+  // Fetch project pools for pool picker
+  const { data: pools } = trpc.rewardPool.getByProject.useQuery(
+    { projectId: project?.id ?? '' },
+    { enabled: !!project?.id },
+  )
+
   const utils = trpc.useUtils()
 
   // Initialize form with bounty data in edit mode
@@ -203,9 +215,18 @@ export function BountyEditor({ mode, slug, bountyId }: BountyEditorProps) {
       setClaimExpiryDays(bounty.claimExpiryDays)
       setMaxClaims(bounty.maxClaims ?? undefined)
       setEvidenceDescription(bounty.evidenceDescription ?? '')
+      setSelectedPoolId(bounty.rewardPoolId ?? undefined)
       setInitialized(true)
     }
   }, [mode, bounty, initialized])
+
+  // Set default pool when pools are loaded (create mode only)
+  useEffect(() => {
+    if (mode === 'create' && pools && pools.length > 0 && !selectedPoolId) {
+      const defaultPool = pools.find((p) => p.isDefault) ?? pools[0]
+      setSelectedPoolId(defaultPool.id)
+    }
+  }, [mode, pools, selectedPoolId])
 
   const createBounty = trpc.bounty.create.useMutation({
     onSuccess: (newBounty) => {
@@ -816,6 +837,55 @@ export function BountyEditor({ mode, slug, bountyId }: BountyEditorProps) {
 
               <Separator />
 
+              {/* Pool Picker - only show if project has multiple pools */}
+              {pools && pools.length > 1 && (
+                <div className="space-y-2 pt-2">
+                  <div className="flex items-center gap-2">
+                    <CoinsStacked01 className="size-3.5 text-muted-foreground" />
+                    <span className="text-xs text-muted-foreground">
+                      Reward Pool
+                    </span>
+                  </div>
+                  <Select
+                    value={selectedPoolId ?? ''}
+                    onValueChange={setSelectedPoolId}
+                    disabled={isLoading}
+                  >
+                    <SelectTrigger className="h-8 w-full text-xs">
+                      <SelectValue placeholder="Select pool" />
+                    </SelectTrigger>
+                    <SelectContent>
+                      {pools.map((pool) => {
+                        const Icon =
+                          pool.poolType === PoolType.FIXED_BUDGET
+                            ? Wallet02
+                            : PieChart01
+                        return (
+                          <SelectItem key={pool.id} value={pool.id}>
+                            <div className="flex items-center gap-2">
+                              <Icon className="size-3.5" />
+                              <span>
+                                {pool.name ||
+                                  (pool.poolType === PoolType.FIXED_BUDGET
+                                    ? 'Fixed Budget'
+                                    : 'Profit Share')}
+                              </span>
+                              {pool.isDefault && (
+                                <span className="text-[10px] text-muted-foreground">
+                                  (default)
+                                </span>
+                              )}
+                            </div>
+                          </SelectItem>
+                        )
+                      })}
+                    </SelectContent>
+                  </Select>
+                </div>
+              )}
+
+              <Separator />
+
               {/* Properties */}
               <div className="space-y-4 pt-2">
                 {/* Points section */}
@@ -874,15 +944,22 @@ export function BountyEditor({ mode, slug, bountyId }: BountyEditorProps) {
                     ))}
                   </div>
 
-                  {/* Profit share info */}
-                  {!isBacklog && (
-                    <div className="space-y-0.5 rounded-md bg-primary/5 px-3 py-2 text-right text-xs">
-                      {project.rewardPool && (
-                        <div className="text-muted-foreground/70">
+                  {/* Pool-specific earnings info */}
+                  {!isBacklog && (() => {
+                    // Get the selected pool (or project's default pool)
+                    const selectedPool = pools?.find((p) => p.id === selectedPoolId) ?? project.rewardPool
+                    if (!selectedPool) return null
+
+                    const poolType = selectedPool.poolType ?? PoolType.PROFIT_SHARE
+
+                    // PROFIT_SHARE: Show estimated earnings per $10k profit
+                    if (poolType === PoolType.PROFIT_SHARE && selectedPool.poolPercentage != null) {
+                      return (
+                        <div className="rounded-md bg-primary/5 px-3 py-2 text-right text-xs text-muted-foreground/70">
                           Roughly $
                           {(
                             (10000 *
-                              project.rewardPool.poolPercentage *
+                              selectedPool.poolPercentage *
                               (points / poolCapacity)) /
                             100
                           ).toLocaleString(undefined, {
@@ -891,9 +968,27 @@ export function BountyEditor({ mode, slug, bountyId }: BountyEditorProps) {
                           })}{' '}
                           per $10k profit for current profit share size
                         </div>
-                      )}
-                    </div>
-                  )}
+                      )
+                    }
+
+                    // FIXED_BUDGET: Calculate $ value based on pool budget and capacity
+                    if (poolType === PoolType.FIXED_BUDGET && selectedPool.budgetCents != null) {
+                      const budgetDollars = Number(selectedPool.budgetCents) / 100
+                      const capacity = selectedPool.poolCapacity ?? 1000
+                      const estimatedValue = (budgetDollars * points) / capacity
+                      return (
+                        <div className="rounded-md bg-amber-500/5 px-3 py-2 text-right text-xs text-muted-foreground/70">
+                          ≈ ${estimatedValue.toLocaleString(undefined, {
+                            minimumFractionDigits: 0,
+                            maximumFractionDigits: 0,
+                          })}{' '}
+                          of ${budgetDollars.toLocaleString()} budget
+                        </div>
+                      )
+                    }
+
+                    return null
+                  })()}
 
                   {/* Backlog toggle */}
                   {(() => {

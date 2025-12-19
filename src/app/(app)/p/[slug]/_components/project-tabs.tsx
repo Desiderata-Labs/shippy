@@ -3,6 +3,7 @@
 import {
   BankNote03,
   BookOpen02,
+  CoinsStacked01,
   Target01,
   Users01,
 } from '@untitled-ui/icons-react'
@@ -14,6 +15,7 @@ import { cn } from '@/lib/utils'
 import { BountiesTab } from './bounties-tab'
 import { ContributorsTab } from './contributors-tab'
 import { PayoutsTab } from './payouts-tab'
+import { PoolsTab } from './pools-tab'
 import { ReadmeTab } from './readme-tab'
 
 interface ProjectTabsProps {
@@ -27,9 +29,9 @@ interface ProjectTabsProps {
     websiteUrl: string | null
     payoutVisibility: string
     rewardPool: {
-      poolPercentage: number
-      payoutFrequency: string
-      commitmentEndsAt: Date
+      poolPercentage: number | null
+      payoutFrequency: string | null
+      commitmentEndsAt: Date | null
     } | null
     bounties: Array<{
       id: string
@@ -126,6 +128,16 @@ export function ProjectTabs({ project, isFounder }: ProjectTabsProps) {
       label: 'Readme',
       icon: BookOpen02,
     },
+    // Founder-only: Pools tab for managing reward pools
+    ...(isFounder
+      ? [
+          {
+            value: ProjectTab.POOLS,
+            label: 'Pools',
+            icon: CoinsStacked01,
+          },
+        ]
+      : []),
   ]
 
   return (
@@ -204,6 +216,9 @@ export function ProjectTabs({ project, isFounder }: ProjectTabsProps) {
             isFounder={isFounder}
             payoutVisibility={project.payoutVisibility}
           />
+        )}
+        {activeTab === ProjectTab.POOLS && isFounder && (
+          <PoolsTab projectId={project.id} projectSlug={project.slug} />
         )}
       </div>
     </div>

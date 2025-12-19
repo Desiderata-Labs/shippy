@@ -59,7 +59,10 @@ export async function approveSubmission({
         include: {
           project: {
             include: {
-              rewardPool: true,
+              rewardPools: {
+                where: { isDefault: true },
+                take: 1,
+              },
             },
           },
         },
@@ -80,7 +83,7 @@ export async function approveSubmission({
 
   const previousStatus = submission.status
   const project = submission.bounty.project
-  const rewardPool = project.rewardPool
+  const rewardPool = project.rewardPools[0] ?? null
   const bountyDisplayId = `${project.projectKey}-${submission.bounty.number}`
 
   // Auto-expand pool capacity if needed

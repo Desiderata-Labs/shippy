@@ -5,6 +5,7 @@ import { mcpTokenRouter } from './mcp-token'
 import { notificationRouter } from './notification'
 import { payoutRouter } from './payout'
 import { projectRouter } from './project'
+import { rewardPoolRouter } from './reward-pool'
 import { submissionRouter } from './submission'
 import { uploadRouter } from './upload'
 import { userRouter } from './user'
@@ -21,6 +22,7 @@ export const appRouter = router({
   notification: notificationRouter,
   mcpToken: mcpTokenRouter,
   upload: uploadRouter,
+  rewardPool: rewardPoolRouter,
 })
 
 export type AppRouter = typeof appRouter

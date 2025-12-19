@@ -21,6 +21,7 @@ import {
   PayoutRecipientStatus,
   PayoutStatus,
   PayoutVisibility,
+  PoolType,
 } from '@/lib/db/types'
 import { ProjectTab, routes } from '@/lib/routes'
 import { cn } from '@/lib/utils'
@@ -383,100 +384,135 @@ export function PayoutDetailContent() {
         <div className="grid gap-6 lg:grid-cols-[1fr_auto_340px]">
           {/* Left side - Payout details */}
           <div className="space-y-6">
-            {/* Header card */}
-            <div className="rounded-lg border border-border bg-card">
-              <div className="p-4">
-                <div className="flex items-start justify-between gap-4">
-                  <div>
-                    <div className="mb-1 flex items-center gap-2 text-xs text-muted-foreground">
-                      <Calendar className="size-3" />
-                      Payout Period
-                    </div>
-                    <h1 className="text-2xl font-bold">{payout.periodLabel}</h1>
-                    <p className="mt-1 text-sm text-muted-foreground">
-                      {new Date(payout.periodStart).toLocaleDateString()} –{' '}
-                      {new Date(payout.periodEnd).toLocaleDateString()}
-                    </p>
-                  </div>
-                  <Badge
-                    variant="outline"
-                    className={cn('text-xs', status.color)}
-                  >
-                    {status.label}
-                  </Badge>
-                </div>
-              </div>
+            {/* Header card - pool-type aware */}
+            {(() => {
+              // Get pool type from the payout's reward pool or project's default
+              const poolType = payout.rewardPool?.poolType || payout.project.rewardPools[0]?.poolType || PoolType.PROFIT_SHARE
+              const isFixedBudget = poolType === PoolType.FIXED_BUDGET
+              const poolPercentage = payout.rewardPool?.poolPercentage ?? payout.project.rewardPools[0]?.poolPercentage ?? 10
 
-              {canSeeFinancials && (
-                <>
-                  <Separator />
-
+              return (
+                <div className="rounded-lg border border-border bg-card">
                   <div className="p-4">
-                    <div className="mb-2 flex items-center gap-2 text-xs text-muted-foreground">
-                      <BankNote03 className="size-3" />
-                      Reported Profit
+                    <div className="flex items-start justify-between gap-4">
+                      <div>
+                        <div className="mb-1 flex items-center gap-2 text-xs text-muted-foreground">
+                          <Calendar className="size-3" />
+                          Payout Period
+                        </div>
+                        <h1 className="text-2xl font-bold">{payout.periodLabel}</h1>
+                        <p className="mt-1 text-sm text-muted-foreground">
+                          {new Date(payout.periodStart).toLocaleDateString()} –{' '}
+                          {new Date(payout.periodEnd).toLocaleDateString()}
+                        </p>
+                      </div>
+                      <Badge
+                        variant="outline"
+                        className={cn('text-xs', status.color)}
+                      >
+                        {status.label}
+                      </Badge>
                     </div>
-                    <div className="text-3xl font-bold">
-                      {formatCurrency(payout.reportedProfitCents)}
-                    </div>
-                    <p className="mt-1 text-xs text-muted-foreground">
-                      Profit share: {formatCurrency(payout.poolAmountCents)} (
-                      {payout.project.rewardPool?.poolPercentage ?? 10}% of
-                      profit)
-                    </p>
                   </div>
-                </>
-              )}
-            </div>
 
-            {/* Summary stats */}
-            <div className="grid gap-3 sm:grid-cols-3">
-              <div className="rounded-lg border border-border bg-card px-4 py-3">
-                <div className="text-xs text-muted-foreground">
-                  Profit Share Amount
-                </div>
-                <div className="text-lg font-semibold">
-                  {canSeeFinancials ? (
-                    formatCurrency(payout.poolAmountCents)
-                  ) : (
-                    <span className="text-muted-foreground">Hidden</span>
+                  {canSeeFinancials && (
+                    <>
+                      <Separator />
+
+                      <div className="p-4">
+                        {isFixedBudget ? (
+                          // FIXED_BUDGET: Show distribution amount
+                          <>
+                            <div className="mb-2 flex items-center gap-2 text-xs text-muted-foreground">
+                              <BankNote03 className="size-3" />
+                              Distribution Amount
+                            </div>
+                            <div className="text-3xl font-bold">
+                              {formatCurrency(payout.poolAmountCents)}
+                            </div>
+                            <p className="mt-1 text-xs text-muted-foreground">
+                              From fixed budget pool
+                            </p>
+                          </>
+                        ) : (
+                          // PROFIT_SHARE: Show reported profit
+                          <>
+                            <div className="mb-2 flex items-center gap-2 text-xs text-muted-foreground">
+                              <BankNote03 className="size-3" />
+                              Reported Profit
+                            </div>
+                            <div className="text-3xl font-bold">
+                              {formatCurrency(payout.reportedProfitCents)}
+                            </div>
+                            <p className="mt-1 text-xs text-muted-foreground">
+                              Profit share: {formatCurrency(payout.poolAmountCents)} (
+                              {poolPercentage}% of profit)
+                            </p>
+                          </>
+                        )}
+                      </div>
+                    </>
                   )}
                 </div>
-                <div className="text-[10px] text-muted-foreground">
-                  {payout.project.rewardPool?.poolPercentage ?? 10}% of profit
+              )
+            })()}
+
+            {/* Summary stats - pool-type aware */}
+            {(() => {
+              const poolType = payout.rewardPool?.poolType || payout.project.rewardPools[0]?.poolType || PoolType.PROFIT_SHARE
+              const isFixedBudget = poolType === PoolType.FIXED_BUDGET
+              const poolPercentage = payout.rewardPool?.poolPercentage ?? payout.project.rewardPools[0]?.poolPercentage ?? 10
+
+              return (
+                <div className="grid gap-3 sm:grid-cols-3">
+                  <div className="rounded-lg border border-border bg-card px-4 py-3">
+                    <div className="text-xs text-muted-foreground">
+                      {isFixedBudget ? 'Distribution Amount' : 'Profit Share Amount'}
+                    </div>
+                    <div className="text-lg font-semibold">
+                      {canSeeFinancials ? (
+                        formatCurrency(payout.poolAmountCents)
+                      ) : (
+                        <span className="text-muted-foreground">Hidden</span>
+                      )}
+                    </div>
+                    <div className="text-[10px] text-muted-foreground">
+                      {isFixedBudget ? 'From budget pool' : `${poolPercentage}% of profit`}
+                    </div>
+                  </div>
+                  <div className="rounded-lg border border-border bg-card px-4 py-3">
+                    <div className="text-xs text-muted-foreground">
+                      Pool Utilization
+                    </div>
+                    <div className="text-lg font-semibold">
+                      {formatPercentage(Math.min(poolUtilization, 100))}
+                    </div>
+                    <div className="text-[10px] text-muted-foreground">
+                      {totalPoints} / {poolCapacityAtPayout} pts
+                    </div>
+                  </div>
+                  <div className="rounded-lg border border-border bg-card px-4 py-3">
+                    <div className="text-xs text-muted-foreground">Distributed</div>
+                    <div className="text-lg font-semibold text-primary">
+                      {canSeeFinancials ? (
+                        formatCurrency(
+                          payout.recipients.reduce(
+                            (sum, r) => sum + r.amountCents,
+                            0,
+                          ),
+                        )
+                      ) : (
+                        <span className="text-muted-foreground">Hidden</span>
+                      )}
+                    </div>
+                    <div className="text-[10px] text-muted-foreground">
+                      to {payout.recipients.length} contributor
+                      {payout.recipients.length !== 1 ? 's' : ''}
+                    </div>
+                  </div>
                 </div>
-              </div>
-              <div className="rounded-lg border border-border bg-card px-4 py-3">
-                <div className="text-xs text-muted-foreground">
-                  Profit Share Utilization
-                </div>
-                <div className="text-lg font-semibold">
-                  {formatPercentage(Math.min(poolUtilization, 100))}
-                </div>
-                <div className="text-[10px] text-muted-foreground">
-                  {totalPoints} / {poolCapacityAtPayout} pts
-                </div>
-              </div>
-              <div className="rounded-lg border border-border bg-card px-4 py-3">
-                <div className="text-xs text-muted-foreground">Distributed</div>
-                <div className="text-lg font-semibold text-primary">
-                  {canSeeFinancials ? (
-                    formatCurrency(
-                      payout.recipients.reduce(
-                        (sum, r) => sum + r.amountCents,
-                        0,
-                      ),
-                    )
-                  ) : (
-                    <span className="text-muted-foreground">Hidden</span>
-                  )}
-                </div>
-                <div className="text-[10px] text-muted-foreground">
-                  to {payout.recipients.length} contributor
-                  {payout.recipients.length !== 1 ? 's' : ''}
-                </div>
-              </div>
-            </div>
+              )
+            })()}
 
             {/* Sent note (legacy) */}
             {payout.sentNote && (
@@ -894,6 +930,8 @@ export function PayoutDetailContent() {
                 canSeeFinancials &&
                 (() => {
                   const shippyColor = getChartColor(payout.recipients.length)
+                  const poolType = payout.rewardPool?.poolType || payout.project.rewardPools[0]?.poolType || PoolType.PROFIT_SHARE
+                  const isFixedBudget = poolType === PoolType.FIXED_BUDGET
                   return (
                     <div
                       className="flex items-center justify-between rounded-lg border px-3 py-2.5"
@@ -913,9 +951,9 @@ export function PayoutDetailContent() {
                           <span className="text-sm font-medium">Shippy</span>
                           <p className="text-[10px] text-muted-foreground">
                             Platform fee (
-                            {payout.project.rewardPool?.platformFeePercentage ??
-                              10}
-                            % of profit share)
+                            {payout.project.rewardPools[0]
+                              ?.platformFeePercentage ?? 10}
+                            % of {isFixedBudget ? 'distribution' : 'profit share'})
                           </p>
                         </div>
                       </div>

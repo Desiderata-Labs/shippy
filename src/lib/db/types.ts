@@ -9,6 +9,18 @@
 // Reward Pool Enums
 // ================================
 
+export enum PoolType {
+  PROFIT_SHARE = 'PROFIT_SHARE', // X% of profit, paid periodically (original model)
+  FIXED_BUDGET = 'FIXED_BUDGET', // Fixed $ cap, paid until exhausted
+}
+
+export enum PoolStatus {
+  ACTIVE = 'ACTIVE', // Pool is active and accepting bounties
+  EXHAUSTED = 'EXHAUSTED', // FIXED_BUDGET pool has reached its budget
+  SUNSET = 'SUNSET', // Pool is being phased out (no new bounties)
+  CLOSED = 'CLOSED', // Pool is closed
+}
+
 export enum PayoutFrequency {
   MONTHLY = 'MONTHLY',
   QUARTERLY = 'QUARTERLY',

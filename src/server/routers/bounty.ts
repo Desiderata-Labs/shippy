@@ -32,6 +32,7 @@ import { z } from 'zod/v4'
 // Validation schemas
 const createBountySchema = z.object({
   projectId: nanoId(),
+  rewardPoolId: nanoId().optional(), // Optional: uses project's default pool if not specified
   title: z.string().min(1).max(200),
   description: z.string().min(1),
   points: z.number().int().min(1).nullable(), // null = backlog (estimate later)
@@ -110,10 +111,15 @@ export const bountyRouter = router({
       const bounty = await ctx.prisma.bounty.findUnique({
         where: { id: input.id },
         include: {
+          // Include the bounty's own reward pool
+          rewardPool: true,
           project: {
             include: {
               founder: { select: { id: true, name: true, image: true } },
-              rewardPool: true,
+              rewardPools: {
+                where: { isDefault: true },
+                take: 1,
+              },
               githubConnection: { select: { repoFullName: true } },
             },
           },
@@ -167,9 +173,18 @@ export const bountyRouter = router({
         ? bounty.submissions
         : bounty.submissions.filter((s) => s.userId === ctx.user?.id)
 
+      // Use the bounty's own pool if set, otherwise fall back to project's default
+      const effectivePool =
+        bounty.rewardPool ?? bounty.project.rewardPools[0] ?? null
+
       return {
         ...bounty,
         submissions: filteredSubmissions,
+        // Provide the effective pool on the project for backward compatibility
+        project: {
+          ...bounty.project,
+          rewardPool: effectivePool,
+        },
       }
     }),
 
@@ -184,6 +199,7 @@ export const bountyRouter = router({
         const result = await createBounty({
           prisma: tx,
           projectId: input.projectId,
+          rewardPoolId: input.rewardPoolId,
           userId: ctx.user.id,
           title: input.title,
           description: input.description,

@@ -336,6 +336,8 @@ export interface CreateBountyParams {
     issueNumber: number
     issueNodeId: string
   }
+  /** Optional reward pool ID (uses project's default pool if not specified) */
+  rewardPoolId?: string
 }
 
 export interface CreateBountyResult {
@@ -374,6 +376,7 @@ export type CreateBountyError =
 export async function createBounty({
   prisma,
   projectId,
+  rewardPoolId,
   userId,
   title,
   description,
@@ -388,7 +391,11 @@ export async function createBounty({
   // Verify project exists and has a reward pool
   const project = await prisma.project.findUnique({
     where: { id: projectId },
-    include: { rewardPool: true },
+    include: {
+      rewardPools: rewardPoolId
+        ? { where: { id: rewardPoolId } }
+        : { where: { isDefault: true }, take: 1 },
+    },
   })
 
   if (!project) {
@@ -404,11 +411,15 @@ export async function createBounty({
     }
   }
 
-  if (!project.rewardPool) {
+  // Use the specified pool or fall back to the default pool
+  const rewardPool = project.rewardPools[0]
+  if (!rewardPool) {
     return {
       success: false,
       code: 'NO_REWARD_POOL',
-      message: 'Project does not have a reward pool',
+      message: rewardPoolId
+        ? 'Specified reward pool not found'
+        : 'Project does not have a reward pool',
     }
   }
 
@@ -427,6 +438,7 @@ export async function createBounty({
   const bounty = await prisma.bounty.create({
     data: {
       projectId,
+      rewardPoolId: rewardPool.id,
       number: bountyNumber,
       title,
       description,

@@ -105,7 +105,12 @@ export const contributorRouter = router({
         bounty: {
           include: {
             project: {
-              include: { rewardPool: true },
+              include: {
+                rewardPools: {
+                  where: { isDefault: true },
+                  take: 1,
+                },
+              },
             },
           },
         },

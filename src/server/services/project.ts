@@ -1,6 +1,7 @@
 import {
   BountyStatus,
   DEFAULT_PLATFORM_FEE_PERCENTAGE,
+  PoolType,
   ProfitBasis,
 } from '@/lib/db/types'
 import { isProjectKeyAvailable } from '@/lib/project-key/server'
@@ -30,11 +31,15 @@ export interface CreateProjectParams {
   logoUrl?: string
   websiteUrl?: string
   discordUrl?: string
-  // Reward pool config
-  poolPercentage: number
-  payoutFrequency: string
+  // Pool type (defaults to PROFIT_SHARE)
+  poolType?: PoolType
+  // PROFIT_SHARE pool config
+  poolPercentage?: number
+  payoutFrequency?: string
   profitBasis?: string
-  commitmentMonths: number
+  commitmentMonths?: number
+  // FIXED_BUDGET pool config
+  budgetCents?: number
   payoutVisibility?: string
 }
 
@@ -76,10 +81,12 @@ export async function createProject({
   logoUrl,
   websiteUrl,
   discordUrl,
+  poolType = PoolType.PROFIT_SHARE,
   poolPercentage,
   payoutFrequency,
   profitBasis,
   commitmentMonths,
+  budgetCents,
   payoutVisibility,
 }: CreateProjectParams): Promise<CreateProjectResult | CreateProjectError> {
   // Validate slug format (admins can use reserved slugs)
@@ -122,11 +129,35 @@ export async function createProject({
     }
   }
 
-  // Calculate commitment end date
-  const commitmentEndsAt = new Date()
-  commitmentEndsAt.setMonth(commitmentEndsAt.getMonth() + commitmentMonths)
+  // Calculate commitment end date for PROFIT_SHARE pools
+  let commitmentEndsAt: Date | undefined
+  if (poolType === PoolType.PROFIT_SHARE && commitmentMonths) {
+    commitmentEndsAt = new Date()
+    commitmentEndsAt.setMonth(commitmentEndsAt.getMonth() + commitmentMonths)
+  }
 
-  // Create project with reward pool
+  // Build reward pool data based on pool type
+  const rewardPoolData = {
+    name: null, // Default pool doesn't need a name
+    isDefault: true,
+    poolType,
+    platformFeePercentage: DEFAULT_PLATFORM_FEE_PERCENTAGE,
+    // PROFIT_SHARE fields
+    ...(poolType === PoolType.PROFIT_SHARE && {
+      poolPercentage,
+      payoutFrequency,
+      profitBasis: profitBasis ?? ProfitBasis.NET_PROFIT,
+      commitmentMonths,
+      commitmentEndsAt,
+    }),
+    // FIXED_BUDGET fields
+    ...(poolType === PoolType.FIXED_BUDGET && {
+      budgetCents,
+      spentCents: 0,
+    }),
+  }
+
+  // Create project with default reward pool
   const project = await prisma.project.create({
     data: {
       name,
@@ -139,15 +170,8 @@ export async function createProject({
       discordUrl,
       payoutVisibility,
       founderId: userId,
-      rewardPool: {
-        create: {
-          poolPercentage,
-          payoutFrequency,
-          profitBasis: profitBasis ?? ProfitBasis.NET_PROFIT,
-          commitmentMonths,
-          commitmentEndsAt,
-          platformFeePercentage: DEFAULT_PLATFORM_FEE_PERCENTAGE,
-        },
+      rewardPools: {
+        create: rewardPoolData,
       },
     },
     select: {
@@ -350,7 +374,13 @@ export async function updateProject({
     projectUpdate.projectKey = data.projectKey
 
   if (Object.keys(rewardPoolUpdate).length > 0) {
-    projectUpdate.rewardPool = { update: rewardPoolUpdate }
+    // Update the default reward pool
+    projectUpdate.rewardPools = {
+      updateMany: {
+        where: { isDefault: true },
+        data: rewardPoolUpdate,
+      },
+    }
   }
 
   // Check if there's anything to update

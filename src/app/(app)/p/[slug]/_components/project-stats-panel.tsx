@@ -10,8 +10,9 @@ import {
   PieChart01,
   ShieldTick,
   Users01,
+  Wallet02,
 } from '@untitled-ui/icons-react'
-import { PayoutVisibility } from '@/lib/db/types'
+import { PayoutVisibility, PoolType } from '@/lib/db/types'
 import { Separator } from '@/components/ui/separator'
 
 interface ProjectStatsPanelProps {
@@ -22,9 +23,12 @@ interface ProjectStatsPanelProps {
     discordUrl: string | null
     payoutVisibility: PayoutVisibility
     rewardPool: {
-      poolPercentage: number
-      payoutFrequency: string
-      commitmentEndsAt: Date
+      poolType?: string | null
+      poolPercentage: number | null
+      payoutFrequency: string | null
+      commitmentEndsAt: Date | null
+      budgetCents?: bigint | number | null
+      spentCents?: bigint | number | null
     } | null
     _count: {
       bounties: number
@@ -175,20 +179,8 @@ export function ProjectStatsPanel({ project }: ProjectStatsPanelProps) {
         <Separator />
       </div>
 
-      {/* Profit Share */}
-      <StatItem
-        icon={PieChart01}
-        label="Profit share"
-        value={`${rewardPool.poolPercentage}%`}
-      />
-
-      {/* Commitment - suppressHydrationWarning since it compares with current date */}
-      <StatItem
-        icon={Calendar}
-        label="Commitment"
-        value={formatCommitmentDate(rewardPool.commitmentEndsAt)}
-        suppressHydrationWarning
-      />
+      {/* Pool-type-specific stats */}
+      <PoolTypeStats rewardPool={rewardPool} />
     </div>
   )
 }
@@ -227,4 +219,60 @@ function StatItem({
       </div>
     </div>
   )
+}
+
+function PoolTypeStats({
+  rewardPool,
+}: {
+  rewardPool: NonNullable<ProjectStatsPanelProps['project']['rewardPool']>
+}) {
+  const poolType = rewardPool.poolType || PoolType.PROFIT_SHARE
+
+  // PROFIT_SHARE pool type
+  if (poolType === PoolType.PROFIT_SHARE) {
+    return (
+      <>
+        {rewardPool.poolPercentage != null && (
+          <StatItem
+            icon={PieChart01}
+            label="Profit share"
+            value={`${rewardPool.poolPercentage}%`}
+          />
+        )}
+        {rewardPool.commitmentEndsAt && (
+          <StatItem
+            icon={Calendar}
+            label="Commitment"
+            value={formatCommitmentDate(rewardPool.commitmentEndsAt)}
+            suppressHydrationWarning
+          />
+        )}
+      </>
+    )
+  }
+
+  // FIXED_BUDGET pool type
+  if (poolType === PoolType.FIXED_BUDGET && rewardPool.budgetCents != null) {
+    const budget = Number(rewardPool.budgetCents)
+    const spent = Number(rewardPool.spentCents || 0)
+    const remaining = budget - spent
+    const remainingPercent = budget > 0 ? Math.round((remaining / budget) * 100) : 0
+
+    return (
+      <>
+        <StatItem
+          icon={Wallet02}
+          label="Total budget"
+          value={formatCurrency(budget)}
+        />
+        <StatItem
+          icon={BankNote03}
+          label="Remaining"
+          value={`${formatCurrency(remaining)} (${remainingPercent}%)`}
+        />
+      </>
+    )
+  }
+
+  return null
 }

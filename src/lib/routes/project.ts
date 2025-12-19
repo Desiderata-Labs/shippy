@@ -6,6 +6,7 @@ export enum ProjectTab {
   PAYOUTS = 'payouts',
   CONTRIBUTORS = 'contributors',
   README = 'readme',
+  POOLS = 'pools', // Founder-only
 }
 
 export const DEFAULT_PROJECT_TAB = ProjectTab.BOUNTIES
@@ -45,6 +46,10 @@ export interface PayoutDetailParams extends ProjectParams {
   payoutId: string
 }
 
+export interface PoolParams extends ProjectParams {
+  poolId: string
+}
+
 /**
  * Create a URL-friendly slug with embedded nanoid
  * e.g., "grow-twitter-audience-TdFKukO9LuJe"
@@ -69,6 +74,8 @@ export const projectPaths = {
   submissions: '/p/[slug]/submissions',
   newPayout: '/p/[slug]/payouts/new',
   payoutDetail: '/p/[slug]/payouts/[payoutId]',
+  newPool: '/p/[slug]/pools/new',
+  poolEdit: '/p/[slug]/pools/[poolId]/edit',
 } as const
 
 // For navigation - functions that generate actual URLs
@@ -110,4 +117,6 @@ export const projectRoutes = {
   newPayout: (params: ProjectParams) => `/p/${params.slug}/payouts/new`,
   payoutDetail: (params: PayoutDetailParams) =>
     `/p/${params.slug}/payouts/${params.payoutId}`,
+  newPool: (params: ProjectParams) => `/p/${params.slug}/pools/new`,
+  poolEdit: (params: PoolParams) => `/p/${params.slug}/pools/${params.poolId}/edit`,
 } as const

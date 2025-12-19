@@ -155,10 +155,15 @@ export const submissionRouter = router({
           },
           bounty: {
             include: {
+              // Include the bounty's own reward pool
+              rewardPool: true,
               project: {
                 include: {
                   founder: { select: { id: true, name: true, image: true } },
-                  rewardPool: true,
+                  rewardPools: {
+                    where: { isDefault: true },
+                    take: 1,
+                  },
                 },
               },
             },
@@ -187,7 +192,22 @@ export const submissionRouter = router({
         throw userError('FORBIDDEN', 'Access denied')
       }
 
-      return submission
+      // Use the bounty's own pool if set, otherwise fall back to project's default
+      const effectivePool =
+        submission.bounty.rewardPool ??
+        submission.bounty.project.rewardPools[0] ??
+        null
+
+      return {
+        ...submission,
+        bounty: {
+          ...submission.bounty,
+          project: {
+            ...submission.bounty.project,
+            rewardPool: effectivePool,
+          },
+        },
+      }
     }),
 
   /**
@@ -264,7 +284,10 @@ export const submissionRouter = router({
             include: {
               project: {
                 include: {
-                  rewardPool: true,
+                  rewardPools: {
+                    where: { isDefault: true },
+                    take: 1,
+                  },
                 },
               },
             },

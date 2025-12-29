@@ -127,7 +127,8 @@ export async function renderAgreementTemplate(
       project.rewardPool?.commitmentEndsAt?.toISOString() || null,
     poolExpirationNoticeDays: DEFAULT_POOL_EXPIRATION_NOTICE_DAYS,
     governingLaw: project.contributorTermsGoverningLaw || DEFAULT_GOVERNING_LAW,
-    forumSelection: DEFAULT_FORUM_SELECTION,
+    forumSelection:
+      project.contributorTermsForumSelection || DEFAULT_FORUM_SELECTION,
     standardTemplateVersion: CONTRIBUTOR_AGREEMENT_TEMPLATE_VERSION,
     projectTermsVersion: project.contributorTermsVersion,
   }

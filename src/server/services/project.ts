@@ -42,6 +42,7 @@ export interface CreateProjectParams {
   projectOwnerLegalName?: string
   projectOwnerContactEmail?: string
   contributorTermsGoverningLaw?: string
+  contributorTermsForumSelection?: string
   projectOwnerAuthorizedRepresentativeName?: string
   projectOwnerAuthorizedRepresentativeTitle?: string
 }
@@ -94,6 +95,7 @@ export async function createProject({
   projectOwnerLegalName,
   projectOwnerContactEmail,
   contributorTermsGoverningLaw,
+  contributorTermsForumSelection,
   projectOwnerAuthorizedRepresentativeName,
   projectOwnerAuthorizedRepresentativeTitle,
 }: CreateProjectParams): Promise<CreateProjectResult | CreateProjectError> {
@@ -160,6 +162,7 @@ export async function createProject({
       projectOwnerLegalName,
       projectOwnerContactEmail,
       contributorTermsGoverningLaw,
+      contributorTermsForumSelection,
       projectOwnerAuthorizedRepresentativeName,
       projectOwnerAuthorizedRepresentativeTitle,
       rewardPool: {
@@ -213,6 +216,7 @@ export interface UpdateProjectParams {
     projectOwnerLegalName?: string | null
     projectOwnerContactEmail?: string | null
     contributorTermsGoverningLaw?: string | null
+    contributorTermsForumSelection?: string | null
     projectOwnerAuthorizedRepresentativeName?: string | null
     projectOwnerAuthorizedRepresentativeTitle?: string | null
   }
@@ -392,6 +396,9 @@ export async function updateProject({
   if (data.contributorTermsGoverningLaw !== undefined)
     projectUpdate.contributorTermsGoverningLaw =
       data.contributorTermsGoverningLaw
+  if (data.contributorTermsForumSelection !== undefined)
+    projectUpdate.contributorTermsForumSelection =
+      data.contributorTermsForumSelection
   if (data.projectOwnerAuthorizedRepresentativeName !== undefined)
     projectUpdate.projectOwnerAuthorizedRepresentativeName =
       data.projectOwnerAuthorizedRepresentativeName

@@ -26,6 +26,7 @@ export interface ContributorAgreementSettingsValue {
   projectOwnerLegalName: string
   projectOwnerContactEmail: string
   contributorTermsGoverningLaw: string
+  contributorTermsForumSelection: string
   projectOwnerAuthorizedRepresentativeName: string
   projectOwnerAuthorizedRepresentativeTitle: string
 }
@@ -366,6 +367,26 @@ function FullSettings({
               <p className="text-xs text-muted-foreground">
                 Defaults to &quot;the Commonwealth of Pennsylvania&quot; if not
                 specified
+              </p>
+            </div>
+
+            <div className="space-y-1.5">
+              <label className="text-xs font-medium text-muted-foreground">
+                Forum selection (optional)
+              </label>
+              <AppInput
+                value={value.contributorTermsForumSelection}
+                onChange={(e) =>
+                  updateValue('contributorTermsForumSelection', e.target.value)
+                }
+                placeholder="the state or federal courts located in Allegheny County, Pennsylvania"
+                disabled={disabled}
+                className="text-sm"
+              />
+              <p className="text-xs text-muted-foreground">
+                Where disputes will be resolved. Defaults to &quot;the state or
+                federal courts located in Allegheny County, Pennsylvania&quot;
+                if not specified.
               </p>
             </div>
           </div>

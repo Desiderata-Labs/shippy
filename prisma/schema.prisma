@@ -123,7 +123,8 @@ model Project {
   // Agreement metadata shown to contributors
   projectOwnerLegalName    String? // Legal counterparty name: e.g., "Acme LLC"
   projectOwnerContactEmail String? // e.g., "legal@acme.com"
-  contributorTermsGoverningLaw String? // e.g., "Delaware" / "England and Wales"
+  contributorTermsGoverningLaw   String? // e.g., "Delaware" / "England and Wales"
+  contributorTermsForumSelection String? // e.g., "the state or federal courts located in New Castle County, Delaware"
 
   // Optional: if projectOwnerLegalName is an entity, show the human binding it
   projectOwnerAuthorizedRepresentativeName  String? // e.g., "Jane Doe"

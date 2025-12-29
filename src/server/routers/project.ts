@@ -77,6 +77,7 @@ const createProjectSchema = z.object({
   projectOwnerLegalName: z.string().max(200).optional(),
   projectOwnerContactEmail: z.string().email().optional(),
   contributorTermsGoverningLaw: z.string().max(200).optional(),
+  contributorTermsForumSelection: z.string().max(500).optional(),
   projectOwnerAuthorizedRepresentativeName: z.string().max(100).optional(),
   projectOwnerAuthorizedRepresentativeTitle: z.string().max(100).optional(),
 })
@@ -130,6 +131,7 @@ const updateProjectSchema = z.object({
   projectOwnerLegalName: z.string().max(200).optional().nullable(),
   projectOwnerContactEmail: z.string().email().optional().nullable(),
   contributorTermsGoverningLaw: z.string().max(200).optional().nullable(),
+  contributorTermsForumSelection: z.string().max(500).optional().nullable(),
   projectOwnerAuthorizedRepresentativeName: z
     .string()
     .max(100)
@@ -403,6 +405,7 @@ export const projectRouter = router({
         projectOwnerLegalName: input.projectOwnerLegalName,
         projectOwnerContactEmail: input.projectOwnerContactEmail,
         contributorTermsGoverningLaw: input.contributorTermsGoverningLaw,
+        contributorTermsForumSelection: input.contributorTermsForumSelection,
         projectOwnerAuthorizedRepresentativeName:
           input.projectOwnerAuthorizedRepresentativeName,
         projectOwnerAuthorizedRepresentativeTitle:
@@ -481,6 +484,7 @@ export const projectRouter = router({
           projectOwnerLegalName: input.projectOwnerLegalName,
           projectOwnerContactEmail: input.projectOwnerContactEmail,
           contributorTermsGoverningLaw: input.contributorTermsGoverningLaw,
+          contributorTermsForumSelection: input.contributorTermsForumSelection,
           projectOwnerAuthorizedRepresentativeName:
             input.projectOwnerAuthorizedRepresentativeName,
           projectOwnerAuthorizedRepresentativeTitle:

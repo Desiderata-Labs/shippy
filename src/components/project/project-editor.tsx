@@ -95,6 +95,7 @@ export function ProjectEditor({ mode, username, slug }: ProjectEditorProps) {
       projectOwnerAuthorizedRepresentativeName: '',
       projectOwnerAuthorizedRepresentativeTitle: '',
       contributorTermsGoverningLaw: '',
+      contributorTermsForumSelection: '',
       contributorTermsCustom: '',
     })
 
@@ -163,6 +164,8 @@ export function ProjectEditor({ mode, username, slug }: ProjectEditorProps) {
           project.projectOwnerAuthorizedRepresentativeTitle ?? '',
         contributorTermsGoverningLaw:
           project.contributorTermsGoverningLaw ?? '',
+        contributorTermsForumSelection:
+          project.contributorTermsForumSelection ?? '',
         contributorTermsCustom: project.contributorTermsCustom ?? '',
       })
       setInitialized(true)
@@ -436,6 +439,8 @@ export function ProjectEditor({ mode, username, slug }: ProjectEditorProps) {
             undefined,
           contributorTermsGoverningLaw:
             contributorAgreement.contributorTermsGoverningLaw || undefined,
+          contributorTermsForumSelection:
+            contributorAgreement.contributorTermsForumSelection || undefined,
         })
       } else {
         await updateProject.mutateAsync({
@@ -477,6 +482,8 @@ export function ProjectEditor({ mode, username, slug }: ProjectEditorProps) {
             null,
           contributorTermsGoverningLaw:
             contributorAgreement.contributorTermsGoverningLaw || null,
+          contributorTermsForumSelection:
+            contributorAgreement.contributorTermsForumSelection || null,
         })
       }
     } catch {

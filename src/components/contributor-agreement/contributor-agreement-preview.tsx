@@ -30,6 +30,7 @@ export function ContributorAgreementPreview({
       projectOwnerRepresentativeTitle:
         contributorAgreement.projectOwnerAuthorizedRepresentativeTitle,
       governingLaw: contributorAgreement.contributorTermsGoverningLaw,
+      forumSelection: contributorAgreement.contributorTermsForumSelection,
       customTerms: contributorAgreement.contributorTermsCustom,
       rewardPoolCommitmentEndsAt,
     },

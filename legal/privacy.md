@@ -82,7 +82,9 @@ Depending on how you use the Service, some information may be visible to other u
 
 Shippy may display or store payout-related records (for example, payout amounts, dates, and confirmations) to support transparency.
 
-Unless we explicitly state otherwise, payments to contributors are handled off-platform by project owners, and Shippy does not collect or store your payment card details.
+Payments to contributors may be handled through third-party payment processors (for example, Stripe Connect) and/or other methods depending on the project.
+
+We may collect and store limited information needed to facilitate payouts through payment processors, such as payment account identifiers, onboarding/verification status, payout status, and payout history. Shippy does not collect or store your full payment card details or full bank account numbers.
 
 ## 8. Cookies
 

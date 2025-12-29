@@ -11,7 +11,7 @@ By accessing or using the Service, you agree to these Terms. If you do not agree
 This section is a convenience summary. The full Terms below control.
 
 - Shippy helps founders and contributors coordinate work, points, and payout history; users provide projects/bounties/submissions.
-- Reward pools/points/payouts are between users; payouts are generally off-platform; nothing is guaranteed and you handle your own taxes.
+- Reward pools/points/payouts are between users; payouts may be handled through third-party payment processors (for example, Stripe Connect) or other methods depending on the project; nothing is guaranteed and you handle your own taxes.
 - You own what you post, but you give us a license to host and display it so the Service can work.
 - Use the Service legally and respectfully; don’t hack, scrape excessively, or misrepresent work.
 - We can change the Service and may suspend/terminate accounts or remove content when needed.
@@ -63,7 +63,7 @@ Projects may describe a reward pool, point allocations, and payout history. Thes
 Unless we explicitly state otherwise in a signed writing:
 
 - **No guaranteed payouts.** Shippy does not guarantee any payout amount, timing, frequency, or availability.
-- **Off-platform payments.** Payments to contributors are generally handled off-platform by project owners. Shippy is not a payment processor and does not hold funds in escrow for founders or contributors.
+- **Payments via third parties.** Payments to contributors may be handled off-platform by project owners and/or through third-party payment processors (for example, Stripe Connect), depending on the project. Shippy is not the payment processor, and payment processor terms apply.
 - **Project owner responsibility.** Any payout obligations are solely between a project (and/or its owner) and its contributors.
 - **Accuracy and inputs.** Profit and payout calculations may rely on information supplied by project owners and may be incomplete or inaccurate.
 - **Taxes.** You are solely responsible for taxes, reporting, and compliance obligations related to any payouts you receive or make (including any withholding, VAT/GST, or issuance of tax forms such as 1099s where applicable).

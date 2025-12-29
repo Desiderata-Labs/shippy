@@ -246,7 +246,7 @@ export const DEFAULT_FORUM_SELECTION =
 /**
  * Default platform fee percentage (of pool)
  */
-export const DEFAULT_PLATFORM_FEE_PERCENTAGE = 10
+export const DEFAULT_PLATFORM_FEE_PERCENTAGE = 2
 
 /**
  * Verification window in days for payout confirmation

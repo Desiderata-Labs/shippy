@@ -260,9 +260,9 @@ Founders pay Shippy directly — no Stripe Connect setup needed:
 3. approveSubmission() detects FIXED_PAYMENT bounty
 4. Shippy charges founder:
    - Bounty amount: $500
-   - Platform fee (10%): $50
-   - Stripe fees: ~$16
-   - Total charged: ~$566
+   - Platform fee (2%): $10
+   - Stripe fees: ~$15
+   - Total charged: ~$525
 5. Shippy transfers $500 to contributor's Express account
 6. Submission.payoutStatus = "PAID"
 7. Both parties notified
@@ -272,10 +272,10 @@ Founders pay Shippy directly — no Stripe Connect setup needed:
 
 ```
 Bounty value:           $500.00
-Platform fee (10%):     + $50.00
-Stripe fee (~2.9%+$0.30): + $16.33
+Platform fee (2%):      + $10.00
+Stripe fee (~2.9%+$0.30): + $15.10
 ─────────────────────────────────
-Founder pays:           $566.33
+Founder pays:           $525.10
 Contributor receives:   $500.00
 ```
 
@@ -583,7 +583,7 @@ Fixed-payment bounties exist _outside_ the reward pool system:
 
 ### Platform Fee
 
-Shippy's platform fee (currently 10%) applies to both:
+Shippy's platform fee (currently 2%) applies to both:
 
 - **Profit-share:** % of each periodic payout
 - **Fixed-payment:** % of each bounty value (taken at approval time)

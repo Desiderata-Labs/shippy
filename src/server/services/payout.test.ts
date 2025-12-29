@@ -157,7 +157,7 @@ describe('calculatePayout', () => {
     reportedProfitCents: 100000, // $1,000
     poolPercentage: 20, // 20%
     poolCapacity: 1000, // 1000 points
-    platformFeePercentage: 10, // 10%
+    platformFeePercentage: 2, // 2%
     contributors: [] as ContributorPoints[],
   }
 
@@ -173,22 +173,22 @@ describe('calculatePayout', () => {
     // Pool: $1,000 * 20% = $200 = 20000 cents
     expect(result.poolAmountCents).toBe(20000)
 
-    // Platform fee: $200 * 10% = $20 = 2000 cents
-    expect(result.platformFeeCents).toBe(2000)
+    // Platform fee: $200 * 2% = $4 = 400 cents
+    expect(result.platformFeeCents).toBe(400)
 
-    // Max distributable: $200 - $20 = $180 = 18000 cents
-    expect(result.maxDistributableCents).toBe(18000)
+    // Max distributable: $200 - $4 = $196 = 19600 cents
+    expect(result.maxDistributableCents).toBe(19600)
 
     // Total points: 1000 = capacity, so 100% is distributed
-    expect(result.distributedAmountCents).toBe(18000)
+    expect(result.distributedAmountCents).toBe(19600)
 
     // Total earned points
     expect(result.totalEarnedPoints).toBe(1000)
 
     // Each contributor gets 50%
     expect(result.breakdown).toHaveLength(2)
-    expect(result.breakdown[0].amountCents).toBe(9000)
-    expect(result.breakdown[1].amountCents).toBe(9000)
+    expect(result.breakdown[0].amountCents).toBe(9800)
+    expect(result.breakdown[1].amountCents).toBe(9800)
   })
 
   test('distributes proportionally when earned < capacity', () => {
@@ -201,12 +201,12 @@ describe('calculatePayout', () => {
     })
 
     // Total earned: 500 / 1000 capacity = 50%
-    // Distributed: 18000 * 50% = 9000 cents
-    expect(result.distributedAmountCents).toBe(9000)
+    // Distributed: 19600 * 50% = 9800 cents
+    expect(result.distributedAmountCents).toBe(9800)
 
-    // Each gets 4500 cents
-    expect(result.breakdown[0].amountCents).toBe(4500)
-    expect(result.breakdown[1].amountCents).toBe(4500)
+    // Each gets 4900 cents
+    expect(result.breakdown[0].amountCents).toBe(4900)
+    expect(result.breakdown[1].amountCents).toBe(4900)
   })
 
   test('caps distribution at 100% when earned > capacity', () => {
@@ -219,13 +219,13 @@ describe('calculatePayout', () => {
     })
 
     // Total earned: 2000 > capacity 1000, so capped at 100%
-    expect(result.distributedAmountCents).toBe(18000)
+    expect(result.distributedAmountCents).toBe(19600)
 
     // Proportional: Alice gets 75%, Bob gets 25%
-    // Alice: 18000 * 1500 / 2000 = 13500
-    // Bob: 18000 * 500 / 2000 = 4500
-    expect(result.breakdown[0].amountCents).toBe(13500)
-    expect(result.breakdown[1].amountCents).toBe(4500)
+    // Alice: 19600 * 1500 / 2000 = 14700
+    // Bob: 19600 * 500 / 2000 = 4900
+    expect(result.breakdown[0].amountCents).toBe(14700)
+    expect(result.breakdown[1].amountCents).toBe(4900)
   })
 
   test('handles zero contributors', () => {
@@ -248,8 +248,8 @@ describe('calculatePayout', () => {
     })
 
     // 500/1000 = 50% of pool
-    expect(result.distributedAmountCents).toBe(9000)
-    expect(result.breakdown[0].amountCents).toBe(9000)
+    expect(result.distributedAmountCents).toBe(9800)
+    expect(result.breakdown[0].amountCents).toBe(9800)
   })
 
   test('calculates share percentages correctly', () => {
@@ -261,9 +261,9 @@ describe('calculatePayout', () => {
       ],
     })
 
-    // Pool: 20000, fee: 2000, distributable: 18000
-    // Alice gets 18000, which is 90% of 20000 pool
-    expect(result.breakdown[0].sharePercent).toBe(90)
+    // Pool: 20000, fee: 400, distributable: 19600
+    // Alice gets 19600, which is 98% of 20000 pool
+    expect(result.breakdown[0].sharePercent).toBe(98)
   })
 
   test('handles zero profit', () => {
@@ -309,12 +309,12 @@ describe('calculatePayout', () => {
     })
 
     // Total: 100 = capacity, so full distribution
-    expect(result.distributedAmountCents).toBe(18000)
+    expect(result.distributedAmountCents).toBe(19600)
 
-    // Alice: 80% of 18000 = 14400
-    // Bob: 20% of 18000 = 3600
-    expect(result.breakdown[0].amountCents).toBe(14400)
-    expect(result.breakdown[1].amountCents).toBe(3600)
+    // Alice: 80% of 19600 = 15680
+    // Bob: 20% of 19600 = 3920
+    expect(result.breakdown[0].amountCents).toBe(15680)
+    expect(result.breakdown[1].amountCents).toBe(3920)
   })
 })
 
@@ -361,7 +361,7 @@ describe('createPayout', () => {
         rewardPool: {
           poolPercentage: 20,
           poolCapacity: 1000,
-          platformFeePercentage: 10,
+          platformFeePercentage: 2,
         },
       })
 
@@ -401,7 +401,7 @@ describe('createPayout', () => {
         rewardPool: {
           poolPercentage: 20,
           poolCapacity: 1000,
-          platformFeePercentage: 10,
+          platformFeePercentage: 2,
         },
       })
       mockPrisma.submission.findMany.mockResolvedValue([])
@@ -426,7 +426,7 @@ describe('createPayout', () => {
         rewardPool: {
           poolPercentage: 20,
           poolCapacity: 1000,
-          platformFeePercentage: 10,
+          platformFeePercentage: 2,
         },
       })
       mockPrisma.submission.findMany.mockResolvedValue([
@@ -446,7 +446,7 @@ describe('createPayout', () => {
         periodLabel: 'January 2024',
         reportedProfitCents: BigInt(100000),
         poolAmountCents: BigInt(20000),
-        platformFeeCents: BigInt(2000),
+        platformFeeCents: BigInt(400),
         totalPointsAtPayout: 1000,
         poolCapacityAtPayout: 1000,
         status: PayoutStatus.ANNOUNCED,
@@ -810,7 +810,7 @@ describe('Payout Calculation Edge Cases', () => {
       reportedProfitCents: 100, // $1
       poolPercentage: 20,
       poolCapacity: 1000,
-      platformFeePercentage: 10,
+      platformFeePercentage: 2,
       contributors: [
         { userId: 'user-1', userName: 'Alice', userImage: null, points: 1000 },
       ],
@@ -818,10 +818,10 @@ describe('Payout Calculation Edge Cases', () => {
 
     // Pool: $1 * 20% = $0.20 = 20 cents
     expect(result.poolAmountCents).toBe(20)
-    // Fee: $0.20 * 10% = 2 cents
-    expect(result.platformFeeCents).toBe(2)
-    // Distributed: 18 cents
-    expect(result.distributedAmountCents).toBe(18)
+    // Fee: $0.20 * 2% = 0 cents (floored)
+    expect(result.platformFeeCents).toBe(0)
+    // Distributed: 20 cents
+    expect(result.distributedAmountCents).toBe(20)
   })
 
   test('handles very large profit amounts', () => {
@@ -848,16 +848,16 @@ describe('Payout Calculation Edge Cases', () => {
       reportedProfitCents: 100000,
       poolPercentage: 20,
       poolCapacity: 1000,
-      platformFeePercentage: 10,
+      platformFeePercentage: 2,
       contributors: [
         { userId: 'user-1', userName: 'Alice', userImage: null, points: 1 },
       ],
     })
 
     // 1/1000 = 0.1% of pool
-    // 18000 * 1/1000 = 18 cents
-    expect(result.distributedAmountCents).toBe(18)
-    expect(result.breakdown[0].amountCents).toBe(18)
+    // 19600 * 1/1000 = 19 cents (floored)
+    expect(result.distributedAmountCents).toBe(19)
+    expect(result.breakdown[0].amountCents).toBe(19)
   })
 
   test('handles many small contributors', () => {
@@ -875,17 +875,17 @@ describe('Payout Calculation Edge Cases', () => {
       reportedProfitCents: 100000,
       poolPercentage: 20,
       poolCapacity: 1000,
-      platformFeePercentage: 10,
+      platformFeePercentage: 2,
       contributors,
     })
 
     // Total: 1000 points = capacity
     expect(result.totalEarnedPoints).toBe(1000)
-    expect(result.distributedAmountCents).toBe(18000)
+    expect(result.distributedAmountCents).toBe(19600)
 
-    // Each gets 1/100 = 180 cents
+    // Each gets 1/100 = 196 cents
     for (const breakdown of result.breakdown) {
-      expect(breakdown.amountCents).toBe(180)
+      expect(breakdown.amountCents).toBe(196)
     }
   })
 })

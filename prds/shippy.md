@@ -1042,8 +1042,8 @@ Shippy sustains itself by participating in the same model it enables:
 ### Revenue Streams
 
 1. **Platform share of profit pools**
-   - Shippy takes a percentage of each project's reward pool (e.g., 10% of the pool)
-   - Example: Founder sets pool at 10% of profit. On a $3k/mo profit project, pool = $300. EAS takes $30, contributors share $270.
+   - Shippy takes a percentage of each project's reward pool (e.g., 2% of the pool)
+   - Example: Founder sets pool at 10% of profit. On a $3k/mo profit project, pool = $300. Shippy takes $6, contributors share $294.
    - We get paid when contributors get paid-fully aligned incentives
 
 2. **Platform fee (optional, later)**
@@ -1054,14 +1054,14 @@ Shippy sustains itself by participating in the same model it enables:
 
 Most indie projects earn $1-5k/mo, not $10k+. Here's what platform revenue looks like:
 
-| Project profit/mo | 10% Pool | EAS @ 10% of pool | EAS annually |
-| ----------------- | -------- | ----------------- | ------------ |
-| $1,000            | $100     | $10               | $120         |
-| $3,000            | $300     | $30               | $360         |
-| $5,000            | $500     | $50               | $600         |
-| $10,000           | $1,000   | $100              | $1,200       |
+| Project profit/mo | 10% Pool | Shippy @ 2% of pool | Shippy annually |
+| ----------------- | -------- | ------------------- | --------------- |
+| $1,000            | $100     | $2                  | $24             |
+| $3,000            | $300     | $6                  | $72             |
+| $5,000            | $500     | $10                 | $120            |
+| $10,000           | $1,000   | $20                 | $240            |
 
-To reach $100k ARR from pool share alone at average $3k/mo projects: **~278 active projects**.
+To reach $100k ARR from pool share alone at average $3k/mo projects: **~1,389 active projects**.
 
 ### Future Revenue Streams
 

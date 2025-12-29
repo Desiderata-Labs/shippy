@@ -6,6 +6,26 @@
  */
 
 // ================================
+// Stripe Connect Enums
+// ================================
+
+export enum StripeConnectAccountStatus {
+  PENDING = 'PENDING', // Account created but onboarding not started
+  ONBOARDING = 'ONBOARDING', // User is in the middle of onboarding
+  ACTIVE = 'ACTIVE', // Account fully onboarded and can receive payouts
+  RESTRICTED = 'RESTRICTED', // Account has restrictions (needs attention)
+  DISABLED = 'DISABLED', // Account disabled (fraud, TOS violation, etc.)
+}
+
+export enum PayoutPaymentStatus {
+  PENDING = 'PENDING', // Awaiting founder payment
+  PROCESSING = 'PROCESSING', // Checkout session created, awaiting completion
+  PAID = 'PAID', // Founder payment received
+  FAILED = 'FAILED', // Payment failed
+  REFUNDED = 'REFUNDED', // Payment was refunded
+}
+
+// ================================
 // Reward Pool Enums
 // ================================
 
@@ -119,19 +139,6 @@ export enum BountyEventType {
 // Payout Enums
 // ================================
 
-export enum PayoutStatus {
-  ANNOUNCED = 'ANNOUNCED', // Payout announced, split calculated
-  SENT = 'SENT', // Founder marked as sent
-  COMPLETED = 'COMPLETED', // All recipients confirmed/unconfirmed
-}
-
-export enum PayoutRecipientStatus {
-  PENDING = 'PENDING', // Awaiting confirmation
-  CONFIRMED = 'CONFIRMED', // Contributor confirmed receipt
-  DISPUTED = 'DISPUTED', // Contributor says not received
-  UNCONFIRMED = 'UNCONFIRMED', // No response after 30 days
-}
-
 export enum PayoutVisibility {
   PRIVATE = 'PRIVATE', // Only show confirmation status, hide amounts
   PUBLIC = 'PUBLIC', // Show all amounts publicly
@@ -172,6 +179,10 @@ export enum NotificationType {
   PAYOUT_SENT = 'PAYOUT_SENT',
   PAYOUT_CONFIRMED = 'PAYOUT_CONFIRMED',
   PAYOUT_DISPUTED = 'PAYOUT_DISPUTED',
+
+  // Stripe payouts (contributor receives transfer)
+  PAYOUT_TRANSFER_SENT = 'PAYOUT_TRANSFER_SENT', // Transfer sent to contributor's Stripe account
+  PAYOUT_TRANSFER_PENDING = 'PAYOUT_TRANSFER_PENDING', // Founder paid but contributor needs Stripe Connect
 }
 
 export enum NotificationReferenceType {

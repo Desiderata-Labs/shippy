@@ -6,7 +6,7 @@ import { BankNote03, Calendar, Check } from '@untitled-ui/icons-react'
 import { Loader2 } from 'lucide-react'
 import { useState } from 'react'
 import Link from 'next/link'
-import { useParams, useRouter } from 'next/navigation'
+import { useParams } from 'next/navigation'
 import { redirect } from 'next/navigation'
 import { getChartColor } from '@/lib/chart-colors'
 import { routes } from '@/lib/routes'
@@ -36,7 +36,6 @@ function formatPercentage(value: number): string {
 }
 
 export function NewPayoutContent() {
-  const router = useRouter()
   const params = useParams<{ slug: string }>()
   const { data: session, isPending: sessionLoading } = useSession()
   const [isCreating, setIsCreating] = useState(false)
@@ -92,15 +91,31 @@ export function NewPayoutContent() {
 
   const utils = trpc.useUtils()
 
-  const createPayout = trpc.payout.create.useMutation({
+  // Chain: Create payout → Redirect to Stripe Checkout
+  const createPayoutCheckout = trpc.stripe.createPayoutCheckout.useMutation({
     onSuccess: (data) => {
-      toast.success('Payout created!')
-      utils.payout.getByProject.invalidate({ projectId: project?.id })
-      router.push(
-        routes.project.payoutDetail({ slug: params.slug, payoutId: data.id }),
-      )
+      // Redirect to Stripe Checkout
+      window.location.href = data.checkoutUrl
     },
     onError: (error) => {
+      setIsCreating(false)
+      toast.error(`Payment setup failed: ${error.message}`)
+    },
+  })
+
+  const createPayout = trpc.payout.create.useMutation({
+    onSuccess: async (data) => {
+      toast.success('Payout created! Redirecting to payment...')
+      utils.payout.getByProject.invalidate({ projectId: project?.id })
+
+      // Immediately redirect to Stripe Checkout
+      await createPayoutCheckout.mutateAsync({
+        payoutId: data.id,
+        projectSlug: params.slug,
+      })
+    },
+    onError: (error) => {
+      setIsCreating(false)
       toast.error(error.message)
     },
   })
@@ -581,12 +596,6 @@ export function NewPayoutContent() {
                                     <div className="text-sm font-semibold text-muted-foreground">
                                       {formatCurrency(preview.platformFeeCents)}
                                     </div>
-                                    <a
-                                      href="mailto:pay@shippy.sh"
-                                      className="text-[10px] text-muted-foreground underline"
-                                    >
-                                      pay@shippy.sh
-                                    </a>
                                   </div>
                                 </div>
                               )

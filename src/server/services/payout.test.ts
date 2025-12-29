@@ -1,13 +1,9 @@
 /* eslint-disable @typescript-eslint/no-explicit-any */
-import { PayoutRecipientStatus, PayoutStatus } from '@/lib/db/types'
 import {
   type ContributorPoints,
   calculatePayout,
-  confirmReceipt,
   createPayout,
   getContributorPoints,
-  markAllPaid,
-  markRecipientPaid,
 } from './payout'
 import { beforeEach, describe, expect, test, vi } from 'vitest'
 
@@ -19,6 +15,13 @@ vi.mock('@/server/routers/notification', () => ({
 // Mock the global prisma client used for notifications
 vi.mock('@/lib/db/server', () => ({
   prisma: {},
+}))
+
+// Mock the stripe service (to avoid importing server-only modules)
+vi.mock('@/server/services/stripe', () => ({
+  transferFunds: vi
+    .fn()
+    .mockResolvedValue({ success: true, transferId: 'tr_test' }),
 }))
 
 // ================================
@@ -449,7 +452,7 @@ describe('createPayout', () => {
         platformFeeCents: BigInt(400),
         totalPointsAtPayout: 1000,
         poolCapacityAtPayout: 1000,
-        status: PayoutStatus.ANNOUNCED,
+        paymentStatus: 'PENDING', // PayoutPaymentStatus.PENDING
         recipients: [
           { id: 'recipient-1', userId: 'user-1' },
           { id: 'recipient-2', userId: 'user-2' },
@@ -484,321 +487,8 @@ describe('createPayout', () => {
   })
 })
 
-// ================================
-// markRecipientPaid Tests
-// ================================
-
-describe('markRecipientPaid', () => {
-  let mockPrisma: ReturnType<typeof createMockPrisma>
-
-  beforeEach(() => {
-    mockPrisma = createMockPrisma()
-    vi.clearAllMocks()
-  })
-
-  test('returns NOT_FOUND when recipient does not exist', async () => {
-    mockPrisma.payoutRecipient.findUnique.mockResolvedValue(null)
-
-    const result = await markRecipientPaid({
-      prisma: mockPrisma as any,
-      recipientId: 'non-existent',
-      userId: 'founder-1',
-    })
-
-    expect(result.success).toBe(false)
-    if (!result.success) {
-      expect(result.code).toBe('NOT_FOUND')
-    }
-  })
-
-  test('returns FORBIDDEN when user is not founder', async () => {
-    mockPrisma.payoutRecipient.findUnique.mockResolvedValue({
-      id: 'recipient-1',
-      userId: 'user-1',
-      payoutId: 'payout-1',
-      payout: {
-        project: { founderId: 'other-founder' },
-      },
-    })
-
-    const result = await markRecipientPaid({
-      prisma: mockPrisma as any,
-      recipientId: 'recipient-1',
-      userId: 'founder-1',
-    })
-
-    expect(result.success).toBe(false)
-    if (!result.success) {
-      expect(result.code).toBe('FORBIDDEN')
-    }
-  })
-
-  test('marks recipient as paid and checks for full payout completion', async () => {
-    mockPrisma.payoutRecipient.findUnique.mockResolvedValue({
-      id: 'recipient-1',
-      userId: 'user-1',
-      payoutId: 'payout-1',
-      payout: {
-        project: { founderId: 'founder-1' },
-      },
-    })
-    mockPrisma.payoutRecipient.update.mockResolvedValue({
-      id: 'recipient-1',
-      paidAt: new Date(),
-      paidNote: 'Paid via PayPal',
-    })
-    mockPrisma.payoutRecipient.count.mockResolvedValue(1) // 1 unpaid remaining
-
-    const result = await markRecipientPaid({
-      prisma: mockPrisma as any,
-      recipientId: 'recipient-1',
-      userId: 'founder-1',
-      note: 'Paid via PayPal',
-    })
-
-    expect(result.success).toBe(true)
-    expect(mockPrisma.payoutRecipient.update).toHaveBeenCalledWith({
-      where: { id: 'recipient-1' },
-      data: {
-        paidAt: expect.any(Date),
-        paidNote: 'Paid via PayPal',
-      },
-    })
-    // Payout should NOT be updated since there's still 1 unpaid
-    expect(mockPrisma.payout.update).not.toHaveBeenCalled()
-    if (result.success) {
-      expect(result.payoutStatusUpdated).toBe(false)
-    }
-  })
-
-  test('updates payout status when all recipients are paid', async () => {
-    mockPrisma.payoutRecipient.findUnique.mockResolvedValue({
-      id: 'recipient-1',
-      userId: 'user-1',
-      payoutId: 'payout-1',
-      payout: {
-        project: { founderId: 'founder-1' },
-      },
-    })
-    mockPrisma.payoutRecipient.update.mockResolvedValue({
-      id: 'recipient-1',
-      paidAt: new Date(),
-      paidNote: null,
-    })
-    mockPrisma.payoutRecipient.count.mockResolvedValue(0) // All paid
-    mockPrisma.payout.update.mockResolvedValue({})
-
-    const result = await markRecipientPaid({
-      prisma: mockPrisma as any,
-      recipientId: 'recipient-1',
-      userId: 'founder-1',
-    })
-
-    expect(result.success).toBe(true)
-    expect(mockPrisma.payout.update).toHaveBeenCalledWith({
-      where: { id: 'payout-1' },
-      data: {
-        status: PayoutStatus.SENT,
-        sentAt: expect.any(Date),
-      },
-    })
-    if (result.success) {
-      expect(result.payoutStatusUpdated).toBe(true)
-    }
-  })
-})
-
-// ================================
-// markAllPaid Tests
-// ================================
-
-describe('markAllPaid', () => {
-  let mockPrisma: ReturnType<typeof createMockPrisma>
-
-  beforeEach(() => {
-    mockPrisma = createMockPrisma()
-    vi.clearAllMocks()
-  })
-
-  test('returns NOT_FOUND when payout does not exist', async () => {
-    mockPrisma.payout.findUnique.mockResolvedValue(null)
-
-    const result = await markAllPaid({
-      prisma: mockPrisma as any,
-      payoutId: 'non-existent',
-      userId: 'founder-1',
-    })
-
-    expect(result.success).toBe(false)
-    if (!result.success) {
-      expect(result.code).toBe('NOT_FOUND')
-    }
-  })
-
-  test('returns FORBIDDEN when user is not founder', async () => {
-    mockPrisma.payout.findUnique.mockResolvedValue({
-      id: 'payout-1',
-      project: { founderId: 'other-founder' },
-    })
-
-    const result = await markAllPaid({
-      prisma: mockPrisma as any,
-      payoutId: 'payout-1',
-      userId: 'founder-1',
-    })
-
-    expect(result.success).toBe(false)
-    if (!result.success) {
-      expect(result.code).toBe('FORBIDDEN')
-    }
-  })
-
-  test('marks all unpaid recipients and updates payout status', async () => {
-    mockPrisma.payout.findUnique.mockResolvedValue({
-      id: 'payout-1',
-      project: { founderId: 'founder-1' },
-    })
-    mockPrisma.payoutRecipient.findMany.mockResolvedValue([
-      { userId: 'user-1' },
-      { userId: 'user-2' },
-    ])
-    mockPrisma.payoutRecipient.updateMany.mockResolvedValue({ count: 2 })
-    mockPrisma.payout.update.mockResolvedValue({
-      id: 'payout-1',
-      status: PayoutStatus.SENT,
-      sentAt: new Date(),
-    })
-
-    const result = await markAllPaid({
-      prisma: mockPrisma as any,
-      payoutId: 'payout-1',
-      userId: 'founder-1',
-      note: 'Bulk payment',
-    })
-
-    expect(result.success).toBe(true)
-    expect(mockPrisma.payoutRecipient.updateMany).toHaveBeenCalledWith({
-      where: {
-        payoutId: 'payout-1',
-        paidAt: null,
-      },
-      data: {
-        paidAt: expect.any(Date),
-        paidNote: 'Bulk payment',
-      },
-    })
-    expect(mockPrisma.payout.update).toHaveBeenCalledWith({
-      where: { id: 'payout-1' },
-      data: {
-        status: PayoutStatus.SENT,
-        sentAt: expect.any(Date),
-        sentNote: 'Bulk payment',
-      },
-    })
-    if (result.success) {
-      expect(result.recipientsUpdated).toBe(2)
-    }
-  })
-})
-
-// ================================
-// confirmReceipt Tests
-// ================================
-
-describe('confirmReceipt', () => {
-  let mockPrisma: ReturnType<typeof createMockPrisma>
-
-  beforeEach(() => {
-    mockPrisma = createMockPrisma()
-    vi.clearAllMocks()
-  })
-
-  test('returns NOT_RECIPIENT when user is not a recipient', async () => {
-    mockPrisma.payoutRecipient.findFirst.mockResolvedValue(null)
-
-    const result = await confirmReceipt({
-      prisma: mockPrisma as any,
-      payoutId: 'payout-1',
-      userId: 'random-user',
-      confirmed: true,
-    })
-
-    expect(result.success).toBe(false)
-    if (!result.success) {
-      expect(result.code).toBe('NOT_RECIPIENT')
-    }
-  })
-
-  test('confirms receipt successfully', async () => {
-    mockPrisma.payoutRecipient.findFirst.mockResolvedValue({
-      id: 'recipient-1',
-      userId: 'user-1',
-      payoutId: 'payout-1',
-      payout: {
-        project: { founderId: 'founder-1' },
-      },
-    })
-    mockPrisma.payoutRecipient.update.mockResolvedValue({
-      id: 'recipient-1',
-      status: PayoutRecipientStatus.CONFIRMED,
-      confirmedAt: new Date(),
-      disputedAt: null,
-    })
-
-    const result = await confirmReceipt({
-      prisma: mockPrisma as any,
-      payoutId: 'payout-1',
-      userId: 'user-1',
-      confirmed: true,
-      note: 'Received, thank you!',
-    })
-
-    expect(result.success).toBe(true)
-    expect(mockPrisma.payoutRecipient.update).toHaveBeenCalledWith({
-      where: { id: 'recipient-1' },
-      data: {
-        status: PayoutRecipientStatus.CONFIRMED,
-        confirmedAt: expect.any(Date),
-        confirmNote: 'Received, thank you!',
-      },
-    })
-  })
-
-  test('disputes receipt successfully', async () => {
-    mockPrisma.payoutRecipient.findFirst.mockResolvedValue({
-      id: 'recipient-1',
-      userId: 'user-1',
-      payoutId: 'payout-1',
-      payout: {
-        project: { founderId: 'founder-1' },
-      },
-    })
-    mockPrisma.payoutRecipient.update.mockResolvedValue({
-      id: 'recipient-1',
-      status: PayoutRecipientStatus.DISPUTED,
-      confirmedAt: null,
-      disputedAt: new Date(),
-    })
-
-    const result = await confirmReceipt({
-      prisma: mockPrisma as any,
-      payoutId: 'payout-1',
-      userId: 'user-1',
-      confirmed: false,
-      disputeReason: 'Never received payment',
-    })
-
-    expect(result.success).toBe(true)
-    expect(mockPrisma.payoutRecipient.update).toHaveBeenCalledWith({
-      where: { id: 'recipient-1' },
-      data: {
-        status: PayoutRecipientStatus.DISPUTED,
-        disputedAt: expect.any(Date),
-        disputeReason: 'Never received payment',
-      },
-    })
-  })
-})
+// Legacy tests removed: markRecipientPaid, markAllPaid, confirmReceipt
+// These functions have been removed in favor of Stripe transfer-based payments
 
 // ================================
 // Payout Calculation Edge Cases

@@ -2,15 +2,31 @@
 
 import { linkSocial, listAccounts, useSession } from '@/lib/auth/react'
 import { trpc } from '@/lib/trpc/react'
-import { Check, Copy, Key, Loader2, Trash2, X } from 'lucide-react'
+import {
+  AlertCircle,
+  Check,
+  Copy,
+  ExternalLink,
+  Key,
+  Loader2,
+  Trash2,
+  X,
+} from 'lucide-react'
 import { useCallback, useEffect, useState } from 'react'
 import Link from 'next/link'
-import { redirect, useParams, useRouter } from 'next/navigation'
+import {
+  redirect,
+  useParams,
+  useRouter,
+  useSearchParams,
+} from 'next/navigation'
+import { StripeConnectAccountStatus } from '@/lib/db/types'
 import { routes } from '@/lib/routes'
 import { cn } from '@/lib/utils'
 import { useDebounce } from '@/hooks/use-debounce'
 import { AppButton, AppInput, AppTab, AppTabs } from '@/components/app'
 import { AppBackground } from '@/components/layout/app-background'
+import { Badge } from '@/components/ui/badge'
 import { ConfirmModal } from '@/components/ui/confirm-modal'
 import { RelativeTime } from '@/components/ui/relative-time'
 import { Separator } from '@/components/ui/separator'
@@ -75,6 +91,11 @@ export function UserSettingsContent() {
 
           {/* Connected Accounts Section */}
           <ConnectedAccountsSection />
+
+          <Separator />
+
+          {/* Stripe Connect Section */}
+          <StripeConnectSection />
 
           <Separator />
 
@@ -446,6 +467,205 @@ function ConnectedAccountsSection() {
       </div>
     </div>
   )
+}
+
+function StripeConnectSection() {
+  const router = useRouter()
+  const searchParams = useSearchParams()
+  const stripeStatus = searchParams.get('stripeStatus')
+
+  const [isRedirecting, setIsRedirecting] = useState(false)
+
+  // Check if Stripe is configured
+  const { data: stripeConfig } = trpc.stripe.isConfigured.useQuery()
+
+  // Get account status
+  const {
+    data: accountStatus,
+    isLoading: isLoadingStatus,
+    refetch: refetchStatus,
+  } = trpc.stripe.getAccountStatus.useQuery(undefined, {
+    enabled: stripeConfig?.configured,
+  })
+
+  // Mutations
+  const createAccountMutation = trpc.stripe.createAccount.useMutation()
+  const getOnboardingLinkMutation = trpc.stripe.getOnboardingLink.useMutation()
+  const getDashboardLinkMutation = trpc.stripe.getDashboardLink.useMutation()
+
+  // Refresh status when returning from Stripe
+  useEffect(() => {
+    if (stripeStatus === 'return') {
+      refetchStatus()
+      // Clean up the URL
+      router.replace(window.location.pathname)
+    } else if (stripeStatus === 'refresh') {
+      // User's session expired during onboarding, get a new link
+      getOnboardingLinkMutation.mutate(undefined, {
+        onSuccess: (data) => {
+          setIsRedirecting(true)
+          window.location.href = data.onboardingUrl
+        },
+      })
+    }
+  }, [stripeStatus, refetchStatus, router, getOnboardingLinkMutation])
+
+  const handleSetupStripe = async () => {
+    if (accountStatus?.hasAccount) {
+      getOnboardingLinkMutation.mutate(undefined, {
+        onSuccess: (data) => {
+          setIsRedirecting(true)
+          window.location.href = data.onboardingUrl
+        },
+      })
+    } else {
+      createAccountMutation.mutate(undefined, {
+        onSuccess: (data) => {
+          setIsRedirecting(true)
+          window.location.href = data.onboardingUrl
+        },
+      })
+    }
+  }
+
+  const handleOpenDashboard = () => {
+    getDashboardLinkMutation.mutate(undefined, {
+      onSuccess: (data) => {
+        window.open(data.dashboardUrl, '_blank')
+      },
+    })
+  }
+
+  const isLoading = isLoadingStatus || !stripeConfig
+  const isMutating =
+    createAccountMutation.isPending ||
+    getOnboardingLinkMutation.isPending ||
+    isRedirecting
+
+  // Stripe not configured on platform
+  if (!stripeConfig?.configured) {
+    return (
+      <div className="space-y-4 p-4">
+        <div className="text-xs font-medium text-muted-foreground">Payouts</div>
+        <div className="flex items-center gap-3 rounded-md bg-muted/30 px-4 py-3">
+          <AlertCircle className="size-5 text-muted-foreground" />
+          <div>
+            <p className="text-sm font-medium">Coming Soon</p>
+            <p className="text-xs text-muted-foreground">
+              Payment processing is not yet configured.
+            </p>
+          </div>
+        </div>
+      </div>
+    )
+  }
+
+  return (
+    <div className="space-y-4 p-4">
+      <div className="text-xs font-medium text-muted-foreground">Payouts</div>
+
+      {isLoading ? (
+        <div className="space-y-2">
+          <Skeleton className="h-12 w-full" />
+        </div>
+      ) : (
+        <div className="space-y-3">
+          {/* Stripe Connect Status */}
+          <div className="flex items-center justify-between rounded-md bg-muted/30 px-4 py-3">
+            <div className="flex items-center gap-3">
+              <svg className="size-5" viewBox="0 0 24 24" fill="currentColor">
+                <path d="M13.976 9.15c-2.172-.806-3.356-1.426-3.356-2.409 0-.831.683-1.305 1.901-1.305 2.227 0 4.515.858 6.09 1.631l.89-5.494C18.252.975 15.697 0 12.165 0 9.667 0 7.589.654 6.104 1.872 4.56 3.147 3.757 4.992 3.757 7.218c0 4.039 2.467 5.76 6.476 7.219 2.585.92 3.445 1.574 3.445 2.583 0 .98-.84 1.545-2.354 1.545-1.875 0-4.965-.921-6.99-2.109l-.9 5.555C5.175 22.99 8.385 24 11.714 24c2.641 0 4.843-.624 6.328-1.813 1.664-1.305 2.525-3.236 2.525-5.732 0-4.128-2.524-5.851-6.591-7.305z" />
+              </svg>
+              <div>
+                <div className="flex items-center gap-2">
+                  <p className="text-sm font-medium">Stripe Connect</p>
+                  {accountStatus?.status && (
+                    <StripeStatusBadge status={accountStatus.status} />
+                  )}
+                </div>
+                <p className="text-xs text-muted-foreground">
+                  {accountStatus?.hasAccount
+                    ? accountStatus.status === StripeConnectAccountStatus.ACTIVE
+                      ? 'Ready to receive payouts'
+                      : 'Complete setup to receive payouts'
+                    : 'Connect to receive payouts'}
+                </p>
+              </div>
+            </div>
+
+            {/* Action button */}
+            {accountStatus?.hasAccount &&
+            accountStatus.status === StripeConnectAccountStatus.ACTIVE ? (
+              <AppButton
+                variant="outline"
+                size="sm"
+                onClick={handleOpenDashboard}
+                disabled={getDashboardLinkMutation.isPending}
+              >
+                {getDashboardLinkMutation.isPending ? (
+                  <Loader2 className="mr-1.5 size-3 animate-spin" />
+                ) : (
+                  <ExternalLink className="mr-1.5 size-3" />
+                )}
+                Dashboard
+              </AppButton>
+            ) : (
+              <AppButton
+                variant="outline"
+                size="sm"
+                onClick={handleSetupStripe}
+                disabled={isMutating}
+              >
+                {isMutating ? (
+                  <Loader2 className="mr-1.5 size-3 animate-spin" />
+                ) : null}
+                {accountStatus?.hasAccount ? 'Continue Setup' : 'Connect'}
+              </AppButton>
+            )}
+          </div>
+
+          {/* Info */}
+          <div className="rounded-md bg-muted/30 px-3 py-2 text-xs text-muted-foreground">
+            <span className="font-medium text-foreground">Why connect?</span>{' '}
+            When you earn points on a project and the founder runs a payout,
+            you&apos;ll receive funds directly to your bank account via Stripe.
+          </div>
+        </div>
+      )}
+    </div>
+  )
+}
+
+function StripeStatusBadge({ status }: { status: StripeConnectAccountStatus }) {
+  switch (status) {
+    case StripeConnectAccountStatus.ACTIVE:
+      return (
+        <Badge
+          variant="outline"
+          className="border-primary/20 bg-primary/10 text-primary"
+        >
+          <Check className="mr-1 size-3" />
+          Active
+        </Badge>
+      )
+    case StripeConnectAccountStatus.ONBOARDING:
+      return (
+        <Badge
+          variant="outline"
+          className="border-yellow-500/20 bg-yellow-500/10 text-yellow-600 dark:text-yellow-400"
+        >
+          Setup Required
+        </Badge>
+      )
+    case StripeConnectAccountStatus.PENDING:
+      return <Badge variant="secondary">Pending</Badge>
+    case StripeConnectAccountStatus.RESTRICTED:
+      return <Badge variant="destructive">Restricted</Badge>
+    case StripeConnectAccountStatus.DISABLED:
+      return <Badge variant="destructive">Disabled</Badge>
+    default:
+      return null
+  }
 }
 
 type IdeType = 'cursor' | 'windsurf' | 'claude-code' | 'codex'

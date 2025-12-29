@@ -74,6 +74,26 @@ Shippy provides an `/llms.txt` endpoint following the [llms.txt standard](https:
 - **llms.txt**: [shippy.sh/llms.txt](https://shippy.sh/llms.txt)
 - **Docs guide**: [shippy.sh/llms.txt/docs/llms-txt.md](https://shippy.sh/llms.txt/docs/llms-txt.md)
 
+## Stripe Integration
+
+Shippy uses Stripe Connect for contributor payouts and Stripe Checkout for founder payments to Shippy.
+
+**Required environment variables:**
+
+```bash
+STRIPE_SECRET_KEY=sk_test_...
+STRIPE_PUBLISHABLE_KEY=pk_test_...
+STRIPE_WEBHOOK_SECRET=whsec_...
+```
+
+For local development, use the [Stripe CLI](https://stripe.com/docs/stripe-cli) to forward webhooks:
+
+```bash
+stripe listen --forward-to localhost:3050/api/webhooks/stripe
+```
+
+See [`prds/stripe.md`](./prds/stripe.md) for complete setup instructions.
+
 ## Documentation
 
 Full product spec: [`prds/shippy.md`](./prds/shippy.md)

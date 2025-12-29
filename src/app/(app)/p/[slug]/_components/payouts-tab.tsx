@@ -12,15 +12,10 @@ import {
   Plus,
   ShieldTick,
   Target01,
-  X,
 } from '@untitled-ui/icons-react'
 import Link from 'next/link'
 import { getChartColor } from '@/lib/chart-colors'
-import {
-  PayoutRecipientStatus,
-  PayoutStatus,
-  PayoutVisibility,
-} from '@/lib/db/types'
+import { PayoutPaymentStatus, PayoutVisibility } from '@/lib/db/types'
 import { routes } from '@/lib/routes'
 import { cn } from '@/lib/utils'
 import { AppButton } from '@/components/app'
@@ -48,19 +43,28 @@ function formatPercentage(value: number): string {
   return value.toFixed(1) + '%'
 }
 
+// Payment status config based on Stripe payment tracking
 const statusConfig: Record<string, { label: string; color: string }> = {
-  [PayoutStatus.ANNOUNCED]: {
-    label: 'In Progress',
+  [PayoutPaymentStatus.PENDING]: {
+    label: 'Awaiting Payment',
     color:
       'bg-yellow-500/10 text-yellow-600 dark:text-yellow-400 border-yellow-500/20',
   },
-  [PayoutStatus.SENT]: {
-    label: 'All Paid',
+  [PayoutPaymentStatus.PROCESSING]: {
+    label: 'Processing',
+    color: 'bg-blue-500/10 text-blue-600 dark:text-blue-400 border-blue-500/20',
+  },
+  [PayoutPaymentStatus.PAID]: {
+    label: 'Paid',
     color: 'bg-primary/10 text-primary border-primary/20',
   },
-  [PayoutStatus.COMPLETED]: {
-    label: 'Completed',
-    color: 'bg-primary/10 text-primary border-primary/20',
+  [PayoutPaymentStatus.FAILED]: {
+    label: 'Failed',
+    color: 'bg-red-500/10 text-red-600 dark:text-red-400 border-red-500/20',
+  },
+  [PayoutPaymentStatus.REFUNDED]: {
+    label: 'Refunded',
+    color: 'bg-gray-500/10 text-gray-600 dark:text-gray-400 border-gray-500/20',
   },
 }
 
@@ -154,8 +158,8 @@ export function PayoutsTab({
             />
             <StatCard
               icon={ShieldTick}
-              value={`${Math.round(stats.confirmationRate * 100)}%`}
-              label="Confirmed"
+              value={`${Math.round(stats.paidRate * 100)}%`}
+              label="Paid"
             />
             {poolStats && (
               <StatCard
@@ -195,7 +199,8 @@ export function PayoutsTab({
       <div className="space-y-2">
         {payouts.map((payout) => {
           const status =
-            statusConfig[payout.status] || statusConfig[PayoutStatus.ANNOUNCED]
+            statusConfig[payout.paymentStatus] ||
+            statusConfig[PayoutPaymentStatus.PENDING]
           // Use snapshotted capacity from payout time for historical accuracy
           const poolCapacityAtPayout = payout.poolCapacityAtPayout
           const totalPoints = payout.recipients.reduce(
@@ -203,12 +208,7 @@ export function PayoutsTab({
             0,
           )
           const poolUtilization = (totalPoints / poolCapacityAtPayout) * 100
-          const confirmedCount = payout.recipients.filter(
-            (r) => r.status === PayoutRecipientStatus.CONFIRMED,
-          ).length
-          const disputedCount = payout.recipients.filter(
-            (r) => r.status === PayoutRecipientStatus.DISPUTED,
-          ).length
+          // Stripe transfers auto-verify payment - no need for manual confirmation counts
           const paidCount = payout.recipients.filter((r) => r.paidAt).length
           const unpaidCount = payout.recipients.filter((r) => !r.paidAt).length
 
@@ -287,22 +287,10 @@ export function PayoutsTab({
                             {unpaidCount}
                           </span>
                         )}
-                        {paidCount > 0 && confirmedCount < paidCount && (
+                        {paidCount > 0 && (
                           <span className="flex items-center gap-0.5 text-primary">
                             <Check className="size-2.5" />
-                            {paidCount - confirmedCount}
-                          </span>
-                        )}
-                        {confirmedCount > 0 && (
-                          <span className="flex items-center gap-0.5 text-foreground opacity-50">
-                            <Check className="size-2.5" />
-                            {confirmedCount}
-                          </span>
-                        )}
-                        {disputedCount > 0 && (
-                          <span className="flex items-center gap-0.5 text-red-600 dark:text-red-400">
-                            <X className="size-2.5" />
-                            {disputedCount}
+                            {paidCount}
                           </span>
                         )}
                       </div>

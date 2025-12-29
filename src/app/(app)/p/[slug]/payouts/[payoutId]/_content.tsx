@@ -9,26 +9,21 @@ import {
   CheckCircle,
   Clock,
   Lock01,
-  X,
 } from '@untitled-ui/icons-react'
+import { CreditCard02 } from '@untitled-ui/icons-react'
 import { Loader2 } from 'lucide-react'
 import { useState } from 'react'
 import Link from 'next/link'
 import { useParams } from 'next/navigation'
 import { redirect } from 'next/navigation'
 import { getChartColor } from '@/lib/chart-colors'
-import {
-  PayoutRecipientStatus,
-  PayoutStatus,
-  PayoutVisibility,
-} from '@/lib/db/types'
+import { PayoutPaymentStatus, PayoutVisibility } from '@/lib/db/types'
 import { ProjectTab, routes } from '@/lib/routes'
 import { cn } from '@/lib/utils'
 import { AppButton } from '@/components/app'
 import { AppBackground } from '@/components/layout/app-background'
 import { Avatar, AvatarFallback, AvatarImage } from '@/components/ui/avatar'
 import { Badge } from '@/components/ui/badge'
-import { ConfirmModal } from '@/components/ui/confirm-modal'
 import { ErrorState } from '@/components/ui/error-state'
 import { NotFoundState } from '@/components/ui/not-found-state'
 import { Separator } from '@/components/ui/separator'
@@ -40,8 +35,6 @@ enum RecipientFilter {
   All = 'all',
   Unpaid = 'unpaid',
   Paid = 'paid',
-  Confirmed = 'confirmed',
-  Disputed = 'disputed',
 }
 
 function formatCurrency(cents: number): string {
@@ -57,54 +50,48 @@ function formatPercentage(value: number): string {
   return value.toFixed(1) + '%'
 }
 
+// Payment status config based on Stripe payment tracking
 const statusConfig: Record<string, { label: string; color: string }> = {
-  [PayoutStatus.ANNOUNCED]: {
-    label: 'In Progress',
+  [PayoutPaymentStatus.PENDING]: {
+    label: 'Awaiting Payment',
     color:
       'bg-yellow-500/10 text-yellow-600 dark:text-yellow-400 border-yellow-500/20',
   },
-  [PayoutStatus.SENT]: {
-    label: 'All Paid',
+  [PayoutPaymentStatus.PROCESSING]: {
+    label: 'Processing',
+    color: 'bg-blue-500/10 text-blue-600 dark:text-blue-400 border-blue-500/20',
+  },
+  [PayoutPaymentStatus.PAID]: {
+    label: 'Paid',
     color: 'bg-primary/10 text-primary border-primary/20',
   },
-  [PayoutStatus.COMPLETED]: {
-    label: 'Completed',
-    color: 'bg-primary/10 text-primary border-primary/20',
+  [PayoutPaymentStatus.FAILED]: {
+    label: 'Failed',
+    color: 'bg-red-500/10 text-red-600 dark:text-red-400 border-red-500/20',
+  },
+  [PayoutPaymentStatus.REFUNDED]: {
+    label: 'Refunded',
+    color: 'bg-gray-500/10 text-gray-600 dark:text-gray-400 border-gray-500/20',
   },
 }
 
-// Get display status for a recipient based on paidAt and status
-function getRecipientDisplayStatus(recipient: {
-  paidAt: Date | null
-  status: string
-}): { label: string; color: string; icon: typeof Check } {
-  // If confirmed by contributor
-  if (recipient.status === PayoutRecipientStatus.CONFIRMED) {
+// Get display status for a recipient based on paidAt (Stripe transfers auto-verify payment)
+function getRecipientDisplayStatus(recipient: { paidAt: Date | null }): {
+  label: string
+  color: string
+  icon: typeof Check
+} {
+  // Paid via Stripe transfer
+  if (recipient.paidAt) {
     return {
-      label: 'Confirmed',
+      label: 'Paid',
       color: 'text-primary',
       icon: Check,
     }
   }
-  // If disputed by contributor
-  if (recipient.status === PayoutRecipientStatus.DISPUTED) {
-    return {
-      label: 'Disputed',
-      color: 'text-red-600 dark:text-red-400',
-      icon: X,
-    }
-  }
-  // If paid but not confirmed yet
-  if (recipient.paidAt) {
-    return {
-      label: 'Awaiting confirmation',
-      color: 'text-primary',
-      icon: Clock,
-    }
-  }
   // Not paid yet
   return {
-    label: 'Not paid',
+    label: 'Awaiting payment',
     color: 'text-yellow-600 dark:text-yellow-400',
     icon: Clock,
   }
@@ -113,17 +100,7 @@ function getRecipientDisplayStatus(recipient: {
 export function PayoutDetailContent() {
   const params = useParams<{ slug: string; payoutId: string }>()
   const { data: session, isPending: sessionLoading } = useSession()
-  const [markingAllPaid, setMarkingAllPaid] = useState(false)
-  const [markingRecipientId, setMarkingRecipientId] = useState<string | null>(
-    null,
-  )
-  const [confirmingReceipt, setConfirmingReceipt] = useState(false)
   const [filter, setFilter] = useState<RecipientFilter>(RecipientFilter.All)
-  const [confirmPayRecipient, setConfirmPayRecipient] = useState<{
-    id: string
-    name: string
-    amount: number
-  } | null>(null)
 
   // Fetch payout data
   const {
@@ -139,35 +116,44 @@ export function PayoutDetailContent() {
 
   const utils = trpc.useUtils()
 
-  const markAllPaid = trpc.payout.markAllPaid.useMutation({
-    onSuccess: () => {
-      toast.success('All recipients marked as paid')
-      utils.payout.getById.invalidate({ payoutId: params.payoutId })
+  // Stripe checkout mutation - redirects to Stripe's hosted Checkout
+  const [isRedirectingToStripe, setIsRedirectingToStripe] = useState(false)
+  const createPayoutCheckout = trpc.stripe.createPayoutCheckout.useMutation({
+    onSuccess: (data) => {
+      // Redirect to Stripe Checkout
+      window.location.href = data.checkoutUrl
     },
     onError: (error) => {
+      setIsRedirectingToStripe(false)
       toast.error(error.message)
     },
   })
 
-  const markRecipientPaid = trpc.payout.markRecipientPaid.useMutation({
-    onSuccess: () => {
-      toast.success('Marked as paid')
-      utils.payout.getById.invalidate({ payoutId: params.payoutId })
-    },
-    onError: (error) => {
-      toast.error(error.message)
-    },
-  })
+  const handlePayWithStripe = async () => {
+    setIsRedirectingToStripe(true)
+    await createPayoutCheckout.mutateAsync({
+      payoutId: params.payoutId,
+      projectSlug: params.slug,
+    })
+  }
 
-  const confirmReceipt = trpc.payout.confirmReceipt.useMutation({
-    onSuccess: (_, variables) => {
-      toast.success(
-        variables.confirmed ? 'Receipt confirmed!' : 'Dispute submitted',
-      )
+  // Get user's Stripe Connect account status (for contributors)
+  const { data: stripeAccountStatus } = trpc.stripe.getAccountStatus.useQuery(
+    undefined,
+    { enabled: !!session },
+  )
+
+  // Retry transfer mutation for contributors
+  const [retryingTransfer, setRetryingTransfer] = useState(false)
+  const retryTransfer = trpc.stripe.retryRecipientTransfer.useMutation({
+    onSuccess: () => {
+      toast.success('Transfer initiated successfully!')
       utils.payout.getById.invalidate({ payoutId: params.payoutId })
+      setRetryingTransfer(false)
     },
     onError: (error) => {
       toast.error(error.message)
+      setRetryingTransfer(false)
     },
   })
 
@@ -244,6 +230,7 @@ export function PayoutDetailContent() {
   }
 
   const isFounder = payout.project.founderId === session.user.id
+  const username = (session?.user as { username?: string })?.username
   const isPublicMode =
     payout.project.payoutVisibility === PayoutVisibility.PUBLIC
   const showPrivateLock =
@@ -253,10 +240,6 @@ export function PayoutDetailContent() {
   const myRecipient = payout.recipients.find(
     (r) => r.user.id === session.user.id,
   )
-  const canConfirmReceipt =
-    myRecipient &&
-    myRecipient.paidAt &&
-    myRecipient.status === PayoutRecipientStatus.PENDING
 
   // Visibility helper - determines if an amount should be shown for a given recipient
   const canSeeAmount = (recipientUserId: string) => {
@@ -272,7 +255,8 @@ export function PayoutDetailContent() {
   const canSeeFinancials = isFounder || isPublicMode || !!myRecipient
 
   const status =
-    statusConfig[payout.status] || statusConfig[PayoutStatus.ANNOUNCED]
+    statusConfig[payout.paymentStatus] ||
+    statusConfig[PayoutPaymentStatus.PENDING]
   // Use snapshotted values from payout time for historical accuracy
   const poolCapacityAtPayout = payout.poolCapacityAtPayout
   const totalPoints = payout.recipients.reduce(
@@ -281,20 +265,9 @@ export function PayoutDetailContent() {
   )
   const poolUtilization = (totalPoints / poolCapacityAtPayout) * 100
 
-  // Group recipients by status
+  // Group recipients by paid status (Stripe transfers auto-verify payment)
   const unpaidRecipients = payout.recipients.filter((r) => !r.paidAt)
-  const paidRecipients = payout.recipients.filter(
-    (r) =>
-      r.paidAt &&
-      r.status !== PayoutRecipientStatus.CONFIRMED &&
-      r.status !== PayoutRecipientStatus.DISPUTED,
-  )
-  const confirmedRecipients = payout.recipients.filter(
-    (r) => r.status === PayoutRecipientStatus.CONFIRMED,
-  )
-  const disputedRecipients = payout.recipients.filter(
-    (r) => r.status === PayoutRecipientStatus.DISPUTED,
-  )
+  const paidRecipients = payout.recipients.filter((r) => r.paidAt)
 
   // Get filtered recipients
   const filteredRecipients = (() => {
@@ -303,10 +276,6 @@ export function PayoutDetailContent() {
         return unpaidRecipients
       case RecipientFilter.Paid:
         return paidRecipients
-      case RecipientFilter.Confirmed:
-        return confirmedRecipients
-      case RecipientFilter.Disputed:
-        return disputedRecipients
       default:
         return payout.recipients
     }
@@ -315,44 +284,6 @@ export function PayoutDetailContent() {
   // Counts for display
   const unpaidCount = unpaidRecipients.length
   const paidCount = paidRecipients.length
-  const confirmedCount = confirmedRecipients.length
-  const disputedCount = disputedRecipients.length
-
-  const handleMarkAllPaid = async () => {
-    setMarkingAllPaid(true)
-    try {
-      await markAllPaid.mutateAsync({ payoutId: payout.id })
-    } catch {
-      // Error is handled by onError callback
-    } finally {
-      setMarkingAllPaid(false)
-    }
-  }
-
-  const handleMarkRecipientPaid = async (recipientId: string) => {
-    setMarkingRecipientId(recipientId)
-    try {
-      await markRecipientPaid.mutateAsync({ recipientId })
-    } catch {
-      // Error is handled by onError callback
-    } finally {
-      setMarkingRecipientId(null)
-    }
-  }
-
-  const handleConfirmReceipt = async (confirmed: boolean) => {
-    setConfirmingReceipt(true)
-    try {
-      await confirmReceipt.mutateAsync({
-        payoutId: payout.id,
-        confirmed,
-      })
-    } catch {
-      // Error is handled by onError callback
-    } finally {
-      setConfirmingReceipt(false)
-    }
-  }
 
   return (
     <AppBackground>
@@ -478,125 +409,6 @@ export function PayoutDetailContent() {
               </div>
             </div>
 
-            {/* Sent note (legacy) */}
-            {payout.sentNote && (
-              <div className="rounded-lg border border-primary/20 bg-primary/10 p-4">
-                <p className="text-sm text-primary">
-                  <span className="font-medium">Payment note:</span>{' '}
-                  {payout.sentNote}
-                </p>
-                {payout.sentAt && (
-                  <p className="mt-1 text-xs text-primary/70">
-                    Marked all paid on{' '}
-                    {new Date(payout.sentAt).toLocaleDateString()}
-                  </p>
-                )}
-              </div>
-            )}
-
-            {/* Contributor: Confirm receipt (when they've been marked as paid) */}
-            {canConfirmReceipt && myRecipient && (
-              <div className="rounded-lg border border-primary/20 bg-primary/5 p-4">
-                <div className="mb-3">
-                  <p className="text-sm font-medium">Confirm Your Payout</p>
-                  <p className="mt-1 text-xs text-muted-foreground">
-                    You&apos;ve been marked as paid{' '}
-                    <span className="font-semibold text-primary">
-                      {formatCurrency(myRecipient.amountCents)}
-                    </span>
-                    . Please confirm you received it.
-                  </p>
-                  {myRecipient.paidNote && (
-                    <p className="mt-2 text-xs text-muted-foreground">
-                      <span className="font-medium">Payment reference:</span>{' '}
-                      {myRecipient.paidNote}
-                    </p>
-                  )}
-                </div>
-                <div className="flex gap-2">
-                  <AppButton
-                    size="sm"
-                    onClick={() => handleConfirmReceipt(true)}
-                    disabled={confirmingReceipt}
-                    className="flex-1"
-                  >
-                    {confirmingReceipt ? (
-                      <Loader2 className="mr-2 size-4 animate-spin" />
-                    ) : (
-                      <Check className="mr-2 size-4" />
-                    )}
-                    Yes, I Received It
-                  </AppButton>
-                  <AppButton
-                    size="sm"
-                    variant="outline"
-                    onClick={() => handleConfirmReceipt(false)}
-                    disabled={confirmingReceipt}
-                    className="text-red-600 hover:text-red-700 dark:text-red-400"
-                  >
-                    <X className="mr-2 size-4" />
-                    Not Received
-                  </AppButton>
-                </div>
-              </div>
-            )}
-
-            {/* Contributor: Already confirmed message */}
-            {myRecipient &&
-              myRecipient.status === PayoutRecipientStatus.CONFIRMED && (
-                <div className="rounded-lg border border-primary/20 bg-primary/10 p-4">
-                  <div className="flex items-center gap-2">
-                    <Check className="size-4 text-primary" />
-                    <p className="text-sm font-medium text-primary">
-                      You confirmed receiving{' '}
-                      {formatCurrency(myRecipient.amountCents)}
-                    </p>
-                  </div>
-                  {myRecipient.confirmedAt && (
-                    <p className="mt-1 text-xs text-primary/70">
-                      Confirmed on{' '}
-                      {new Date(myRecipient.confirmedAt).toLocaleDateString()}
-                    </p>
-                  )}
-                </div>
-              )}
-
-            {/* Contributor: Disputed message with option to resolve */}
-            {myRecipient &&
-              myRecipient.status === PayoutRecipientStatus.DISPUTED && (
-                <div className="rounded-lg border border-red-500/20 bg-red-500/10 p-4">
-                  <div className="flex items-center gap-2">
-                    <X className="size-4 text-red-600 dark:text-red-400" />
-                    <p className="text-sm font-medium text-red-700 dark:text-red-400">
-                      You disputed this payout
-                    </p>
-                  </div>
-                  {myRecipient.disputeReason && (
-                    <p className="mt-1 text-xs text-red-700/70 dark:text-red-400/70">
-                      Reason: {myRecipient.disputeReason}
-                    </p>
-                  )}
-                  <div className="mt-3 border-t border-red-500/20 pt-3">
-                    <p className="mb-2 text-xs text-muted-foreground">
-                      Received the payment after all? You can mark it as
-                      received.
-                    </p>
-                    <AppButton
-                      size="sm"
-                      onClick={() => handleConfirmReceipt(true)}
-                      disabled={confirmingReceipt}
-                    >
-                      {confirmingReceipt ? (
-                        <Loader2 className="mr-2 size-3 animate-spin" />
-                      ) : (
-                        <Check className="mr-2 size-3" />
-                      )}
-                      Mark as Received
-                    </AppButton>
-                  </div>
-                </div>
-              )}
-
             {/* Contributor: Awaiting payment message */}
             {myRecipient && !myRecipient.paidAt && (
               <div className="rounded-lg border border-yellow-500/20 bg-yellow-500/10 p-4">
@@ -606,9 +418,80 @@ export function PayoutDetailContent() {
                     Awaiting payment: {formatCurrency(myRecipient.amountCents)}
                   </p>
                 </div>
-                <p className="mt-1 text-xs text-yellow-700/70 dark:text-yellow-400/70">
-                  The founder hasn&apos;t marked your payout as paid yet.
-                </p>
+                {payout.paymentStatus === PayoutPaymentStatus.PAID ? (
+                  // Founder has paid - show message based on user's Stripe Connect status
+                  stripeAccountStatus?.hasAccount &&
+                  stripeAccountStatus?.status === 'ACTIVE' ? (
+                    // User has active Stripe Connect
+                    myRecipient.amountCents < 50 ? (
+                      // Amount below Stripe minimum - will be combined with future payouts
+                      <p className="mt-1 text-xs text-yellow-700/70 dark:text-yellow-400/70">
+                        Your payout amount (
+                        {formatCurrency(myRecipient.amountCents)}) is below
+                        Stripe&apos;s $0.50 minimum. It will be combined with
+                        your next payout from this project.
+                      </p>
+                    ) : (
+                      // Show get paid button
+                      <div className="mt-3">
+                        <p className="mb-2 text-xs text-yellow-700/70 dark:text-yellow-400/70">
+                          The founder has paid and your Stripe account is ready.
+                        </p>
+                        <AppButton
+                          size="sm"
+                          onClick={() => {
+                            setRetryingTransfer(true)
+                            retryTransfer.mutate({
+                              recipientId: myRecipient.id,
+                            })
+                          }}
+                          disabled={retryingTransfer}
+                          className="cursor-pointer"
+                        >
+                          {retryingTransfer ? (
+                            <Loader2 className="mr-2 size-4 animate-spin" />
+                          ) : (
+                            <BankNote03 className="mr-2 size-4" />
+                          )}
+                          Get Paid
+                        </AppButton>
+                      </div>
+                    )
+                  ) : stripeAccountStatus?.hasAccount ? (
+                    // User has Stripe Connect but not active
+                    <p className="mt-1 text-xs text-yellow-700/70 dark:text-yellow-400/70">
+                      The founder has paid.{' '}
+                      <Link
+                        href={routes.user.settings({
+                          username: username!,
+                        })}
+                        className="font-medium text-yellow-700 underline hover:text-yellow-600 dark:text-yellow-400 dark:hover:text-yellow-300"
+                      >
+                        Complete your Stripe Connect setup
+                      </Link>{' '}
+                      to receive your payout.
+                    </p>
+                  ) : (
+                    // User doesn't have Stripe Connect at all
+                    <p className="mt-1 text-xs text-yellow-700/70 dark:text-yellow-400/70">
+                      The founder has paid.{' '}
+                      <Link
+                        href={routes.user.settings({
+                          username: username!,
+                        })}
+                        className="font-medium text-yellow-700 underline hover:text-yellow-600 dark:text-yellow-400 dark:hover:text-yellow-300"
+                      >
+                        Set up Stripe Connect
+                      </Link>{' '}
+                      to receive your payout.
+                    </p>
+                  )
+                ) : (
+                  // Founder hasn't paid yet
+                  <p className="mt-1 text-xs text-yellow-700/70 dark:text-yellow-400/70">
+                    The founder hasn&apos;t completed the payout payment yet.
+                  </p>
+                )}
               </div>
             )}
 
@@ -634,27 +517,34 @@ export function PayoutDetailContent() {
 
           {/* Right side - Distribution */}
           <div className="space-y-4">
-            {/* Header with Mark All button */}
+            {/* Header with Pay button */}
             <div className="flex items-center justify-between gap-2">
               <span className="text-xs font-medium tracking-wider text-muted-foreground uppercase">
                 {payout.periodLabel} Split
               </span>
-              {isFounder && unpaidCount > 0 && (
-                <AppButton
-                  size="sm"
-                  variant="outline"
-                  onClick={handleMarkAllPaid}
-                  disabled={markingAllPaid}
-                  className="h-7 text-xs"
-                >
-                  {markingAllPaid ? (
-                    <Loader2 className="mr-1 size-3 animate-spin" />
-                  ) : (
-                    <CheckCircle className="mr-1 size-3" />
-                  )}
-                  Mark All Paid
-                </AppButton>
-              )}
+              {isFounder &&
+                payout.paymentStatus !== PayoutPaymentStatus.PAID && (
+                  <AppButton
+                    size="sm"
+                    onClick={handlePayWithStripe}
+                    disabled={isRedirectingToStripe}
+                    className="h-7 text-xs"
+                  >
+                    {isRedirectingToStripe ? (
+                      <Loader2 className="mr-1 size-3 animate-spin" />
+                    ) : (
+                      <CreditCard02 className="mr-1 size-3" />
+                    )}
+                    Pay with Stripe
+                  </AppButton>
+                )}
+              {isFounder &&
+                payout.paymentStatus === PayoutPaymentStatus.PAID && (
+                  <div className="flex items-center gap-1 text-xs text-primary">
+                    <Check className="size-3" />
+                    <span>Paid</span>
+                  </div>
+                )}
             </div>
 
             {/* Filter buttons */}
@@ -681,23 +571,6 @@ export function PayoutDetailContent() {
                 <span className="mr-1.5 size-2 rounded-full bg-primary" />
                 Paid ({paidCount})
               </FilterButton>
-              <FilterButton
-                active={filter === RecipientFilter.Confirmed}
-                onClick={() => setFilter(RecipientFilter.Confirmed)}
-                disabled={confirmedCount === 0}
-              >
-                <span className="mr-1.5 size-2 rounded-full bg-primary" />
-                Confirmed ({confirmedCount})
-              </FilterButton>
-              {disputedCount > 0 && (
-                <FilterButton
-                  active={filter === RecipientFilter.Disputed}
-                  onClick={() => setFilter(RecipientFilter.Disputed)}
-                >
-                  <span className="mr-1.5 size-2 rounded-full bg-red-500" />
-                  Disputed ({disputedCount})
-                </FilterButton>
-              )}
             </div>
 
             {/* Distribution bar - shows money split including platform fee */}
@@ -776,7 +649,6 @@ export function PayoutDetailContent() {
                   const displayStatus = getRecipientDisplayStatus(recipient)
                   const StatusIcon = displayStatus.icon
                   const isPaid = !!recipient.paidAt
-                  const isMarking = markingRecipientId === recipient.id
 
                   return (
                     <div
@@ -839,51 +711,14 @@ export function PayoutDetailContent() {
                               </div>
                             )}
                           </div>
-                          {/* Individual pay button for founder */}
-                          {isFounder && !isPaid && (
-                            <AppButton
-                              size="sm"
-                              variant="ghost"
-                              onClick={() =>
-                                setConfirmPayRecipient({
-                                  id: recipient.id,
-                                  name: recipient.user.name,
-                                  amount: recipient.amountCents,
-                                })
-                              }
-                              disabled={isMarking}
-                              className="size-7 p-0"
-                              title="Mark as paid"
-                            >
-                              {isMarking ? (
-                                <Loader2 className="size-3.5 animate-spin" />
-                              ) : (
-                                <CheckCircle className="size-3.5" />
-                              )}
-                            </AppButton>
-                          )}
-                          {/* Show check if paid */}
-                          {isPaid &&
-                            recipient.status !==
-                              PayoutRecipientStatus.CONFIRMED && (
-                              <div className="flex size-7 items-center justify-center">
-                                <CheckCircle className="size-3.5 text-primary" />
-                              </div>
-                            )}
-                          {recipient.status ===
-                            PayoutRecipientStatus.CONFIRMED && (
+                          {/* Payment status icon - Stripe transfer auto-verifies */}
+                          {isPaid && (
                             <div className="flex size-7 items-center justify-center">
-                              <Check className="size-3.5 text-primary" />
+                              <CheckCircle className="size-3.5 text-primary" />
                             </div>
                           )}
                         </div>
                       </div>
-                      {/* Show paid note if exists */}
-                      {recipient.paidNote && (
-                        <div className="mt-2 rounded-sm bg-muted/50 px-2 py-1 text-[10px] text-muted-foreground">
-                          {recipient.paidNote}
-                        </div>
-                      )}
                     </div>
                   )
                 })
@@ -923,12 +758,6 @@ export function PayoutDetailContent() {
                         <div className="text-sm font-semibold text-muted-foreground">
                           {formatCurrency(payout.platformFeeCents)}
                         </div>
-                        <a
-                          href="mailto:pay@shippy.sh"
-                          className="text-[10px] text-muted-foreground underline"
-                        >
-                          pay@shippy.sh
-                        </a>
                       </div>
                     </div>
                   )
@@ -952,28 +781,6 @@ export function PayoutDetailContent() {
           </div>
         </div>
       </div>
-
-      {/* Confirm mark as paid modal */}
-      <ConfirmModal
-        open={!!confirmPayRecipient}
-        onClose={() => setConfirmPayRecipient(null)}
-        onConfirm={async () => {
-          if (confirmPayRecipient) {
-            await handleMarkRecipientPaid(confirmPayRecipient.id)
-            setConfirmPayRecipient(null)
-          }
-        }}
-        title="Mark as Paid"
-        description={
-          confirmPayRecipient
-            ? `Confirm that you've sent ${formatCurrency(confirmPayRecipient.amount)} to ${confirmPayRecipient.name}?`
-            : ''
-        }
-        confirmText="Yes, I've Paid"
-        cancelText="Cancel"
-        variant="default"
-        isLoading={!!markingRecipientId}
-      />
     </AppBackground>
   )
 }

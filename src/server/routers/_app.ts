@@ -7,6 +7,7 @@ import { mcpTokenRouter } from './mcp-token'
 import { notificationRouter } from './notification'
 import { payoutRouter } from './payout'
 import { projectRouter } from './project'
+import { stripeRouter } from './stripe'
 import { submissionRouter } from './submission'
 import { uploadRouter } from './upload'
 import { userRouter } from './user'
@@ -21,6 +22,7 @@ export const appRouter = router({
   payout: payoutRouter,
   contributor: contributorRouter,
   contributorAgreement: contributorAgreementRouter,
+  stripe: stripeRouter,
   user: userRouter,
   notification: notificationRouter,
   mcpToken: mcpTokenRouter,

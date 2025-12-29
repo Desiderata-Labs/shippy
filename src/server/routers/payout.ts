@@ -1,12 +1,8 @@
-import { PayoutRecipientStatus, PayoutStatus } from '@/lib/db/types'
 import { nanoId } from '@/lib/nanoid/zod'
 import {
   calculatePayout,
-  confirmReceipt,
   createPayout,
   getContributorPoints,
-  markAllPaid,
-  markRecipientPaid,
 } from '@/server/services/payout'
 import {
   protectedProcedure,
@@ -32,11 +28,15 @@ type SerializePayout<T> = T extends {
       | 'reportedProfitCents'
       | 'poolAmountCents'
       | 'platformFeeCents'
+      | 'stripeFeeCents'
+      | 'founderTotalCents'
       | 'recipients'
     > & {
       reportedProfitCents: number
       poolAmountCents: number
       platformFeeCents: number
+      stripeFeeCents: number | null
+      founderTotalCents: number | null
     } & (T extends { recipients: Array<infer R> }
         ? { recipients: Array<SerializeRecipient<R>> }
         : object)
@@ -47,6 +47,8 @@ function serializePayout<
     reportedProfitCents: bigint
     poolAmountCents: bigint
     platformFeeCents: bigint
+    stripeFeeCents?: bigint | null
+    founderTotalCents?: bigint | null
     recipients?: Array<{ amountCents: bigint }>
   },
 >(payout: T): SerializePayout<T> {
@@ -55,6 +57,12 @@ function serializePayout<
     reportedProfitCents: Number(payout.reportedProfitCents),
     poolAmountCents: Number(payout.poolAmountCents),
     platformFeeCents: Number(payout.platformFeeCents),
+    stripeFeeCents: payout.stripeFeeCents
+      ? Number(payout.stripeFeeCents)
+      : null,
+    founderTotalCents: payout.founderTotalCents
+      ? Number(payout.founderTotalCents)
+      : null,
   }
   if ('recipients' in payout && Array.isArray(payout.recipients)) {
     ;(result as { recipients: unknown[] }).recipients = payout.recipients.map(
@@ -83,28 +91,6 @@ const createPayoutSchema = z.object({
   periodEnd: z.coerce.date(),
   periodLabel: z.string().min(1).max(50),
   reportedProfitCents: z.number().int().min(0),
-})
-
-const markSentSchema = z.object({
-  payoutId: nanoId(),
-  note: z.string().optional(),
-})
-
-const markRecipientPaidSchema = z.object({
-  recipientId: nanoId(),
-  note: z.string().optional(),
-})
-
-const markAllPaidSchema = z.object({
-  payoutId: nanoId(),
-  note: z.string().optional(),
-})
-
-const confirmReceiptSchema = z.object({
-  payoutId: nanoId(),
-  confirmed: z.boolean(),
-  note: z.string().optional(),
-  disputeReason: z.string().optional(),
 })
 
 export const payoutRouter = router({
@@ -192,10 +178,9 @@ export const payoutRouter = router({
         0,
       )
       const totalPayouts = payouts.length
-      const confirmedRecipients = payouts.flatMap((p) =>
-        p.recipients.filter(
-          (r) => r.status === PayoutRecipientStatus.CONFIRMED,
-        ),
+      // Count recipients who have been paid via Stripe transfer
+      const paidRecipients = payouts.flatMap((p) =>
+        p.recipients.filter((r) => r.paidAt !== null),
       ).length
       const totalRecipients = payouts.flatMap((p) => p.recipients).length
 
@@ -204,15 +189,14 @@ export const payoutRouter = router({
       return {
         totalPaidOutCents,
         totalPayouts,
-        confirmedRecipients,
+        paidRecipients,
         totalRecipients,
-        confirmationRate:
-          totalRecipients > 0 ? confirmedRecipients / totalRecipients : 0,
+        paidRate: totalRecipients > 0 ? paidRecipients / totalRecipients : 0,
         latestPayout: latestPayout
           ? {
               periodLabel: latestPayout.periodLabel,
               poolAmountCents: Number(latestPayout.poolAmountCents),
-              status: latestPayout.status,
+              paymentStatus: latestPayout.paymentStatus,
             }
           : null,
       }
@@ -317,122 +301,6 @@ export const payoutRouter = router({
       })
 
       return serializePayout(payout!)
-    }),
-
-  /**
-   * Mark payout as sent (founder only) - legacy, updates payout level
-   */
-  markSent: protectedProcedure
-    .input(markSentSchema)
-    .mutation(async ({ ctx, input }) => {
-      const payout = await ctx.prisma.payout.findUnique({
-        where: { id: input.payoutId },
-        include: { project: { select: { founderId: true } } },
-      })
-
-      if (!payout) {
-        throw userError('NOT_FOUND', 'Payout not found')
-      }
-
-      if (payout.project.founderId !== ctx.user.id) {
-        throw userError('FORBIDDEN', 'Access denied')
-      }
-
-      const updated = await ctx.prisma.payout.update({
-        where: { id: input.payoutId },
-        data: {
-          status: PayoutStatus.SENT,
-          sentAt: new Date(),
-          sentNote: input.note,
-        },
-      })
-      return serializePayout(updated)
-    }),
-
-  /**
-   * Mark a single recipient as paid (founder only)
-   */
-  markRecipientPaid: protectedProcedure
-    .input(markRecipientPaidSchema)
-    .mutation(async ({ ctx, input }) => {
-      const result = await markRecipientPaid({
-        prisma: ctx.prisma,
-        recipientId: input.recipientId,
-        userId: ctx.user.id,
-        note: input.note,
-      })
-
-      if (!result.success) {
-        throw userError(
-          result.code === 'FORBIDDEN' ? 'FORBIDDEN' : 'NOT_FOUND',
-          result.message,
-        )
-      }
-
-      // Fetch the updated recipient with bigint for serialization
-      const recipient = await ctx.prisma.payoutRecipient.findUnique({
-        where: { id: input.recipientId },
-      })
-
-      return serializeRecipient(recipient!)
-    }),
-
-  /**
-   * Mark all recipients as paid at once (founder only)
-   */
-  markAllPaid: protectedProcedure
-    .input(markAllPaidSchema)
-    .mutation(async ({ ctx, input }) => {
-      const result = await markAllPaid({
-        prisma: ctx.prisma,
-        payoutId: input.payoutId,
-        userId: ctx.user.id,
-        note: input.note,
-      })
-
-      if (!result.success) {
-        throw userError(
-          result.code === 'FORBIDDEN' ? 'FORBIDDEN' : 'NOT_FOUND',
-          result.message,
-        )
-      }
-
-      // Fetch full payout for serialization
-      const payout = await ctx.prisma.payout.findUnique({
-        where: { id: input.payoutId },
-      })
-
-      return serializePayout(payout!)
-    }),
-
-  /**
-   * Confirm or dispute receipt (recipient only)
-   */
-  confirmReceipt: protectedProcedure
-    .input(confirmReceiptSchema)
-    .mutation(async ({ ctx, input }) => {
-      const result = await confirmReceipt({
-        prisma: ctx.prisma,
-        payoutId: input.payoutId,
-        userId: ctx.user.id,
-        confirmed: input.confirmed,
-        note: input.note,
-        disputeReason: input.disputeReason,
-      })
-
-      if (!result.success) {
-        throw userError('NOT_FOUND', result.message)
-      }
-
-      // Fetch the updated recipient with bigint for serialization
-      const recipient = await ctx.prisma.payoutRecipient.findFirst({
-        where: {
-          payoutId: input.payoutId,
-          userId: ctx.user.id,
-        },
-      })
-
-      return serializeRecipient(recipient!)
     }),
 
   /**

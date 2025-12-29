@@ -208,8 +208,12 @@ export const notificationRouter = router({
 // Notification Creation Helpers
 // ================================
 
+type PrismaClientOrTx =
+  | typeof import('@/lib/db/server').prisma
+  | import('@prisma/client').Prisma.TransactionClient
+
 interface CreateNotificationParams {
-  prisma: typeof import('@/lib/db/server').prisma
+  prisma: PrismaClientOrTx
   type: NotificationType
   referenceType: NotificationReferenceType
   referenceId: string

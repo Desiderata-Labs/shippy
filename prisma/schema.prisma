@@ -26,6 +26,11 @@ model User {
   sessions      Session[]
   accounts      Account[]
 
+  // Stripe Connect (for receiving payouts)
+  stripeConnectAccountId     String?   @unique // Stripe Express account ID (acct_xxx)
+  stripeConnectAccountStatus String?   // "PENDING" | "ONBOARDING" | "ACTIVE" | "RESTRICTED" | "DISABLED"
+  stripeConnectOnboardedAt   DateTime? @db.Timestamptz(3) // When onboarding was completed
+
   // Shippy relations
   ownedProjects         Project[]
   bountyClaims          BountyClaim[]
@@ -461,10 +466,14 @@ model Payout {
   totalPointsAtPayout  Int // Total earned points at time of payout (for calculating shares)
   poolCapacityAtPayout Int // Pool capacity at time of payout (for calculating utilization)
 
-  // Status
-  status   String   @default("ANNOUNCED") // "ANNOUNCED" | "SENT" | "COMPLETED"
-  sentAt   DateTime? @db.Timestamptz(3) // When founder marked as sent
-  sentNote String? // Optional payment reference
+  // Founder payment via Stripe (must be paid before transfers are processed)
+  // Founder pays: poolAmountCents + platformFeeCents + stripeFeeCents
+  stripeFeeCents      BigInt? // Stripe processing fee (calculated at checkout time)
+  founderTotalCents   BigInt? // Total charged to founder (pool + platform + stripe fees)
+  paymentStatus       String   @default("PENDING") // "PENDING" | "PROCESSING" | "PAID" | "FAILED" | "REFUNDED"
+  stripeSessionId     String?  @unique // Stripe Checkout session ID
+  stripePaymentIntent String?  @unique // Stripe PaymentIntent ID (after checkout completes)
+  paidAt              DateTime? @db.Timestamptz(3) // When founder payment was confirmed
 
   createdAt DateTime @default(now()) @db.Timestamptz(3)
   updatedAt DateTime @updatedAt @db.Timestamptz(3)
@@ -473,7 +482,7 @@ model Payout {
   recipients PayoutRecipient[]
 
   @@index([projectId])
-  @@index([status])
+  @@index([paymentStatus])
   @@map("payout")
 }
 
@@ -490,16 +499,9 @@ model PayoutRecipient {
   sharePercent   Decimal  @db.Decimal(5, 2) // Percentage of pool (e.g., 25.50)
   amountCents    BigInt // Amount in cents (BigInt to handle large payouts)
 
-  // Payment tracking (founder marks as paid)
-  paidAt   DateTime? @db.Timestamptz(3) // When founder marked this recipient as paid
-  paidNote String? // Optional payment reference (e.g., "PayPal txn #12345")
-
-  // Confirmation (contributor confirms receipt)
-  status        String   @default("PENDING") // "PENDING" | "CONFIRMED" | "DISPUTED" | "UNCONFIRMED"
-  confirmedAt   DateTime? @db.Timestamptz(3)
-  disputedAt    DateTime? @db.Timestamptz(3)
-  confirmNote   String? // Optional note from contributor
-  disputeReason String?   @db.Text
+  // Payment tracking via Stripe
+  paidAt           DateTime? @db.Timestamptz(3) // When Stripe transfer completed
+  stripeTransferId String? // Stripe transfer ID (tr_xxx) - NOT unique since carry-forward aggregates multiple recipients into one transfer
 
   createdAt DateTime @default(now()) @db.Timestamptz(3)
   updatedAt DateTime @updatedAt @db.Timestamptz(3)
@@ -507,8 +509,45 @@ model PayoutRecipient {
   @@unique([payoutId, userId]) // One recipient per user per payout
   @@index([payoutId])
   @@index([userId])
-  @@index([status])
   @@map("payout_recipient")
+}
+
+// ================================
+// Stripe Events (Audit Log)
+// ================================
+
+/// Stores all Stripe webhook events for debugging and replay
+model StripeEvent {
+  id        String   @id @default(dbgenerated("nanoid()"))
+  createdAt DateTime @default(now()) @db.Timestamptz(3)
+
+  // Stripe event identifiers
+  stripeEventId String @unique // Stripe's event ID (evt_xxx)
+  eventType     String // Event type (e.g., "account.updated", "checkout.session.completed")
+
+  // Full event payload for replay/debugging
+  eventJson Json // Complete Stripe event as JSON
+
+  // Optional references for querying
+  stripeAccountId      String? // For Connect events (acct_xxx)
+  stripeSessionId      String? // For Checkout events (cs_xxx)
+  stripePaymentIntent  String? // For payment events (pi_xxx)
+  userId               String? // Shippy user ID if we can map it
+  payoutId             String? // Shippy payout ID if related
+
+  // Processing status
+  processed   Boolean   @default(false) // Whether we've handled this event
+  processedAt DateTime? @db.Timestamptz(3)
+  error       String? // Error message if processing failed
+
+  @@index([stripeEventId])
+  @@index([eventType])
+  @@index([stripeAccountId])
+  @@index([userId])
+  @@index([payoutId])
+  @@index([processed])
+  @@index([createdAt])
+  @@map("stripe_event")
 }
 
 // ================================

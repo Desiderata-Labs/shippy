@@ -45,6 +45,11 @@ export interface PayoutDetailParams extends ProjectParams {
   payoutId: string
 }
 
+export interface PayoutPaymentParams extends ProjectParams {
+  payoutId: string
+  status: 'success' | 'cancel'
+}
+
 /**
  * Create a URL-friendly slug with embedded nanoid
  * e.g., "grow-twitter-audience-TdFKukO9LuJe"
@@ -70,6 +75,7 @@ export const projectPaths = {
   submissions: '/p/[slug]/submissions',
   newPayout: '/p/[slug]/payouts/new',
   payoutDetail: '/p/[slug]/payouts/[payoutId]',
+  payoutPayment: '/p/[slug]/payouts/[payoutId]/payment',
 } as const
 
 // For navigation - functions that generate actual URLs
@@ -113,4 +119,7 @@ export const projectRoutes = {
   newPayout: (params: ProjectParams) => `/p/${params.slug}/payouts/new`,
   payoutDetail: (params: PayoutDetailParams) =>
     `/p/${params.slug}/payouts/${params.payoutId}`,
+  /** Payment success/cancel redirect URL for Stripe Checkout */
+  payoutPayment: (params: PayoutPaymentParams) =>
+    `/p/${params.slug}/payouts/${params.payoutId}?payment=${params.status}`,
 } as const

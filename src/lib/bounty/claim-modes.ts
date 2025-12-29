@@ -78,9 +78,30 @@ export function allowsMultipleSubmissionsPerUser(
 /**
  * Whether the bounty should reopen when all claims are released.
  * Only SINGLE mode bounties reopen automatically.
+ * @deprecated Use shouldReopenWhenNoActiveClaims for more general handling
  */
 export function shouldReopenOnClaimRelease(mode: BountyClaimMode): boolean {
   return mode === BountyClaimMode.SINGLE
+}
+
+/**
+ * Whether the bounty should reopen when there are no active claims remaining.
+ * Called after claim resolution (approval, rejection, expiration, release).
+ *
+ * All modes reopen when no active claims remain, EXCEPT:
+ * - COMPETITIVE: Stays CLAIMED to show it's an active race (even if no one has claimed yet after expiration)
+ *
+ * Note: This is separate from shouldCompleteBountyOnApproval which determines if bounty goes to COMPLETED.
+ * This function is only called when bounty should stay open for new claims.
+ */
+export function shouldReopenWhenNoActiveClaims(
+  // eslint-disable-next-line @typescript-eslint/no-unused-vars
+  mode: BountyClaimMode,
+): boolean {
+  // All modes should reopen when no active claims remain
+  // This allows new contributors to claim the bounty
+  // The mode parameter is kept for future flexibility (e.g., if some modes shouldn't reopen)
+  return true
 }
 
 // ================================

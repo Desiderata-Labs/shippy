@@ -10,6 +10,7 @@ import {
   shouldCompleteBountyOnApproval,
   shouldExpireOtherClaimsOnApproval,
   shouldReopenOnClaimRelease,
+  shouldReopenWhenNoActiveClaims,
   supportsMaxClaims,
 } from './claim-modes'
 import { describe, expect, test } from 'vitest'
@@ -149,6 +150,32 @@ describe('shouldReopenOnClaimRelease', () => {
 
   test('PERFORMANCE mode should NOT reopen when claim released', () => {
     expect(shouldReopenOnClaimRelease(BountyClaimMode.PERFORMANCE)).toBe(false)
+  })
+})
+
+// ================================
+// shouldReopenWhenNoActiveClaims
+// ================================
+
+describe('shouldReopenWhenNoActiveClaims', () => {
+  test('SINGLE mode should reopen when no active claims', () => {
+    expect(shouldReopenWhenNoActiveClaims(BountyClaimMode.SINGLE)).toBe(true)
+  })
+
+  test('COMPETITIVE mode should reopen when no active claims', () => {
+    expect(shouldReopenWhenNoActiveClaims(BountyClaimMode.COMPETITIVE)).toBe(
+      true,
+    )
+  })
+
+  test('MULTIPLE mode should reopen when no active claims', () => {
+    expect(shouldReopenWhenNoActiveClaims(BountyClaimMode.MULTIPLE)).toBe(true)
+  })
+
+  test('PERFORMANCE mode should reopen when no active claims', () => {
+    expect(shouldReopenWhenNoActiveClaims(BountyClaimMode.PERFORMANCE)).toBe(
+      true,
+    )
   })
 })
 

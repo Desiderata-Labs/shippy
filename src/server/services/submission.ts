@@ -2,6 +2,7 @@ import {
   allowsMultipleSubmissionsPerUser,
   shouldCompleteBountyOnApproval,
   shouldExpireOtherClaimsOnApproval,
+  shouldReopenWhenNoActiveClaims,
 } from '@/lib/bounty/claim-modes'
 import { prisma as globalPrisma } from '@/lib/db/server'
 import {
@@ -228,6 +229,13 @@ export async function approveSubmission({
       where: { id: bounty.id },
       data: { status: BountyStatus.COMPLETED },
     })
+  } else {
+    // Bounty not completed - check if it should be reopened (no remaining active claims)
+    await updateBountyStatusOnClaimResolution({
+      prisma,
+      bountyId: bounty.id,
+      claimMode,
+    })
   }
 
   // Create notification for contributor (fire and forget, uses global prisma)
@@ -243,13 +251,20 @@ export async function approveSubmission({
   })
 
   // Determine the bounty status after approval for GitHub comment
-  const bountyStatusAfterApproval = shouldCompleteBountyOnApproval(
-    claimMode,
-    approvedCount,
-    bounty.maxClaims,
-  )
-    ? BountyStatus.COMPLETED
-    : BountyStatus.CLAIMED
+  let bountyStatusAfterApproval: BountyStatus
+  if (
+    shouldCompleteBountyOnApproval(claimMode, approvedCount, bounty.maxClaims)
+  ) {
+    bountyStatusAfterApproval = BountyStatus.COMPLETED
+  } else {
+    // Check if bounty was reopened (need to query current status)
+    const updatedBounty = await prisma.bounty.findUnique({
+      where: { id: bounty.id },
+      select: { status: true },
+    })
+    bountyStatusAfterApproval =
+      (updatedBounty?.status as BountyStatus) ?? BountyStatus.OPEN
+  }
 
   // Post GitHub comment if linked to a PR (fire and forget, uses global prisma)
   notifyGitHubPRApproval({
@@ -313,6 +328,156 @@ async function notifyGitHubPRApproval({
     repo,
     issue_number: prLink.prNumber,
     body: comment,
+  })
+}
+
+// ================================
+// Bounty Status Helper
+// ================================
+
+/**
+ * Updates bounty status based on remaining active claims.
+ * Called after claim resolution (approval, rejection, expiration, release).
+ *
+ * If the bounty is in CLAIMED status and there are no remaining active claims,
+ * it will be reopened to OPEN status (allowing new contributors to claim).
+ *
+ * This should only be called AFTER checking for bounty completion.
+ */
+export async function updateBountyStatusOnClaimResolution({
+  prisma,
+  bountyId,
+  claimMode,
+}: {
+  prisma: PrismaClientOrTx
+  bountyId: string
+  claimMode: BountyClaimMode
+}): Promise<void> {
+  // Check if mode allows reopening when no active claims
+  if (!shouldReopenWhenNoActiveClaims(claimMode)) {
+    return
+  }
+
+  // Get current bounty status
+  const bounty = await prisma.bounty.findUnique({
+    where: { id: bountyId },
+    select: { status: true },
+  })
+
+  if (!bounty || bounty.status !== BountyStatus.CLAIMED) {
+    // Only reopen from CLAIMED status
+    return
+  }
+
+  // Count remaining active claims (ACTIVE or SUBMITTED)
+  const remainingActiveClaims = await prisma.bountyClaim.count({
+    where: {
+      bountyId,
+      status: { in: [ClaimStatus.ACTIVE, ClaimStatus.SUBMITTED] },
+    },
+  })
+
+  if (remainingActiveClaims === 0) {
+    await prisma.bounty.update({
+      where: { id: bountyId },
+      data: { status: BountyStatus.OPEN },
+    })
+  }
+}
+
+// ================================
+// Reject Submission Service
+// ================================
+
+/**
+ * Reject a submission - shared logic used by tRPC
+ *
+ * This handles:
+ * - Updating submission status to REJECTED
+ * - Expiring the associated claim
+ * - Creating audit trail event
+ * - Reopening bounty if no remaining active claims
+ * - Creating notification for contributor
+ */
+export async function rejectSubmission({
+  prisma,
+  submissionId,
+  actorId,
+  note,
+}: {
+  prisma: PrismaClientOrTx
+  submissionId: string
+  actorId: string
+  note?: string
+}): Promise<void> {
+  const submission = await prisma.submission.findUnique({
+    where: { id: submissionId },
+    include: {
+      bounty: {
+        select: {
+          id: true,
+          claimMode: true,
+        },
+      },
+    },
+  })
+
+  if (!submission) {
+    throw new Error(`Submission not found: ${submissionId}`)
+  }
+
+  const now = new Date()
+  const previousStatus = submission.status
+
+  // Update submission status to REJECTED
+  await prisma.submission.update({
+    where: { id: submissionId },
+    data: {
+      status: SubmissionStatus.REJECTED,
+      rejectedAt: now,
+      rejectionNote: note || null,
+    },
+  })
+
+  // Expire the claim associated with this submission
+  await prisma.bountyClaim.updateMany({
+    where: {
+      bountyId: submission.bountyId,
+      userId: submission.userId,
+      status: { in: [ClaimStatus.ACTIVE, ClaimStatus.SUBMITTED] },
+    },
+    data: { status: ClaimStatus.EXPIRED },
+  })
+
+  // Add rejection event to timeline
+  await prisma.submissionEvent.create({
+    data: {
+      submissionId,
+      userId: actorId,
+      type: SubmissionEventType.STATUS_CHANGE,
+      fromStatus: previousStatus,
+      toStatus: SubmissionStatus.REJECTED,
+      note: note || null,
+    },
+  })
+
+  // Check if bounty should be reopened (no remaining active claims)
+  await updateBountyStatusOnClaimResolution({
+    prisma,
+    bountyId: submission.bountyId,
+    claimMode: submission.bounty.claimMode as BountyClaimMode,
+  })
+
+  // Notify contributor about rejection (fire and forget, uses global prisma)
+  createNotifications({
+    prisma: globalPrisma,
+    type: NotificationType.SUBMISSION_REJECTED,
+    referenceType: NotificationReferenceType.SUBMISSION,
+    referenceId: submission.id,
+    actorId,
+    recipientIds: [submission.userId],
+  }).catch((err) => {
+    console.error('Failed to create rejection notification:', err)
   })
 }
 

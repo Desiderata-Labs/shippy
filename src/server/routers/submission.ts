@@ -13,6 +13,7 @@ import {
 import {
   approveSubmission,
   createSubmission,
+  rejectSubmission,
   updateSubmission,
 } from '@/server/services/submission'
 import { protectedProcedure, router, userError } from '@/server/trpc'
@@ -280,8 +281,6 @@ export const submissionRouter = router({
         throw userError('FORBIDDEN', 'You do not own this project')
       }
 
-      const now = new Date()
-
       const previousStatus = submission.status
 
       switch (input.action) {
@@ -309,37 +308,12 @@ export const submissionRouter = router({
         }
 
         case 'reject': {
-          await ctx.prisma.submission.update({
-            where: { id: input.id },
-            data: {
-              status: SubmissionStatus.REJECTED,
-              rejectedAt: now,
-              rejectionNote: input.note,
-            },
-          })
-
-          // Add rejection event to timeline
-          await ctx.prisma.submissionEvent.create({
-            data: {
-              submissionId: input.id,
-              userId: ctx.user.id,
-              type: SubmissionEventType.STATUS_CHANGE,
-              fromStatus: previousStatus,
-              toStatus: SubmissionStatus.REJECTED,
-              note: input.note,
-            },
-          })
-
-          // Notify contributor about rejection
-          createNotifications({
+          // Use shared rejection service (expires claim and updates bounty status)
+          await rejectSubmission({
             prisma: ctx.prisma,
-            type: NotificationType.SUBMISSION_REJECTED,
-            referenceType: NotificationReferenceType.SUBMISSION,
-            referenceId: submission.id,
+            submissionId: input.id,
             actorId: ctx.user.id,
-            recipientIds: [submission.userId],
-          }).catch((err) => {
-            console.error('Failed to create rejection notification:', err)
+            note: input.note,
           })
 
           break

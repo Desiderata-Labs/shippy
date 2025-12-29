@@ -9,6 +9,8 @@ import {
 import {
   approveSubmission,
   createSubmission,
+  rejectSubmission,
+  updateBountyStatusOnClaimResolution,
   updateSubmission,
 } from './submission'
 import { beforeEach, describe, expect, test, vi } from 'vitest'
@@ -54,6 +56,7 @@ type MockPrisma = {
     findMany: ReturnType<typeof vi.fn>
     update: ReturnType<typeof vi.fn>
     updateMany: ReturnType<typeof vi.fn>
+    count: ReturnType<typeof vi.fn>
   }
   bounty: {
     findUnique: ReturnType<typeof vi.fn>
@@ -87,6 +90,7 @@ function createMockPrisma(): MockPrisma {
       findMany: vi.fn(),
       update: vi.fn(),
       updateMany: vi.fn(),
+      count: vi.fn(),
     },
     bounty: {
       findUnique: vi.fn(),
@@ -415,7 +419,7 @@ describe('approveSubmission', () => {
   })
 
   describe('MULTIPLE mode behavior', () => {
-    test('does NOT complete bounty when no maxClaims limit', async () => {
+    test('does NOT complete bounty when no maxClaims limit, but reopens when no active claims', async () => {
       mockPrisma.submission.findUnique.mockResolvedValue({
         id: 'sub-1',
         status: SubmissionStatus.PENDING,
@@ -442,6 +446,12 @@ describe('approveSubmission', () => {
       mockPrisma.bountyClaim.updateMany.mockResolvedValue({})
       mockPrisma.submissionEvent.create.mockResolvedValue({})
       mockPrisma.submission.count.mockResolvedValue(3) // 3 approvals
+      // Mock for updateBountyStatusOnClaimResolution
+      mockPrisma.bounty.findUnique.mockResolvedValue({
+        status: BountyStatus.CLAIMED,
+      })
+      mockPrisma.bountyClaim.count.mockResolvedValue(0) // No active claims remaining
+      mockPrisma.bounty.update.mockResolvedValue({})
 
       await approveSubmission({
         prisma: mockPrisma as any,
@@ -450,7 +460,54 @@ describe('approveSubmission', () => {
         actorId: 'founder-1',
       })
 
-      // Should NOT complete bounty
+      // Should NOT complete bounty, but should reopen to OPEN
+      expect(mockPrisma.bounty.update).toHaveBeenCalledWith({
+        where: { id: 'bounty-1' },
+        data: { status: BountyStatus.OPEN },
+      })
+    })
+
+    test('stays CLAIMED when there are other active claims', async () => {
+      mockPrisma.submission.findUnique.mockResolvedValue({
+        id: 'sub-1',
+        status: SubmissionStatus.PENDING,
+        bountyId: 'bounty-1',
+        userId: 'user-1',
+        bounty: {
+          id: 'bounty-1',
+          title: 'Multi Bounty',
+          number: 1,
+          claimMode: BountyClaimMode.MULTIPLE,
+          maxClaims: null, // No limit
+          project: {
+            id: 'project-1',
+            slug: 'test-project',
+            projectKey: 'TST',
+            rewardPool: null,
+          },
+        },
+      })
+      mockPrisma.submission.aggregate.mockResolvedValue({
+        _sum: { pointsAwarded: null },
+      })
+      mockPrisma.submission.update.mockResolvedValue({})
+      mockPrisma.bountyClaim.updateMany.mockResolvedValue({})
+      mockPrisma.submissionEvent.create.mockResolvedValue({})
+      mockPrisma.submission.count.mockResolvedValue(3) // 3 approvals
+      // Mock for updateBountyStatusOnClaimResolution
+      mockPrisma.bounty.findUnique.mockResolvedValue({
+        status: BountyStatus.CLAIMED,
+      })
+      mockPrisma.bountyClaim.count.mockResolvedValue(2) // 2 other active claims
+
+      await approveSubmission({
+        prisma: mockPrisma as any,
+        submissionId: 'sub-1',
+        pointsAwarded: 100,
+        actorId: 'founder-1',
+      })
+
+      // Should NOT update bounty status
       expect(mockPrisma.bounty.update).not.toHaveBeenCalled()
     })
 
@@ -481,6 +538,12 @@ describe('approveSubmission', () => {
       mockPrisma.bountyClaim.updateMany.mockResolvedValue({})
       mockPrisma.submissionEvent.create.mockResolvedValue({})
       mockPrisma.submission.count.mockResolvedValue(3) // Only 3 approvals
+      // Mock for updateBountyStatusOnClaimResolution
+      mockPrisma.bounty.findUnique.mockResolvedValue({
+        status: BountyStatus.CLAIMED,
+      })
+      mockPrisma.bountyClaim.count.mockResolvedValue(0) // No active claims
+      mockPrisma.bounty.update.mockResolvedValue({})
 
       await approveSubmission({
         prisma: mockPrisma as any,
@@ -489,8 +552,11 @@ describe('approveSubmission', () => {
         actorId: 'founder-1',
       })
 
-      // Should NOT complete bounty
-      expect(mockPrisma.bounty.update).not.toHaveBeenCalled()
+      // Should NOT complete bounty, but reopens to OPEN
+      expect(mockPrisma.bounty.update).toHaveBeenCalledWith({
+        where: { id: 'bounty-1' },
+        data: { status: BountyStatus.OPEN },
+      })
     })
 
     test('completes bounty when approvedCount reaches maxClaims', async () => {
@@ -536,7 +602,7 @@ describe('approveSubmission', () => {
   })
 
   describe('PERFORMANCE mode behavior', () => {
-    test('never auto-completes bounty', async () => {
+    test('never auto-completes bounty, but reopens when no active claims', async () => {
       mockPrisma.submission.findUnique.mockResolvedValue({
         id: 'sub-1',
         status: SubmissionStatus.PENDING,
@@ -563,6 +629,12 @@ describe('approveSubmission', () => {
       mockPrisma.bountyClaim.updateMany.mockResolvedValue({})
       mockPrisma.submissionEvent.create.mockResolvedValue({})
       mockPrisma.submission.count.mockResolvedValue(1000) // Many approvals
+      // Mock for updateBountyStatusOnClaimResolution
+      mockPrisma.bounty.findUnique.mockResolvedValue({
+        status: BountyStatus.CLAIMED,
+      })
+      mockPrisma.bountyClaim.count.mockResolvedValue(0) // No active claims
+      mockPrisma.bounty.update.mockResolvedValue({})
 
       await approveSubmission({
         prisma: mockPrisma as any,
@@ -571,8 +643,11 @@ describe('approveSubmission', () => {
         actorId: 'founder-1',
       })
 
-      // Should NOT complete bounty even with many approvals
-      expect(mockPrisma.bounty.update).not.toHaveBeenCalled()
+      // Should NOT complete bounty, but reopens to OPEN since no active claims
+      expect(mockPrisma.bounty.update).toHaveBeenCalledWith({
+        where: { id: 'bounty-1' },
+        data: { status: BountyStatus.OPEN },
+      })
     })
   })
 
@@ -1047,6 +1122,270 @@ describe('createSubmission', () => {
         },
       })
     })
+  })
+})
+
+// ================================
+// rejectSubmission Tests
+// ================================
+
+describe('rejectSubmission', () => {
+  let mockPrisma: ReturnType<typeof createMockPrisma>
+
+  beforeEach(() => {
+    mockPrisma = createMockPrisma()
+    vi.clearAllMocks()
+  })
+
+  describe('error cases', () => {
+    test('throws when submission not found', async () => {
+      mockPrisma.submission.findUnique.mockResolvedValue(null)
+
+      await expect(
+        rejectSubmission({
+          prisma: mockPrisma as any,
+          submissionId: 'non-existent',
+          actorId: 'founder-1',
+          note: 'Rejected',
+        }),
+      ).rejects.toThrow('Submission not found')
+    })
+  })
+
+  describe('success cases', () => {
+    test('rejects submission and expires claim', async () => {
+      mockPrisma.submission.findUnique.mockResolvedValue({
+        id: 'sub-1',
+        status: SubmissionStatus.PENDING,
+        bountyId: 'bounty-1',
+        userId: 'user-1',
+        bounty: {
+          id: 'bounty-1',
+          claimMode: BountyClaimMode.SINGLE,
+        },
+      })
+      mockPrisma.submission.update.mockResolvedValue({})
+      mockPrisma.bountyClaim.updateMany.mockResolvedValue({})
+      mockPrisma.submissionEvent.create.mockResolvedValue({})
+      // Mock for updateBountyStatusOnClaimResolution
+      mockPrisma.bounty.findUnique.mockResolvedValue({
+        status: BountyStatus.CLAIMED,
+      })
+      mockPrisma.bountyClaim.count.mockResolvedValue(0) // No remaining active claims
+      mockPrisma.bounty.update.mockResolvedValue({})
+
+      await rejectSubmission({
+        prisma: mockPrisma as any,
+        submissionId: 'sub-1',
+        actorId: 'founder-1',
+        note: 'Not good enough',
+      })
+
+      // Should update submission to REJECTED
+      expect(mockPrisma.submission.update).toHaveBeenCalledWith({
+        where: { id: 'sub-1' },
+        data: expect.objectContaining({
+          status: SubmissionStatus.REJECTED,
+          rejectionNote: 'Not good enough',
+        }),
+      })
+
+      // Should expire the claim
+      expect(mockPrisma.bountyClaim.updateMany).toHaveBeenCalledWith({
+        where: {
+          bountyId: 'bounty-1',
+          userId: 'user-1',
+          status: { in: [ClaimStatus.ACTIVE, ClaimStatus.SUBMITTED] },
+        },
+        data: { status: ClaimStatus.EXPIRED },
+      })
+
+      // Should create rejection event
+      expect(mockPrisma.submissionEvent.create).toHaveBeenCalledWith({
+        data: expect.objectContaining({
+          submissionId: 'sub-1',
+          userId: 'founder-1',
+          type: SubmissionEventType.STATUS_CHANGE,
+          fromStatus: SubmissionStatus.PENDING,
+          toStatus: SubmissionStatus.REJECTED,
+          note: 'Not good enough',
+        }),
+      })
+    })
+
+    test('reopens bounty when no active claims remain (SINGLE mode)', async () => {
+      mockPrisma.submission.findUnique.mockResolvedValue({
+        id: 'sub-1',
+        status: SubmissionStatus.PENDING,
+        bountyId: 'bounty-1',
+        userId: 'user-1',
+        bounty: {
+          id: 'bounty-1',
+          claimMode: BountyClaimMode.SINGLE,
+        },
+      })
+      mockPrisma.submission.update.mockResolvedValue({})
+      mockPrisma.bountyClaim.updateMany.mockResolvedValue({})
+      mockPrisma.submissionEvent.create.mockResolvedValue({})
+      mockPrisma.bounty.findUnique.mockResolvedValue({
+        status: BountyStatus.CLAIMED,
+      })
+      mockPrisma.bountyClaim.count.mockResolvedValue(0) // No remaining active claims
+      mockPrisma.bounty.update.mockResolvedValue({})
+
+      await rejectSubmission({
+        prisma: mockPrisma as any,
+        submissionId: 'sub-1',
+        actorId: 'founder-1',
+        note: 'Rejected',
+      })
+
+      // Should reopen bounty to OPEN
+      expect(mockPrisma.bounty.update).toHaveBeenCalledWith({
+        where: { id: 'bounty-1' },
+        data: { status: BountyStatus.OPEN },
+      })
+    })
+
+    test('reopens bounty when no active claims remain (MULTIPLE mode)', async () => {
+      mockPrisma.submission.findUnique.mockResolvedValue({
+        id: 'sub-1',
+        status: SubmissionStatus.PENDING,
+        bountyId: 'bounty-1',
+        userId: 'user-1',
+        bounty: {
+          id: 'bounty-1',
+          claimMode: BountyClaimMode.MULTIPLE,
+        },
+      })
+      mockPrisma.submission.update.mockResolvedValue({})
+      mockPrisma.bountyClaim.updateMany.mockResolvedValue({})
+      mockPrisma.submissionEvent.create.mockResolvedValue({})
+      mockPrisma.bounty.findUnique.mockResolvedValue({
+        status: BountyStatus.CLAIMED,
+      })
+      mockPrisma.bountyClaim.count.mockResolvedValue(0) // No remaining active claims
+      mockPrisma.bounty.update.mockResolvedValue({})
+
+      await rejectSubmission({
+        prisma: mockPrisma as any,
+        submissionId: 'sub-1',
+        actorId: 'founder-1',
+        note: 'Rejected',
+      })
+
+      // Should reopen bounty to OPEN
+      expect(mockPrisma.bounty.update).toHaveBeenCalledWith({
+        where: { id: 'bounty-1' },
+        data: { status: BountyStatus.OPEN },
+      })
+    })
+
+    test('does NOT reopen bounty when other active claims remain', async () => {
+      mockPrisma.submission.findUnique.mockResolvedValue({
+        id: 'sub-1',
+        status: SubmissionStatus.PENDING,
+        bountyId: 'bounty-1',
+        userId: 'user-1',
+        bounty: {
+          id: 'bounty-1',
+          claimMode: BountyClaimMode.COMPETITIVE,
+        },
+      })
+      mockPrisma.submission.update.mockResolvedValue({})
+      mockPrisma.bountyClaim.updateMany.mockResolvedValue({})
+      mockPrisma.submissionEvent.create.mockResolvedValue({})
+      mockPrisma.bounty.findUnique.mockResolvedValue({
+        status: BountyStatus.CLAIMED,
+      })
+      mockPrisma.bountyClaim.count.mockResolvedValue(2) // 2 other active claims
+
+      await rejectSubmission({
+        prisma: mockPrisma as any,
+        submissionId: 'sub-1',
+        actorId: 'founder-1',
+        note: 'Rejected',
+      })
+
+      // Should NOT update bounty status
+      expect(mockPrisma.bounty.update).not.toHaveBeenCalled()
+    })
+  })
+})
+
+// ================================
+// updateBountyStatusOnClaimResolution Tests
+// ================================
+
+describe('updateBountyStatusOnClaimResolution', () => {
+  let mockPrisma: ReturnType<typeof createMockPrisma>
+
+  beforeEach(() => {
+    mockPrisma = createMockPrisma()
+    vi.clearAllMocks()
+  })
+
+  test('reopens bounty to OPEN when no active claims remain', async () => {
+    mockPrisma.bounty.findUnique.mockResolvedValue({
+      status: BountyStatus.CLAIMED,
+    })
+    mockPrisma.bountyClaim.count.mockResolvedValue(0)
+    mockPrisma.bounty.update.mockResolvedValue({})
+
+    await updateBountyStatusOnClaimResolution({
+      prisma: mockPrisma as any,
+      bountyId: 'bounty-1',
+      claimMode: BountyClaimMode.SINGLE,
+    })
+
+    expect(mockPrisma.bounty.update).toHaveBeenCalledWith({
+      where: { id: 'bounty-1' },
+      data: { status: BountyStatus.OPEN },
+    })
+  })
+
+  test('does NOT change status when active claims remain', async () => {
+    mockPrisma.bounty.findUnique.mockResolvedValue({
+      status: BountyStatus.CLAIMED,
+    })
+    mockPrisma.bountyClaim.count.mockResolvedValue(1) // 1 active claim
+
+    await updateBountyStatusOnClaimResolution({
+      prisma: mockPrisma as any,
+      bountyId: 'bounty-1',
+      claimMode: BountyClaimMode.SINGLE,
+    })
+
+    expect(mockPrisma.bounty.update).not.toHaveBeenCalled()
+  })
+
+  test('does NOT change status when bounty is not CLAIMED', async () => {
+    mockPrisma.bounty.findUnique.mockResolvedValue({
+      status: BountyStatus.COMPLETED,
+    })
+
+    await updateBountyStatusOnClaimResolution({
+      prisma: mockPrisma as any,
+      bountyId: 'bounty-1',
+      claimMode: BountyClaimMode.SINGLE,
+    })
+
+    // Should not even count claims if bounty isn't CLAIMED
+    expect(mockPrisma.bountyClaim.count).not.toHaveBeenCalled()
+    expect(mockPrisma.bounty.update).not.toHaveBeenCalled()
+  })
+
+  test('does NOT change status when bounty not found', async () => {
+    mockPrisma.bounty.findUnique.mockResolvedValue(null)
+
+    await updateBountyStatusOnClaimResolution({
+      prisma: mockPrisma as any,
+      bountyId: 'bounty-1',
+      claimMode: BountyClaimMode.SINGLE,
+    })
+
+    expect(mockPrisma.bountyClaim.count).not.toHaveBeenCalled()
+    expect(mockPrisma.bounty.update).not.toHaveBeenCalled()
   })
 })
 

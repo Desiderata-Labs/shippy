@@ -27,6 +27,10 @@ import {
   updateBounty,
 } from '@/server/services/bounty'
 import {
+  acceptAgreement,
+  getTemplate as getAgreementTemplate,
+} from '@/server/services/contributor-agreement'
+import {
   createLabel,
   deleteLabel,
   listLabels,
@@ -1298,6 +1302,24 @@ server.registerTool(
     })
 
     if (!result.success) {
+      // Special handling for agreement-related errors
+      if (result.code === 'AGREEMENT_REQUIRED') {
+        return {
+          content: [
+            {
+              type: 'text' as const,
+              text: `You must accept the contributor agreement before claiming this bounty.
+
+## How to Accept
+
+1. First, review the agreement by calling \`get_contributor_agreement\` with projectId="${result.projectId}"
+2. If you agree to the terms, call \`accept_contributor_agreement\` with projectId="${result.projectId}"
+3. Then retry \`claim_bounty\` with identifier="${identifier}"`,
+            },
+          ],
+        }
+      }
+
       const errorMessages: Record<string, string> = {
         NOT_FOUND: `Bounty "${identifier}" not found.`,
         BACKLOG:
@@ -1308,6 +1330,8 @@ server.registerTool(
         ALREADY_CLAIMED_BY_USER: 'You have already claimed this bounty.',
         MAX_CLAIMS_REACHED:
           'This bounty has reached its maximum number of claims.',
+        AGREEMENT_NOT_CONFIGURED:
+          'The project owner has not configured the contributor agreement. Please contact the project owner to set up the agreement before bounties can be claimed.',
       }
       return {
         content: [
@@ -1946,6 +1970,163 @@ server.registerTool(
         {
           type: 'text' as const,
           text: toMarkdown(formatted, { namespace: 'my_submissions' }),
+        },
+      ],
+    }
+  },
+)
+
+// ================================
+// Contributor Agreement Tools
+// ================================
+
+server.registerTool(
+  'get_contributor_agreement',
+  {
+    description:
+      'Get the contributor agreement for a project. You must review and accept this agreement before claiming bounties.',
+    inputSchema: {
+      projectId: z.string().describe('The project ID'),
+    },
+  },
+  async ({ projectId }, extra) => {
+    const authInfo = extra.authInfo
+    const contributorName = authInfo?.clientId
+      ? ((
+          await prisma.user.findUnique({
+            where: { id: authInfo.clientId },
+            select: { name: true, email: true },
+          })
+        )?.name ?? 'Contributor')
+      : 'Contributor'
+
+    const contributorEmail = authInfo?.clientId
+      ? ((
+          await prisma.user.findUnique({
+            where: { id: authInfo.clientId },
+            select: { email: true },
+          })
+        )?.email ?? 'contributor@example.com')
+      : 'contributor@example.com'
+
+    const result = await getAgreementTemplate({
+      prisma,
+      projectId,
+      contributorName,
+      contributorEmail,
+    })
+
+    if (!result.success) {
+      return {
+        content: [
+          {
+            type: 'text' as const,
+            text:
+              result.code === 'PROJECT_NOT_FOUND'
+                ? 'Project not found.'
+                : result.message,
+          },
+        ],
+      }
+    }
+
+    if (!result.termsEnabled) {
+      return {
+        content: [
+          {
+            type: 'text' as const,
+            text: 'This project does not require a contributor agreement.',
+          },
+        ],
+      }
+    }
+
+    return {
+      content: [
+        {
+          type: 'text' as const,
+          text: `# Contributor Agreement for ${result.metadata?.projectName ?? 'Project'}
+
+${result.markdown}
+
+---
+
+## To Accept This Agreement
+
+If you agree to the terms above, call \`accept_contributor_agreement\` with projectId="${projectId}"`,
+        },
+      ],
+    }
+  },
+)
+
+server.registerTool(
+  'accept_contributor_agreement',
+  {
+    description:
+      'Accept the contributor agreement for a project. You must call get_contributor_agreement first to review the terms.',
+    inputSchema: {
+      projectId: z.string().describe('The project ID'),
+    },
+  },
+  async ({ projectId }, extra) => {
+    const authInfo = extra.authInfo
+    if (!authInfo?.clientId) {
+      return {
+        content: [
+          {
+            type: 'text' as const,
+            text: 'Authentication required. Generate a token in your Shippy user profile settings.',
+          },
+        ],
+      }
+    }
+
+    // Get user info
+    const user = await prisma.user.findUnique({
+      where: { id: authInfo.clientId },
+      select: { name: true, email: true },
+    })
+
+    if (!user) {
+      return {
+        content: [{ type: 'text' as const, text: 'User not found.' }],
+      }
+    }
+
+    const result = await acceptAgreement({
+      prisma,
+      projectId,
+      userId: authInfo.clientId,
+      userEmail: user.email,
+      userName: user.name,
+      ipAddress: undefined, // MCP doesn't have direct access to IP
+      userAgent: 'Shippy MCP Client',
+    })
+
+    if (!result.success) {
+      const errorMessages: Record<string, string> = {
+        PROJECT_NOT_FOUND: 'Project not found.',
+        ALREADY_ACCEPTED:
+          'You have already accepted the contributor agreement for this project.',
+      }
+      return {
+        content: [
+          {
+            type: 'text' as const,
+            text: errorMessages[result.code] ?? result.message,
+          },
+        ],
+      }
+    }
+
+    return {
+      content: [
+        {
+          type: 'text' as const,
+          text: `Successfully accepted the contributor agreement for this project.
+
+You can now claim bounties on this project. Use \`claim_bounty\` to claim a bounty.`,
         },
       ],
     }

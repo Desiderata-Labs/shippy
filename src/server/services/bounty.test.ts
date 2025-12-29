@@ -6,11 +6,14 @@ import {
   SubmissionStatus,
 } from '@/lib/db/types'
 import {
+  approveSuggestion,
   claimBounty,
   closeBounty,
   createBounty,
+  rejectSuggestion,
   releaseClaim,
   reopenBounty,
+  suggestBounty,
   updateBounty,
 } from './bounty'
 import { beforeEach, describe, expect, test, vi } from 'vitest'
@@ -23,6 +26,11 @@ vi.mock('@/server/routers/notification', () => ({
 // Mock the global prisma client used for notifications
 vi.mock('@/lib/db/server', () => ({
   prisma: {},
+}))
+
+// Mock the contributor agreement service
+vi.mock('@/server/services/contributor-agreement', () => ({
+  checkAgreement: vi.fn().mockResolvedValue({ requiresAcceptance: false }),
 }))
 
 // ================================
@@ -63,7 +71,17 @@ function createMockPrisma() {
       createMany: vi.fn(),
       deleteMany: vi.fn(),
     },
+    attachment: {
+      updateMany: vi.fn(),
+    },
   }
+}
+
+// Helper to get mocked contributor agreement module
+async function getMockedCheckAgreement() {
+  const agreementModule =
+    await import('@/server/services/contributor-agreement')
+  return agreementModule.checkAgreement as ReturnType<typeof vi.fn>
 }
 
 // ================================
@@ -98,7 +116,14 @@ describe('claimBounty', () => {
       mockPrisma.bounty.findUnique.mockResolvedValue({
         id: 'bounty-1',
         status: BountyStatus.BACKLOG,
-        project: { founderId: 'founder-1' },
+        projectId: 'project-1',
+        project: {
+          id: 'project-1',
+          founderId: 'founder-1',
+          contributorTermsEnabled: true,
+          projectOwnerLegalName: 'Test LLC',
+          projectOwnerContactEmail: 'owner@example.com',
+        },
         claims: [],
       })
 
@@ -118,7 +143,14 @@ describe('claimBounty', () => {
       mockPrisma.bounty.findUnique.mockResolvedValue({
         id: 'bounty-1',
         status: BountyStatus.COMPLETED,
-        project: { founderId: 'founder-1' },
+        projectId: 'project-1',
+        project: {
+          id: 'project-1',
+          founderId: 'founder-1',
+          contributorTermsEnabled: true,
+          projectOwnerLegalName: 'Test LLC',
+          projectOwnerContactEmail: 'owner@example.com',
+        },
         claims: [],
       })
 
@@ -138,7 +170,14 @@ describe('claimBounty', () => {
       mockPrisma.bounty.findUnique.mockResolvedValue({
         id: 'bounty-1',
         status: BountyStatus.CLOSED,
-        project: { founderId: 'founder-1' },
+        projectId: 'project-1',
+        project: {
+          id: 'project-1',
+          founderId: 'founder-1',
+          contributorTermsEnabled: true,
+          projectOwnerLegalName: 'Test LLC',
+          projectOwnerContactEmail: 'owner@example.com',
+        },
         claims: [],
       })
 
@@ -159,7 +198,14 @@ describe('claimBounty', () => {
         id: 'bounty-1',
         status: BountyStatus.OPEN,
         claimMode: BountyClaimMode.MULTIPLE,
-        project: { founderId: 'founder-1' },
+        projectId: 'project-1',
+        project: {
+          id: 'project-1',
+          founderId: 'founder-1',
+          contributorTermsEnabled: true,
+          projectOwnerLegalName: 'Test LLC',
+          projectOwnerContactEmail: 'owner@example.com',
+        },
         claims: [],
       })
       mockPrisma.bountyClaim.findFirst.mockResolvedValue({
@@ -185,7 +231,14 @@ describe('claimBounty', () => {
         id: 'bounty-1',
         status: BountyStatus.CLAIMED,
         claimMode: BountyClaimMode.SINGLE,
-        project: { founderId: 'founder-1' },
+        projectId: 'project-1',
+        project: {
+          id: 'project-1',
+          founderId: 'founder-1',
+          contributorTermsEnabled: true,
+          projectOwnerLegalName: 'Test LLC',
+          projectOwnerContactEmail: 'owner@example.com',
+        },
         claims: [{ id: 'claim-1', status: ClaimStatus.ACTIVE }],
       })
       mockPrisma.bountyClaim.findFirst.mockResolvedValue(null)
@@ -208,7 +261,14 @@ describe('claimBounty', () => {
         status: BountyStatus.CLAIMED,
         claimMode: BountyClaimMode.COMPETITIVE,
         maxClaims: 2,
-        project: { founderId: 'founder-1' },
+        projectId: 'project-1',
+        project: {
+          id: 'project-1',
+          founderId: 'founder-1',
+          contributorTermsEnabled: true,
+          projectOwnerLegalName: 'Test LLC',
+          projectOwnerContactEmail: 'owner@example.com',
+        },
         claims: [
           { id: 'claim-1', status: ClaimStatus.ACTIVE },
           { id: 'claim-2', status: ClaimStatus.ACTIVE },
@@ -227,6 +287,132 @@ describe('claimBounty', () => {
         expect(result.code).toBe('MAX_CLAIMS_REACHED')
       }
     })
+
+    test('returns BACKLOG when bounty is SUGGESTED', async () => {
+      mockPrisma.bounty.findUnique.mockResolvedValue({
+        id: 'bounty-1',
+        status: BountyStatus.SUGGESTED,
+        projectId: 'project-1',
+        project: {
+          id: 'project-1',
+          founderId: 'founder-1',
+          contributorTermsEnabled: true,
+          projectOwnerLegalName: 'Test LLC',
+          projectOwnerContactEmail: 'owner@example.com',
+        },
+        claims: [],
+      })
+
+      const result = await claimBounty({
+        prisma: mockPrisma as any,
+        bountyId: 'bounty-1',
+        userId: 'user-1',
+      })
+
+      expect(result.success).toBe(false)
+      if (!result.success) {
+        expect(result.code).toBe('BACKLOG')
+        expect(result.message).toContain('pending approval')
+      }
+    })
+
+    test('returns AGREEMENT_NOT_CONFIGURED when terms not properly set up', async () => {
+      mockPrisma.bounty.findUnique.mockResolvedValue({
+        id: 'bounty-1',
+        status: BountyStatus.OPEN,
+        projectId: 'project-1',
+        project: {
+          id: 'project-1',
+          founderId: 'founder-1',
+          contributorTermsEnabled: true,
+          projectOwnerLegalName: null, // Not configured
+          projectOwnerContactEmail: null,
+        },
+        claims: [],
+        claimMode: BountyClaimMode.SINGLE,
+        claimExpiryDays: 14,
+      })
+
+      const result = await claimBounty({
+        prisma: mockPrisma as any,
+        bountyId: 'bounty-1',
+        userId: 'user-1', // Not the founder
+      })
+
+      expect(result.success).toBe(false)
+      if (!result.success) {
+        expect(result.code).toBe('AGREEMENT_NOT_CONFIGURED')
+        expect(result.message).toContain('not configured')
+      }
+    })
+
+    test('returns AGREEMENT_REQUIRED when user has not accepted agreement', async () => {
+      const mockCheckAgreement = await getMockedCheckAgreement()
+      mockCheckAgreement.mockResolvedValueOnce({ requiresAcceptance: true })
+
+      mockPrisma.bounty.findUnique.mockResolvedValue({
+        id: 'bounty-1',
+        status: BountyStatus.OPEN,
+        projectId: 'project-1',
+        project: {
+          id: 'project-1',
+          founderId: 'founder-1',
+          contributorTermsEnabled: true,
+          projectOwnerLegalName: 'Test LLC',
+          projectOwnerContactEmail: 'owner@example.com',
+        },
+        claims: [],
+        claimMode: BountyClaimMode.SINGLE,
+        claimExpiryDays: 14,
+      })
+
+      const result = await claimBounty({
+        prisma: mockPrisma as any,
+        bountyId: 'bounty-1',
+        userId: 'user-1',
+      })
+
+      expect(result.success).toBe(false)
+      if (!result.success) {
+        expect(result.code).toBe('AGREEMENT_REQUIRED')
+        expect(result.message).toContain('contributor agreement')
+        expect((result as any).projectId).toBe('project-1')
+      }
+    })
+
+    test('skips agreement check for founder claiming their own bounty', async () => {
+      mockPrisma.bounty.findUnique.mockResolvedValue({
+        id: 'bounty-1',
+        status: BountyStatus.OPEN,
+        projectId: 'project-1',
+        project: {
+          id: 'project-1',
+          founderId: 'founder-1',
+          contributorTermsEnabled: true,
+          projectOwnerLegalName: 'Test LLC',
+          projectOwnerContactEmail: 'owner@example.com',
+        },
+        claims: [],
+        claimMode: BountyClaimMode.SINGLE,
+        claimExpiryDays: 14,
+      })
+      mockPrisma.bountyClaim.findFirst.mockResolvedValue(null)
+      mockPrisma.bountyClaim.create.mockResolvedValue({
+        id: 'claim-1',
+        expiresAt: new Date(),
+      })
+      mockPrisma.bounty.update.mockResolvedValue({})
+
+      // Founder claiming their own bounty
+      const result = await claimBounty({
+        prisma: mockPrisma as any,
+        bountyId: 'bounty-1',
+        userId: 'founder-1',
+      })
+
+      // Should succeed without checking agreement
+      expect(result.success).toBe(true)
+    })
   })
 
   describe('success cases', () => {
@@ -237,7 +423,14 @@ describe('claimBounty', () => {
         status: BountyStatus.OPEN,
         claimMode: BountyClaimMode.SINGLE,
         claimExpiryDays: 14,
-        project: { founderId: 'founder-1' },
+        projectId: 'project-1',
+        project: {
+          id: 'project-1',
+          founderId: 'founder-1',
+          contributorTermsEnabled: true,
+          projectOwnerLegalName: 'Test LLC',
+          projectOwnerContactEmail: 'owner@example.com',
+        },
         claims: [],
       })
       mockPrisma.bountyClaim.findFirst.mockResolvedValue(null)
@@ -270,7 +463,14 @@ describe('claimBounty', () => {
         claimMode: BountyClaimMode.COMPETITIVE,
         claimExpiryDays: 7,
         maxClaims: 5,
-        project: { founderId: 'founder-1' },
+        projectId: 'project-1',
+        project: {
+          id: 'project-1',
+          founderId: 'founder-1',
+          contributorTermsEnabled: true,
+          projectOwnerLegalName: 'Test LLC',
+          projectOwnerContactEmail: 'owner@example.com',
+        },
         claims: [{ id: 'claim-1', status: ClaimStatus.ACTIVE }],
       })
       mockPrisma.bountyClaim.findFirst.mockResolvedValue(null)
@@ -297,7 +497,14 @@ describe('claimBounty', () => {
         status: BountyStatus.OPEN,
         claimMode: BountyClaimMode.SINGLE,
         claimExpiryDays,
-        project: { founderId: 'founder-1' },
+        projectId: 'project-1',
+        project: {
+          id: 'project-1',
+          founderId: 'founder-1',
+          contributorTermsEnabled: true,
+          projectOwnerLegalName: 'Test LLC',
+          projectOwnerContactEmail: 'owner@example.com',
+        },
         claims: [],
       })
       mockPrisma.bountyClaim.findFirst.mockResolvedValue(null)
@@ -349,7 +556,14 @@ describe('claimBounty', () => {
           claimMode: mode,
           claimExpiryDays: 14,
           maxClaims: null,
-          project: { founderId: 'founder-1' },
+          projectId: 'project-1',
+          project: {
+            id: 'project-1',
+            founderId: 'founder-1',
+            contributorTermsEnabled: true,
+            projectOwnerLegalName: 'Test LLC',
+            projectOwnerContactEmail: 'owner@example.com',
+          },
           claims: [{ id: 'existing-claim', status: ClaimStatus.ACTIVE }],
         })
         mockPrisma.bountyClaim.findFirst.mockResolvedValue(null)
@@ -1743,6 +1957,514 @@ describe('reopenBounty', () => {
       if (result.success) {
         expect(result.bounty.status).toBe(BountyStatus.BACKLOG)
       }
+    })
+  })
+})
+
+// ================================
+// suggestBounty Tests
+// ================================
+
+describe('suggestBounty', () => {
+  let mockPrisma: ReturnType<typeof createMockPrisma>
+
+  beforeEach(() => {
+    mockPrisma = createMockPrisma()
+    vi.clearAllMocks()
+  })
+
+  describe('error cases', () => {
+    test('returns NOT_FOUND when project does not exist', async () => {
+      mockPrisma.project.findUnique.mockResolvedValue(null)
+
+      const result = await suggestBounty({
+        prisma: mockPrisma as any,
+        projectId: 'non-existent',
+        userId: 'user-1',
+        title: 'Suggested Bounty',
+        description: 'Description',
+      })
+
+      expect(result.success).toBe(false)
+      if (!result.success) {
+        expect(result.code).toBe('NOT_FOUND')
+      }
+    })
+
+    test('returns FOUNDER_CANNOT_SUGGEST when founder tries to suggest', async () => {
+      mockPrisma.project.findUnique.mockResolvedValue({
+        id: 'project-1',
+        founderId: 'founder-1',
+        rewardPool: { id: 'pool-1' },
+      })
+
+      const result = await suggestBounty({
+        prisma: mockPrisma as any,
+        projectId: 'project-1',
+        userId: 'founder-1', // Founder should use createBounty
+        title: 'Suggested Bounty',
+        description: 'Description',
+      })
+
+      expect(result.success).toBe(false)
+      if (!result.success) {
+        expect(result.code).toBe('FOUNDER_CANNOT_SUGGEST')
+        expect(result.message).toContain('create bounties directly')
+      }
+    })
+
+    test('returns NO_REWARD_POOL when project has no pool', async () => {
+      mockPrisma.project.findUnique.mockResolvedValue({
+        id: 'project-1',
+        founderId: 'founder-1',
+        rewardPool: null,
+      })
+
+      const result = await suggestBounty({
+        prisma: mockPrisma as any,
+        projectId: 'project-1',
+        userId: 'contributor-1',
+        title: 'Suggested Bounty',
+        description: 'Description',
+      })
+
+      expect(result.success).toBe(false)
+      if (!result.success) {
+        expect(result.code).toBe('NO_REWARD_POOL')
+      }
+    })
+  })
+
+  describe('success cases', () => {
+    test('creates SUGGESTED bounty as contributor', async () => {
+      mockPrisma.project.findUnique.mockResolvedValue({
+        id: 'project-1',
+        founderId: 'founder-1',
+        rewardPool: { id: 'pool-1' },
+      })
+      mockPrisma.project.update.mockResolvedValue({ nextBountyNumber: 2 })
+      mockPrisma.bounty.create.mockResolvedValue({
+        id: 'bounty-1',
+        number: 1,
+        status: BountyStatus.SUGGESTED,
+        title: 'Suggested Bounty',
+        description: 'Description',
+      })
+
+      const result = await suggestBounty({
+        prisma: mockPrisma as any,
+        projectId: 'project-1',
+        userId: 'contributor-1',
+        title: 'Suggested Bounty',
+        description: 'Description',
+        evidenceDescription: 'Provide screenshots',
+      })
+
+      expect(result.success).toBe(true)
+      if (result.success) {
+        expect(result.bounty.status).toBe(BountyStatus.SUGGESTED)
+        expect(result.bounty.title).toBe('Suggested Bounty')
+      }
+
+      // Check bounty was created with correct data
+      expect(mockPrisma.bounty.create).toHaveBeenCalledWith({
+        data: expect.objectContaining({
+          projectId: 'project-1',
+          title: 'Suggested Bounty',
+          description: 'Description',
+          points: null,
+          status: BountyStatus.SUGGESTED,
+          suggestedById: 'contributor-1',
+          evidenceDescription: 'Provide screenshots',
+        }),
+      })
+    })
+
+    test('associates pending attachments when id is provided', async () => {
+      mockPrisma.project.findUnique.mockResolvedValue({
+        id: 'project-1',
+        founderId: 'founder-1',
+        rewardPool: { id: 'pool-1' },
+      })
+      mockPrisma.project.update.mockResolvedValue({ nextBountyNumber: 2 })
+      mockPrisma.bounty.create.mockResolvedValue({
+        id: 'pre-generated-id',
+        number: 1,
+        status: BountyStatus.SUGGESTED,
+        title: 'Suggested Bounty',
+        description: 'Description',
+      })
+      mockPrisma.attachment.updateMany.mockResolvedValue({ count: 2 })
+
+      const result = await suggestBounty({
+        prisma: mockPrisma as any,
+        projectId: 'project-1',
+        userId: 'contributor-1',
+        id: 'pre-generated-id',
+        title: 'Suggested Bounty',
+        description: 'Description',
+      })
+
+      expect(result.success).toBe(true)
+      expect(mockPrisma.attachment.updateMany).toHaveBeenCalled()
+    })
+  })
+})
+
+// ================================
+// approveSuggestion Tests
+// ================================
+
+describe('approveSuggestion', () => {
+  let mockPrisma: ReturnType<typeof createMockPrisma>
+
+  beforeEach(() => {
+    mockPrisma = createMockPrisma()
+    vi.clearAllMocks()
+  })
+
+  describe('error cases', () => {
+    test('returns NOT_FOUND when bounty does not exist', async () => {
+      mockPrisma.bounty.findUnique.mockResolvedValue(null)
+
+      const result = await approveSuggestion({
+        prisma: mockPrisma as any,
+        bountyId: 'non-existent',
+        userId: 'founder-1',
+      })
+
+      expect(result.success).toBe(false)
+      if (!result.success) {
+        expect(result.code).toBe('NOT_FOUND')
+      }
+    })
+
+    test('returns FORBIDDEN when user is not founder', async () => {
+      mockPrisma.bounty.findUnique.mockResolvedValue({
+        id: 'bounty-1',
+        status: BountyStatus.SUGGESTED,
+        suggestedById: 'contributor-1',
+        project: { founderId: 'founder-1' },
+      })
+
+      const result = await approveSuggestion({
+        prisma: mockPrisma as any,
+        bountyId: 'bounty-1',
+        userId: 'not-founder',
+      })
+
+      expect(result.success).toBe(false)
+      if (!result.success) {
+        expect(result.code).toBe('FORBIDDEN')
+      }
+    })
+
+    test('returns NOT_SUGGESTED when bounty is not in SUGGESTED status', async () => {
+      mockPrisma.bounty.findUnique.mockResolvedValue({
+        id: 'bounty-1',
+        status: BountyStatus.OPEN,
+        project: { founderId: 'founder-1' },
+      })
+
+      const result = await approveSuggestion({
+        prisma: mockPrisma as any,
+        bountyId: 'bounty-1',
+        userId: 'founder-1',
+      })
+
+      expect(result.success).toBe(false)
+      if (!result.success) {
+        expect(result.code).toBe('NOT_SUGGESTED')
+      }
+    })
+  })
+
+  describe('success cases', () => {
+    test('approves suggestion to BACKLOG when no points provided', async () => {
+      mockPrisma.bounty.findUnique.mockResolvedValue({
+        id: 'bounty-1',
+        number: 1,
+        status: BountyStatus.SUGGESTED,
+        suggestedById: 'contributor-1',
+        project: { founderId: 'founder-1' },
+      })
+      mockPrisma.bounty.update.mockResolvedValue({
+        id: 'bounty-1',
+        number: 1,
+        status: BountyStatus.BACKLOG,
+        title: 'Suggested Bounty',
+        points: null,
+      })
+      mockPrisma.bountyEvent.create.mockResolvedValue({})
+
+      const result = await approveSuggestion({
+        prisma: mockPrisma as any,
+        bountyId: 'bounty-1',
+        userId: 'founder-1',
+      })
+
+      expect(result.success).toBe(true)
+      if (result.success) {
+        expect(result.bounty.status).toBe(BountyStatus.BACKLOG)
+        expect(result.bounty.points).toBe(null)
+      }
+    })
+
+    test('approves suggestion to OPEN when points provided', async () => {
+      mockPrisma.bounty.findUnique.mockResolvedValue({
+        id: 'bounty-1',
+        number: 1,
+        status: BountyStatus.SUGGESTED,
+        suggestedById: 'contributor-1',
+        project: { founderId: 'founder-1' },
+      })
+      mockPrisma.bounty.update.mockResolvedValue({
+        id: 'bounty-1',
+        number: 1,
+        status: BountyStatus.OPEN,
+        title: 'Suggested Bounty',
+        points: 100,
+      })
+      mockPrisma.bountyEvent.create.mockResolvedValue({})
+
+      const result = await approveSuggestion({
+        prisma: mockPrisma as any,
+        bountyId: 'bounty-1',
+        userId: 'founder-1',
+        points: 100,
+      })
+
+      expect(result.success).toBe(true)
+      if (result.success) {
+        expect(result.bounty.status).toBe(BountyStatus.OPEN)
+        expect(result.bounty.points).toBe(100)
+      }
+    })
+
+    test('adds labels when labelIds provided', async () => {
+      mockPrisma.bounty.findUnique.mockResolvedValue({
+        id: 'bounty-1',
+        number: 1,
+        status: BountyStatus.SUGGESTED,
+        suggestedById: 'contributor-1',
+        project: { founderId: 'founder-1' },
+      })
+      mockPrisma.bounty.update.mockResolvedValue({
+        id: 'bounty-1',
+        number: 1,
+        status: BountyStatus.OPEN,
+        title: 'Suggested Bounty',
+        points: 50,
+      })
+      mockPrisma.bountyLabel.createMany.mockResolvedValue({ count: 2 })
+      mockPrisma.bountyEvent.create.mockResolvedValue({})
+
+      await approveSuggestion({
+        prisma: mockPrisma as any,
+        bountyId: 'bounty-1',
+        userId: 'founder-1',
+        points: 50,
+        labelIds: ['label-1', 'label-2'],
+      })
+
+      expect(mockPrisma.bountyLabel.createMany).toHaveBeenCalledWith({
+        data: [
+          { bountyId: 'bounty-1', labelId: 'label-1' },
+          { bountyId: 'bounty-1', labelId: 'label-2' },
+        ],
+      })
+    })
+
+    test('allows founder to update title and description during approval', async () => {
+      mockPrisma.bounty.findUnique.mockResolvedValue({
+        id: 'bounty-1',
+        number: 1,
+        status: BountyStatus.SUGGESTED,
+        suggestedById: 'contributor-1',
+        project: { founderId: 'founder-1' },
+      })
+      mockPrisma.bounty.update.mockResolvedValue({
+        id: 'bounty-1',
+        number: 1,
+        status: BountyStatus.OPEN,
+        title: 'Updated Title',
+        points: 100,
+      })
+      mockPrisma.bountyEvent.create.mockResolvedValue({})
+
+      await approveSuggestion({
+        prisma: mockPrisma as any,
+        bountyId: 'bounty-1',
+        userId: 'founder-1',
+        points: 100,
+        title: 'Updated Title',
+        description: 'Updated Description',
+      })
+
+      expect(mockPrisma.bounty.update).toHaveBeenCalledWith({
+        where: { id: 'bounty-1' },
+        data: expect.objectContaining({
+          title: 'Updated Title',
+          description: 'Updated Description',
+        }),
+      })
+    })
+  })
+})
+
+// ================================
+// rejectSuggestion Tests
+// ================================
+
+describe('rejectSuggestion', () => {
+  let mockPrisma: ReturnType<typeof createMockPrisma>
+
+  beforeEach(() => {
+    mockPrisma = createMockPrisma()
+    vi.clearAllMocks()
+  })
+
+  describe('error cases', () => {
+    test('returns NOT_FOUND when bounty does not exist', async () => {
+      mockPrisma.bounty.findUnique.mockResolvedValue(null)
+
+      const result = await rejectSuggestion({
+        prisma: mockPrisma as any,
+        bountyId: 'non-existent',
+        userId: 'founder-1',
+      })
+
+      expect(result.success).toBe(false)
+      if (!result.success) {
+        expect(result.code).toBe('NOT_FOUND')
+      }
+    })
+
+    test('returns FORBIDDEN when user is not founder', async () => {
+      mockPrisma.bounty.findUnique.mockResolvedValue({
+        id: 'bounty-1',
+        status: BountyStatus.SUGGESTED,
+        suggestedById: 'contributor-1',
+        project: { founderId: 'founder-1' },
+      })
+
+      const result = await rejectSuggestion({
+        prisma: mockPrisma as any,
+        bountyId: 'bounty-1',
+        userId: 'not-founder',
+      })
+
+      expect(result.success).toBe(false)
+      if (!result.success) {
+        expect(result.code).toBe('FORBIDDEN')
+      }
+    })
+
+    test('returns NOT_SUGGESTED when bounty is not in SUGGESTED status', async () => {
+      mockPrisma.bounty.findUnique.mockResolvedValue({
+        id: 'bounty-1',
+        status: BountyStatus.OPEN,
+        project: { founderId: 'founder-1' },
+      })
+
+      const result = await rejectSuggestion({
+        prisma: mockPrisma as any,
+        bountyId: 'bounty-1',
+        userId: 'founder-1',
+      })
+
+      expect(result.success).toBe(false)
+      if (!result.success) {
+        expect(result.code).toBe('NOT_SUGGESTED')
+      }
+    })
+  })
+
+  describe('success cases', () => {
+    test('rejects suggestion and closes the bounty', async () => {
+      mockPrisma.bounty.findUnique.mockResolvedValue({
+        id: 'bounty-1',
+        status: BountyStatus.SUGGESTED,
+        suggestedById: 'contributor-1',
+        project: { founderId: 'founder-1' },
+      })
+      mockPrisma.bounty.update.mockResolvedValue({
+        id: 'bounty-1',
+        status: BountyStatus.CLOSED,
+      })
+      mockPrisma.bountyEvent.create.mockResolvedValue({})
+
+      const result = await rejectSuggestion({
+        prisma: mockPrisma as any,
+        bountyId: 'bounty-1',
+        userId: 'founder-1',
+      })
+
+      expect(result.success).toBe(true)
+      if (result.success) {
+        expect(result.bounty.status).toBe(BountyStatus.CLOSED)
+      }
+      expect(mockPrisma.bounty.update).toHaveBeenCalledWith({
+        where: { id: 'bounty-1' },
+        data: { status: BountyStatus.CLOSED },
+      })
+    })
+
+    test('creates event with rejection reason in content field', async () => {
+      mockPrisma.bounty.findUnique.mockResolvedValue({
+        id: 'bounty-1',
+        status: BountyStatus.SUGGESTED,
+        suggestedById: 'contributor-1',
+        project: { founderId: 'founder-1' },
+      })
+      mockPrisma.bounty.update.mockResolvedValue({
+        id: 'bounty-1',
+        status: BountyStatus.CLOSED,
+      })
+      mockPrisma.bountyEvent.create.mockResolvedValue({})
+
+      await rejectSuggestion({
+        prisma: mockPrisma as any,
+        bountyId: 'bounty-1',
+        userId: 'founder-1',
+        reason: 'Out of scope for this project',
+      })
+
+      expect(mockPrisma.bountyEvent.create).toHaveBeenCalledWith({
+        data: expect.objectContaining({
+          bountyId: 'bounty-1',
+          userId: 'founder-1',
+          fromStatus: BountyStatus.SUGGESTED,
+          toStatus: BountyStatus.CLOSED,
+          content: 'Out of scope for this project',
+        }),
+      })
+    })
+
+    test('uses default message when no reason provided', async () => {
+      mockPrisma.bounty.findUnique.mockResolvedValue({
+        id: 'bounty-1',
+        status: BountyStatus.SUGGESTED,
+        suggestedById: 'contributor-1',
+        project: { founderId: 'founder-1' },
+      })
+      mockPrisma.bounty.update.mockResolvedValue({
+        id: 'bounty-1',
+        status: BountyStatus.CLOSED,
+      })
+      mockPrisma.bountyEvent.create.mockResolvedValue({})
+
+      await rejectSuggestion({
+        prisma: mockPrisma as any,
+        bountyId: 'bounty-1',
+        userId: 'founder-1',
+      })
+
+      expect(mockPrisma.bountyEvent.create).toHaveBeenCalledWith({
+        data: expect.objectContaining({
+          content: 'Suggestion rejected',
+        }),
+      })
     })
   })
 })

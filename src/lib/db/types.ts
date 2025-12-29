@@ -222,6 +222,28 @@ export type CommitmentPeriod = (typeof COMMITMENT_PERIODS)[number]
 export const DEFAULT_CLAIM_EXPIRY_DAYS = 14
 
 /**
+ * Current version of the platform's standard contributor agreement template
+ * Increment this when making material changes to legal/contributor-agreement-template.md
+ */
+export const CONTRIBUTOR_AGREEMENT_TEMPLATE_VERSION = 1
+
+/**
+ * Default pool expiration notice period (in days)
+ */
+export const DEFAULT_POOL_EXPIRATION_NOTICE_DAYS = 30
+
+/**
+ * Default governing law for contributor agreements
+ */
+export const DEFAULT_GOVERNING_LAW = 'the Commonwealth of Pennsylvania'
+
+/**
+ * Default forum selection for contributor agreements
+ */
+export const DEFAULT_FORUM_SELECTION =
+  'the state or federal courts located in Allegheny County, Pennsylvania'
+
+/**
  * Default platform fee percentage (of pool)
  */
 export const DEFAULT_PLATFORM_FEE_PERCENTAGE = 10

@@ -311,6 +311,76 @@ describe('createProject', () => {
         expectedMin.getTime() - 1000, // 1 second tolerance
       )
     })
+
+    test('creates project with contributor agreement settings', async () => {
+      mockPrisma.project.create.mockResolvedValue({
+        id: 'project-1',
+        name: 'My Project',
+        slug: 'my-project',
+        projectKey: 'MYP',
+      })
+
+      await createProject({
+        prisma: mockPrisma as any,
+        userId: 'user-1',
+        name: 'My Project',
+        slug: 'my-project',
+        projectKey: 'MYP',
+        poolPercentage: 10,
+        payoutFrequency: PayoutFrequency.MONTHLY,
+        commitmentMonths: 12,
+        // Contributor agreement settings
+        contributorTermsEnabled: true,
+        contributorTermsCustom: 'Custom terms here',
+        projectOwnerLegalName: 'Test Company LLC',
+        projectOwnerContactEmail: 'legal@test.com',
+        contributorTermsGoverningLaw: 'California, USA',
+        projectOwnerAuthorizedRepresentativeName: 'John Doe',
+        projectOwnerAuthorizedRepresentativeTitle: 'CEO',
+      })
+
+      expect(mockPrisma.project.create).toHaveBeenCalledWith(
+        expect.objectContaining({
+          data: expect.objectContaining({
+            contributorTermsEnabled: true,
+            contributorTermsCustom: 'Custom terms here',
+            projectOwnerLegalName: 'Test Company LLC',
+            projectOwnerContactEmail: 'legal@test.com',
+            contributorTermsGoverningLaw: 'California, USA',
+            projectOwnerAuthorizedRepresentativeName: 'John Doe',
+            projectOwnerAuthorizedRepresentativeTitle: 'CEO',
+          }),
+        }),
+      )
+    })
+
+    test('defaults contributorTermsEnabled to false when not provided', async () => {
+      mockPrisma.project.create.mockResolvedValue({
+        id: 'project-1',
+        name: 'My Project',
+        slug: 'my-project',
+        projectKey: 'MYP',
+      })
+
+      await createProject({
+        prisma: mockPrisma as any,
+        userId: 'user-1',
+        name: 'My Project',
+        slug: 'my-project',
+        projectKey: 'MYP',
+        poolPercentage: 10,
+        payoutFrequency: PayoutFrequency.MONTHLY,
+        commitmentMonths: 12,
+      })
+
+      expect(mockPrisma.project.create).toHaveBeenCalledWith(
+        expect.objectContaining({
+          data: expect.objectContaining({
+            contributorTermsEnabled: false,
+          }),
+        }),
+      )
+    })
   })
 })
 
@@ -728,6 +798,219 @@ describe('updateProject', () => {
             in: [BountyStatus.CLAIMED, BountyStatus.COMPLETED],
           },
         },
+      })
+    })
+  })
+
+  describe('contributor agreement settings', () => {
+    test('updates contributor agreement fields', async () => {
+      mockPrisma.project.findUnique.mockResolvedValue({
+        founderId: 'founder-1',
+        slug: 'project-slug',
+        projectKey: 'KEY',
+      })
+      mockPrisma.project.update.mockResolvedValue({
+        id: 'project-1',
+        name: 'Project',
+        slug: 'project-slug',
+        projectKey: 'KEY',
+      })
+
+      await updateProject({
+        prisma: mockPrisma as any,
+        projectId: 'project-1',
+        userId: 'founder-1',
+        data: {
+          contributorTermsEnabled: true,
+          projectOwnerLegalName: 'Test Company LLC',
+          projectOwnerContactEmail: 'legal@test.com',
+        },
+      })
+
+      expect(mockPrisma.project.update).toHaveBeenCalledWith({
+        where: { id: 'project-1' },
+        data: expect.objectContaining({
+          contributorTermsEnabled: true,
+          projectOwnerLegalName: 'Test Company LLC',
+          projectOwnerContactEmail: 'legal@test.com',
+        }),
+        select: expect.any(Object),
+      })
+    })
+
+    test('increments contributorTermsVersion when custom terms change', async () => {
+      mockPrisma.project.findUnique.mockResolvedValue({
+        founderId: 'founder-1',
+        slug: 'project-slug',
+        projectKey: 'KEY',
+      })
+      mockPrisma.project.update.mockResolvedValue({
+        id: 'project-1',
+        name: 'Project',
+        slug: 'project-slug',
+        projectKey: 'KEY',
+      })
+
+      await updateProject({
+        prisma: mockPrisma as any,
+        projectId: 'project-1',
+        userId: 'founder-1',
+        data: {
+          contributorTermsCustom: 'Updated custom terms',
+        },
+      })
+
+      expect(mockPrisma.project.update).toHaveBeenCalledWith({
+        where: { id: 'project-1' },
+        data: expect.objectContaining({
+          contributorTermsCustom: 'Updated custom terms',
+          contributorTermsVersion: { increment: 1 },
+        }),
+        select: expect.any(Object),
+      })
+    })
+
+    test('increments version even when setting custom terms to null', async () => {
+      mockPrisma.project.findUnique.mockResolvedValue({
+        founderId: 'founder-1',
+        slug: 'project-slug',
+        projectKey: 'KEY',
+      })
+      mockPrisma.project.update.mockResolvedValue({
+        id: 'project-1',
+        name: 'Project',
+        slug: 'project-slug',
+        projectKey: 'KEY',
+      })
+
+      await updateProject({
+        prisma: mockPrisma as any,
+        projectId: 'project-1',
+        userId: 'founder-1',
+        data: {
+          contributorTermsCustom: null,
+        },
+      })
+
+      expect(mockPrisma.project.update).toHaveBeenCalledWith({
+        where: { id: 'project-1' },
+        data: expect.objectContaining({
+          contributorTermsCustom: null,
+          contributorTermsVersion: { increment: 1 },
+        }),
+        select: expect.any(Object),
+      })
+    })
+
+    test('does NOT increment version when only non-custom fields change', async () => {
+      mockPrisma.project.findUnique.mockResolvedValue({
+        founderId: 'founder-1',
+        slug: 'project-slug',
+        projectKey: 'KEY',
+      })
+      mockPrisma.project.update.mockResolvedValue({
+        id: 'project-1',
+        name: 'Project',
+        slug: 'project-slug',
+        projectKey: 'KEY',
+      })
+
+      await updateProject({
+        prisma: mockPrisma as any,
+        projectId: 'project-1',
+        userId: 'founder-1',
+        data: {
+          contributorTermsEnabled: true,
+          projectOwnerLegalName: 'New Legal Name',
+          contributorTermsGoverningLaw: 'Delaware, USA',
+        },
+      })
+
+      const updateCall = mockPrisma.project.update.mock.calls[0][0]
+      // Should NOT have version increment when custom terms not changed
+      expect(updateCall.data.contributorTermsVersion).toBeUndefined()
+    })
+
+    test('clears contributor agreement fields when set to null', async () => {
+      mockPrisma.project.findUnique.mockResolvedValue({
+        founderId: 'founder-1',
+        slug: 'project-slug',
+        projectKey: 'KEY',
+      })
+      mockPrisma.project.update.mockResolvedValue({
+        id: 'project-1',
+        name: 'Project',
+        slug: 'project-slug',
+        projectKey: 'KEY',
+      })
+
+      await updateProject({
+        prisma: mockPrisma as any,
+        projectId: 'project-1',
+        userId: 'founder-1',
+        data: {
+          projectOwnerLegalName: null,
+          projectOwnerContactEmail: null,
+          contributorTermsGoverningLaw: null,
+          projectOwnerAuthorizedRepresentativeName: null,
+          projectOwnerAuthorizedRepresentativeTitle: null,
+        },
+      })
+
+      expect(mockPrisma.project.update).toHaveBeenCalledWith({
+        where: { id: 'project-1' },
+        data: expect.objectContaining({
+          projectOwnerLegalName: null,
+          projectOwnerContactEmail: null,
+          contributorTermsGoverningLaw: null,
+          projectOwnerAuthorizedRepresentativeName: null,
+          projectOwnerAuthorizedRepresentativeTitle: null,
+        }),
+        select: expect.any(Object),
+      })
+    })
+
+    test('updates all contributor agreement fields at once', async () => {
+      mockPrisma.project.findUnique.mockResolvedValue({
+        founderId: 'founder-1',
+        slug: 'project-slug',
+        projectKey: 'KEY',
+      })
+      mockPrisma.project.update.mockResolvedValue({
+        id: 'project-1',
+        name: 'Project',
+        slug: 'project-slug',
+        projectKey: 'KEY',
+      })
+
+      await updateProject({
+        prisma: mockPrisma as any,
+        projectId: 'project-1',
+        userId: 'founder-1',
+        data: {
+          contributorTermsEnabled: true,
+          contributorTermsCustom: 'Custom terms',
+          projectOwnerLegalName: 'Test Company LLC',
+          projectOwnerContactEmail: 'legal@test.com',
+          contributorTermsGoverningLaw: 'California, USA',
+          projectOwnerAuthorizedRepresentativeName: 'Jane Smith',
+          projectOwnerAuthorizedRepresentativeTitle: 'CTO',
+        },
+      })
+
+      expect(mockPrisma.project.update).toHaveBeenCalledWith({
+        where: { id: 'project-1' },
+        data: expect.objectContaining({
+          contributorTermsEnabled: true,
+          contributorTermsCustom: 'Custom terms',
+          contributorTermsVersion: { increment: 1 }, // Should increment because custom terms changed
+          projectOwnerLegalName: 'Test Company LLC',
+          projectOwnerContactEmail: 'legal@test.com',
+          contributorTermsGoverningLaw: 'California, USA',
+          projectOwnerAuthorizedRepresentativeName: 'Jane Smith',
+          projectOwnerAuthorizedRepresentativeTitle: 'CTO',
+        }),
+        select: expect.any(Object),
       })
     })
   })

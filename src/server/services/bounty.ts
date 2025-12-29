@@ -15,6 +15,7 @@ import {
   SubmissionStatus,
 } from '@/lib/db/types'
 import { createNotifications } from '@/server/routers/notification'
+import { checkAgreement } from '@/server/services/contributor-agreement'
 import type { Prisma, PrismaClient } from '@prisma/client'
 
 // Type for either PrismaClient or a transaction client
@@ -43,6 +44,17 @@ export type ClaimBountyError =
   | { success: false; code: 'ALREADY_CLAIMED_SINGLE'; message: string }
   | { success: false; code: 'ALREADY_CLAIMED_BY_USER'; message: string }
   | { success: false; code: 'MAX_CLAIMS_REACHED'; message: string }
+  | {
+      success: false
+      code: 'AGREEMENT_REQUIRED'
+      message: string
+      projectId: string
+    }
+  | {
+      success: false
+      code: 'AGREEMENT_NOT_CONFIGURED'
+      message: string
+    }
 
 /**
  * Claim a bounty - shared logic used by both tRPC and webhooks
@@ -64,13 +76,55 @@ export async function claimBounty({
   const bounty = await prisma.bounty.findUnique({
     where: { id: bountyId },
     include: {
-      project: { select: { founderId: true } },
+      project: {
+        select: {
+          id: true,
+          founderId: true,
+          contributorTermsEnabled: true,
+          projectOwnerLegalName: true,
+          projectOwnerContactEmail: true,
+        },
+      },
       claims: { where: { status: ClaimStatus.ACTIVE } },
     },
   })
 
   if (!bounty) {
     return { success: false, code: 'NOT_FOUND', message: 'Bounty not found' }
+  }
+
+  // Skip agreement checks for founders (they don't need to accept their own terms)
+  if (bounty.project.founderId !== userId) {
+    // Check if agreement is properly configured by the project owner
+    const isAgreementConfigured =
+      bounty.project.contributorTermsEnabled &&
+      bounty.project.projectOwnerLegalName?.trim() &&
+      bounty.project.projectOwnerContactEmail?.trim()
+
+    if (!isAgreementConfigured) {
+      return {
+        success: false,
+        code: 'AGREEMENT_NOT_CONFIGURED',
+        message:
+          'The project owner has not configured the contributor agreement. Please contact the project owner.',
+      }
+    }
+
+    // Check if user has accepted the agreement
+    const agreementCheck = await checkAgreement(
+      prisma,
+      bounty.projectId,
+      userId,
+    )
+    if (agreementCheck.requiresAcceptance) {
+      return {
+        success: false,
+        code: 'AGREEMENT_REQUIRED',
+        message:
+          'You must accept the contributor agreement before claiming this bounty',
+        projectId: bounty.projectId,
+      }
+    }
   }
 
   // Validate bounty status

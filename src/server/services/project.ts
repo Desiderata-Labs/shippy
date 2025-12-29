@@ -36,6 +36,14 @@ export interface CreateProjectParams {
   profitBasis?: string
   commitmentMonths: number
   payoutVisibility?: string
+  // Contributor agreement config
+  contributorTermsEnabled?: boolean
+  contributorTermsCustom?: string
+  projectOwnerLegalName?: string
+  projectOwnerContactEmail?: string
+  contributorTermsGoverningLaw?: string
+  projectOwnerAuthorizedRepresentativeName?: string
+  projectOwnerAuthorizedRepresentativeTitle?: string
 }
 
 export interface CreateProjectResult {
@@ -81,6 +89,13 @@ export async function createProject({
   profitBasis,
   commitmentMonths,
   payoutVisibility,
+  contributorTermsEnabled,
+  contributorTermsCustom,
+  projectOwnerLegalName,
+  projectOwnerContactEmail,
+  contributorTermsGoverningLaw,
+  projectOwnerAuthorizedRepresentativeName,
+  projectOwnerAuthorizedRepresentativeTitle,
 }: CreateProjectParams): Promise<CreateProjectResult | CreateProjectError> {
   // Validate slug format (admins can use reserved slugs)
   const slugValidation = validateProjectSlug(slug, userEmail)
@@ -139,6 +154,14 @@ export async function createProject({
       discordUrl,
       payoutVisibility,
       founderId: userId,
+      // Contributor agreement settings
+      contributorTermsEnabled: contributorTermsEnabled ?? false,
+      contributorTermsCustom,
+      projectOwnerLegalName,
+      projectOwnerContactEmail,
+      contributorTermsGoverningLaw,
+      projectOwnerAuthorizedRepresentativeName,
+      projectOwnerAuthorizedRepresentativeTitle,
       rewardPool: {
         create: {
           poolPercentage,
@@ -184,6 +207,14 @@ export interface UpdateProjectParams {
     payoutFrequency?: string
     commitmentMonths?: number
     payoutVisibility?: string
+    // Contributor agreement config
+    contributorTermsEnabled?: boolean
+    contributorTermsCustom?: string | null
+    projectOwnerLegalName?: string | null
+    projectOwnerContactEmail?: string | null
+    contributorTermsGoverningLaw?: string | null
+    projectOwnerAuthorizedRepresentativeName?: string | null
+    projectOwnerAuthorizedRepresentativeTitle?: string | null
   }
 }
 
@@ -348,6 +379,30 @@ export async function updateProject({
   if (data.slug && data.slug !== project.slug) projectUpdate.slug = data.slug
   if (data.projectKey && data.projectKey !== project.projectKey)
     projectUpdate.projectKey = data.projectKey
+
+  // Contributor agreement settings
+  if (data.contributorTermsEnabled !== undefined)
+    projectUpdate.contributorTermsEnabled = data.contributorTermsEnabled
+  if (data.contributorTermsCustom !== undefined)
+    projectUpdate.contributorTermsCustom = data.contributorTermsCustom
+  if (data.projectOwnerLegalName !== undefined)
+    projectUpdate.projectOwnerLegalName = data.projectOwnerLegalName
+  if (data.projectOwnerContactEmail !== undefined)
+    projectUpdate.projectOwnerContactEmail = data.projectOwnerContactEmail
+  if (data.contributorTermsGoverningLaw !== undefined)
+    projectUpdate.contributorTermsGoverningLaw =
+      data.contributorTermsGoverningLaw
+  if (data.projectOwnerAuthorizedRepresentativeName !== undefined)
+    projectUpdate.projectOwnerAuthorizedRepresentativeName =
+      data.projectOwnerAuthorizedRepresentativeName
+  if (data.projectOwnerAuthorizedRepresentativeTitle !== undefined)
+    projectUpdate.projectOwnerAuthorizedRepresentativeTitle =
+      data.projectOwnerAuthorizedRepresentativeTitle
+
+  // If custom terms changed, increment the version to require re-acceptance
+  if (data.contributorTermsCustom !== undefined) {
+    projectUpdate.contributorTermsVersion = { increment: 1 }
+  }
 
   if (Object.keys(rewardPoolUpdate).length > 0) {
     projectUpdate.rewardPool = { update: rewardPoolUpdate }

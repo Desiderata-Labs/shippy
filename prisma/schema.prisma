@@ -27,18 +27,19 @@ model User {
   accounts      Account[]
 
   // Shippy relations
-  ownedProjects       Project[]
-  bountyClaims        BountyClaim[]
-  submissions         Submission[]
-  submissionEvents    SubmissionEvent[]
-  payoutRecipients    PayoutRecipient[]
-  bountyEvents        BountyEvent[]
-  suggestedBounties   Bounty[]             @relation("SuggestedBounties")
-  notifications       Notification[]       @relation("NotificationRecipient")
-  actedNotifications  Notification[]       @relation("NotificationActor")
-  threadSubscriptions ThreadSubscription[]
-  mcpAccessTokens     McpAccessToken[]
-  attachments         Attachment[]
+  ownedProjects         Project[]
+  bountyClaims          BountyClaim[]
+  submissions           Submission[]
+  submissionEvents      SubmissionEvent[]
+  payoutRecipients      PayoutRecipient[]
+  bountyEvents          BountyEvent[]
+  suggestedBounties     Bounty[]               @relation("SuggestedBounties")
+  notifications         Notification[]         @relation("NotificationRecipient")
+  actedNotifications    Notification[]         @relation("NotificationActor")
+  threadSubscriptions   ThreadSubscription[]
+  mcpAccessTokens       McpAccessToken[]
+  attachments           Attachment[]
+  contributorAgreements ContributorAgreement[]
 
   @@index([username])
   @@map("user")
@@ -114,6 +115,20 @@ model Project {
   // Payout visibility: "PRIVATE" = only show confirmation status, "PUBLIC" = show $ amounts
   payoutVisibility String @default("PRIVATE")
 
+  // Contributor agreement settings
+  contributorTermsEnabled  Boolean @default(true) // Use standard template
+  contributorTermsCustom   String? @db.Text // Additional project-specific terms (markdown)
+  contributorTermsVersion  Int     @default(1) // Increment to require re-acceptance
+
+  // Agreement metadata shown to contributors
+  projectOwnerLegalName    String? // Legal counterparty name: e.g., "Acme LLC"
+  projectOwnerContactEmail String? // e.g., "legal@acme.com"
+  contributorTermsGoverningLaw String? // e.g., "Delaware" / "England and Wales"
+
+  // Optional: if projectOwnerLegalName is an entity, show the human binding it
+  projectOwnerAuthorizedRepresentativeName  String? // e.g., "Jane Doe"
+  projectOwnerAuthorizedRepresentativeTitle String? // e.g., "CEO"
+
   // Founder/Owner
   founderId String
   founder   User   @relation(fields: [founderId], references: [id], onDelete: Cascade)
@@ -122,11 +137,12 @@ model Project {
   nextBountyNumber Int @default(1)
 
   // Relations
-  rewardPool       RewardPool?
-  bounties         Bounty[]
-  payouts          Payout[]
-  labels           Label[]
-  githubConnection GitHubConnection?
+  rewardPool             RewardPool?
+  bounties               Bounty[]
+  payouts                Payout[]
+  labels                 Label[]
+  githubConnection       GitHubConnection?
+  contributorAgreements  ContributorAgreement[]
 
   @@index([founderId])
   @@index([isPublic])
@@ -390,6 +406,35 @@ model Attachment {
   @@index([referenceType, referenceId])
   @@index([userId])
   @@map("attachment")
+}
+
+/// Record of a contributor accepting a project's contributor agreement
+model ContributorAgreement {
+  id        String  @id @default(dbgenerated("nanoid()"))
+  projectId String
+  project   Project @relation(fields: [projectId], references: [id], onDelete: Cascade)
+  userId    String
+  user      User    @relation(fields: [userId], references: [id], onDelete: Cascade)
+
+  // Version tracking - which versions of terms were accepted
+  standardTemplateVersion Int // Platform standard template version
+  projectTermsVersion     Int // Project-specific terms version
+
+  // Audit trail
+  acceptedAt DateTime @default(now()) @db.Timestamptz(3)
+  ipAddress  String? // For audit purposes
+  userAgent  String?  @db.Text
+
+  // The actual terms accepted (snapshot for legal purposes)
+  // Stores: { standardMarkdown, projectCustomMarkdown, metadata: {...} }
+  termsSnapshot Json
+  termsHash     String // SHA-256 hash of canonicalized snapshot for integrity
+
+  // Keep history across re-acceptance; prevent duplicate accepts of same effective terms
+  @@unique([projectId, userId, standardTemplateVersion, projectTermsVersion])
+  @@index([projectId])
+  @@index([userId])
+  @@map("contributor_agreement")
 }
 
 // ================================

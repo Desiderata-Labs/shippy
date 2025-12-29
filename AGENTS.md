@@ -97,6 +97,8 @@ The platform's primary defense against gaming is transparency:
 
 ## Development Commands
 
+Note: ONLY RUN THE LINT/FORMAT/CHECK-TYPES AFTER YOU THINK ALL YOUR WORK IS DONE.
+
 - `pnpm lint` - Run ESLint on all files
 - `pnpm format` - Format all files using Prettier
 - `pnpm check-types` - Run TypeScript compiler to check for errors
@@ -122,6 +124,7 @@ When changing the Prisma schema:
 
 ### General Rules
 
+- Split files into smaller parts (especially into separate files to isolate concerns and components); do NOT just dump everything into a single file
 - NEVER run the app manually if it's already running—check first to avoid duplicate instances
 - Always use typed routes from `@/lib/routes` instead of hardcoding URLs or paths
 - Always install packages with `pnpm add` (or `pnpm add -D` for dev dependencies)

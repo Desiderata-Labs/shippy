@@ -30,6 +30,7 @@ import {
   router,
   userError,
 } from '@/server/trpc'
+import { TRPCError } from '@trpc/server'
 import { z } from 'zod/v4'
 
 // Validation schemas
@@ -306,6 +307,15 @@ export const bountyRouter = router({
       })
 
       if (!result.success) {
+        // Special handling for AGREEMENT_REQUIRED - include projectId in error
+        if (result.code === 'AGREEMENT_REQUIRED') {
+          throw new TRPCError({
+            code: 'PRECONDITION_FAILED',
+            message: result.message,
+            cause: { code: 'AGREEMENT_REQUIRED', projectId: result.projectId },
+          })
+        }
+
         // Map service errors to tRPC errors
         const errorMap: Record<
           string,
@@ -318,6 +328,7 @@ export const bountyRouter = router({
           ALREADY_CLAIMED_SINGLE: 'CONFLICT',
           ALREADY_CLAIMED_BY_USER: 'CONFLICT',
           MAX_CLAIMS_REACHED: 'CONFLICT',
+          AGREEMENT_NOT_CONFIGURED: 'BAD_REQUEST',
         }
         throw userError(errorMap[result.code] ?? 'BAD_REQUEST', result.message)
       }

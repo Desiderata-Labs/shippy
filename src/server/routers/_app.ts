@@ -1,6 +1,7 @@
 import { attachmentRouter } from './attachment'
 import { bountyRouter } from './bounty'
 import { contributorRouter } from './contributor'
+import { contributorAgreementRouter } from './contributor-agreement'
 import { labelRouter } from './label'
 import { mcpTokenRouter } from './mcp-token'
 import { notificationRouter } from './notification'
@@ -19,6 +20,7 @@ export const appRouter = router({
   submission: submissionRouter,
   payout: payoutRouter,
   contributor: contributorRouter,
+  contributorAgreement: contributorAgreementRouter,
   user: userRouter,
   notification: notificationRouter,
   mcpToken: mcpTokenRouter,

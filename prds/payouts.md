@@ -1,443 +1,643 @@
-# Payouts & Reward Pools PRD
+# Fixed-Payment Bounties PRD
 
 ## Overview
 
-Expand Shippy's reward system beyond profit-share pools to support multiple pool types, multiple pools per project, and flexible payout models.
+Extend Shippy to support **fixed-payment bounties** alongside the existing profit-share model. Contributors can earn either ongoing profit share (points) OR immediate fixed payments ($) depending on the bounty type.
 
 ---
 
 ## Current State
 
-Today, each project has one reward pool with:
+Today, all bounties use profit-share:
 
-- Fixed % of profit/revenue (e.g., 10%)
-- Points = permanent share of pool
-- Periodic payouts (monthly/quarterly)
+- Bounty has a `points` field (nullable Int, null = backlog)
+- Points = permanent share of reward pool
+- Contributors paid periodically when founder reports profit
+- Submission has `pointsAwarded` field (set on approval)
 
-This works great for ongoing contributor relationships but doesn't cover all use cases.
+This works great for ongoing contributor relationships but doesn't cover:
+
+- Bug bounty programs with fixed payouts
+- One-off tasks with clear $ value
+- Campaigns where immediate payment makes more sense
 
 ---
 
-## Proposed Pool Types
+## Proposed Model
 
-| Pool Type        | How It Works                      | Best For                              |
-| ---------------- | --------------------------------- | ------------------------------------- |
-| **PROFIT_SHARE** | X% of profit, paid periodically   | Ongoing contributor relationships     |
-| **FIXED_BUDGET** | Fixed $ cap, paid until exhausted | Security bounties, one-time campaigns |
-| **PER_BOUNTY**   | Each bounty has explicit $ value  | Traditional bounty programs           |
+Each bounty can be one of two types:
 
-### 1. PROFIT_SHARE (Current Model)
+| Type              | Reward          | When Paid                  | Best For                          |
+| ----------------- | --------------- | -------------------------- | --------------------------------- |
+| **PROFIT_SHARE**  | Points → % pool | Periodic (monthly/quarter) | Ongoing contributor relationships |
+| **FIXED_PAYMENT** | Fixed $ amount  | Immediately on approval    | Bug bounties, one-off tasks       |
+
+### Profit Share (Current Model)
 
 ```
-Pool: 10% of net profit
-Capacity: 1,000 points
-Payout: Monthly
+Bounty: "Build feature X" → 50 points
 
-Contributor earns 100 pts → Gets 10% of each payout forever
+Contributor completes work
+→ Founder approves
+→ Contributor earns 50 pts (5% of 1,000 pt pool)
+→ Gets paid every month/quarter based on reported profit
+→ Keeps earning forever (or until pool sunsets)
 ```
 
 **Characteristics:**
 
 - Points = permanent % of pool
 - Payouts happen periodically based on reported profit
-- Pool runs until sunset/closed
 - Contributors aligned with long-term success
+- No upfront cost to founder
 
-### 2. FIXED_BUDGET (New)
-
-```
-Pool: $20,000 budget
-Security bug bounties
-
-Critical bug: 500 pts ($5,000)
-High bug: 200 pts ($2,000)
-Medium bug: 50 pts ($500)
-
-Pool closes when $20k spent
-```
-
-**Characteristics:**
-
-- Fixed $ budget set upfront
-- Points convert to $ at fixed rate (not %)
-- Pool closes when budget exhausted
-- Good for time-bound or scope-bound work
-- No ongoing profit dependency
-
-**Use cases:**
-
-- Security bug bounty programs
-- One-time content campaigns
-- Crowdsourced design work
-- Launch marketing pushes
-
-### 3. PER_BOUNTY (New)
+### Fixed Payment (New)
 
 ```
-No pool percentage
-Each bounty priced individually:
+Bounty: "Critical vulnerability" → $5,000
 
-"Critical vulnerability": $50,000
-"Add dark mode": $500
-"Write blog post": $200
-
-Paid on approval
+Contributor completes work
+→ Founder approves
+→ Stripe immediately pays contributor $5,000
+→ Done. No ongoing relationship.
 ```
 
 **Characteristics:**
 
-- No pool at all—bounties have direct $ values
-- Paid immediately on approval (or batched)
-- Like traditional freelance/bounty platforms
-- No points system, no ongoing share
-
-**Use cases:**
-
-- Traditional bug bounty programs (like HackerOne)
-- One-off contractor work
-- Projects that want simple $/task model
+- Fixed $ amount set upfront
+- Paid immediately on approval via Stripe
+- No points, no ongoing share
+- Clear cost to founder, clear payout to contributor
 
 ---
 
 ## Use Cases
 
-### 1. Different Contributor Types (Primary)
+### 1. Bug Bounty Program
 
-> "We want salespeople on 33% profit share but content creators on a fixed $5k/month budget."
-
-```
-Project: Oath
-├── Sales Pool (PROFIT_SHARE, 33% profit)
-│   └── "Close new clinic" → 100 pts (ongoing share)
-├── Content Pool (FIXED_BUDGET, $5k/month)
-│   └── "Write case study" → $500
-```
-
-### 2. Security Bug Bounty Program
-
-> "We have $20k for security bounties. Critical = $5k, High = $2k, Medium = $500."
+> "We want a security bounty program with fixed payouts like HackerOne."
 
 ```
-Project: Shippy
-├── Security Pool (FIXED_BUDGET, $20,000)
-│   └── "Critical vulnerability" → $5,000
-│   └── "High severity bug" → $2,000
-│   └── "Medium severity bug" → $500
-│   Pool closes when $20k exhausted
+Critical vulnerability: $5,000 (FIXED_PAYMENT)
+High severity bug: $2,000 (FIXED_PAYMENT)
+Medium severity bug: $500 (FIXED_PAYMENT)
 ```
 
-### 3. Crowdsourced Content Campaign
+Researchers know exactly what they'll earn. Paid instantly on verified fix.
 
-> "We want 20 blog posts at $200 each. Fixed $4k budget."
+### 2. One-Off Content Campaign
+
+> "We need 10 blog posts at $200 each."
 
 ```
-Project: Oath
-├── Content Campaign (FIXED_BUDGET, $4,000)
-│   └── "Write a blog post about X" → $200 (MULTIPLE mode, max 20)
-│   Pool closes when 20 posts approved
+"Write a blog post about X" → $200 (FIXED_PAYMENT, MULTIPLE mode)
 ```
 
-### 4. Terms Evolution
+Clear scope, clear payment. No ongoing relationship needed.
 
-> "We started with 5% revenue. Now we're profitable and want to switch to 10% profit."
+### 3. Mixed Project
 
-- Sunset old pool (SUNSET status, payouts continue for commitment period)
-- Create new pool with new terms
-- Contributors in old pool keep earning until sunset ends
+> "Sales work should be profit-share, but design tasks are one-off."
 
-### 5. Acquisition/Pivot
+```
+"Close enterprise deal" → 100 points (PROFIT_SHARE)
+"Design landing page" → $1,000 (FIXED_PAYMENT)
+"Build referral system" → 50 points (PROFIT_SHARE)
+"Write case study" → $300 (FIXED_PAYMENT)
+```
 
-> "We're pivoting. Old contributors keep their legacy pool, new work goes to new pool."
+Founders choose the right model per task.
 
-- Old pool enters SUNSET (no new bounties)
-- New pool for new direction
-- Clean separation of terms
+### 4. Traditional Freelance Model
+
+> "We just want to pay people for work, no profit sharing."
+
+All bounties set to FIXED_PAYMENT. Works like Upwork/Fiverr but on Shippy's platform.
 
 ---
 
-## Data Model
+## Data Model Changes
 
-### RewardPool (Expanded)
+### New Enum (src/lib/db/types.ts)
 
-```prisma
-model RewardPool {
-  id        String  @id @default(dbgenerated("nanoid()"))
-  projectId String
-  project   Project @relation(fields: [projectId], references: [id])
-
-  // Identity
-  name      String  // "Sales Pool", "Security Bounties", etc.
-
-  // Pool type determines payout mechanics
-  poolType  String  // "PROFIT_SHARE" | "FIXED_BUDGET" | "PER_BOUNTY"
-
-  // PROFIT_SHARE fields
-  poolPercentage   Int?     // % of profit/revenue
-  profitBasis      String?  // "NET_PROFIT" | "GROSS_REVENUE"
-  payoutFrequency  String?  // "MONTHLY" | "QUARTERLY"
-  poolCapacity     Int?     // Points capacity (default 1000)
-
-  // FIXED_BUDGET fields
-  budgetCents      BigInt?  // Total budget in cents
-  spentCents       BigInt?  // How much has been spent
-
-  // Shared fields
-  currencyCode     String   @default("USD")
-
-  // Lifecycle
-  status           String   @default("ACTIVE") // "ACTIVE" | "SUNSET" | "CLOSED"
-
-  // Commitment (for PROFIT_SHARE)
-  commitmentMonths  Int?
-  commitmentEndsAt  DateTime?
-
-  createdAt DateTime @default(now())
-  updatedAt DateTime @updatedAt
-
-  // Relations
-  bounties Bounty[]
-  payouts  Payout[]
+```typescript
+export enum RewardType {
+  PROFIT_SHARE = 'PROFIT_SHARE', // Points → ongoing pool share
+  FIXED_PAYMENT = 'FIXED_PAYMENT', // Direct $ → paid on approval
 }
 ```
 
-### Bounty Changes
+### Bounty Changes (prisma/schema.prisma)
 
 ```prisma
 model Bounty {
   // Existing fields...
-  poolId    String?   // Link to specific pool (null = project default)
-  pool      RewardPool? @relation(...)
+  id          String  @id @default(dbgenerated("nanoid()"))
+  projectId   String
+  number      Int
+  title       String
+  description String  @db.Text
+  status      String  @default("OPEN")
 
-  // For PER_BOUNTY pools or FIXED_BUDGET with direct pricing
-  valueCents  BigInt?  // Direct $ value (alternative to points)
+  // Claim configuration (existing)
+  claimMode       String   @default("SINGLE")
+  claimExpiryDays Int      @default(14)
+  maxClaims       Int?
 
-  // Existing
-  points      Int?     // Point value (for PROFIT_SHARE pools)
+  // Evidence requirements (existing)
+  evidenceDescription String? @db.Text
+
+  // === NEW: Reward type ===
+  rewardType  String  @default("PROFIT_SHARE") // "PROFIT_SHARE" | "FIXED_PAYMENT"
+
+  // For PROFIT_SHARE bounties (existing field)
+  points      Int?    // Point value (null = backlog)
+
+  // For FIXED_PAYMENT bounties (new)
+  valueCents  BigInt? // Dollar value in cents (e.g., 500000 = $5,000)
+
+  // ... rest of existing fields
+}
+```
+
+### Submission Changes (prisma/schema.prisma)
+
+```prisma
+model Submission {
+  // Existing fields...
+  id          String @id @default(dbgenerated("nanoid()"))
+  bountyId    String
+  userId      String
+  description String @db.Text
+  status      String @default("PENDING")
+
+  // Points awarded - for PROFIT_SHARE (existing)
+  pointsAwarded Int?
+  approvedAt    DateTime? @db.Timestamptz(3)
+  rejectedAt    DateTime? @db.Timestamptz(3)
+  rejectionNote String?   @db.Text
+
+  // === NEW: Fixed payment tracking ===
+  payoutStatus    String?   // "PENDING" | "PROCESSING" | "PAID" | "FAILED"
+  payoutId        String?   // Stripe payout/transfer ID
+  paidAt          DateTime? @db.Timestamptz(3)
+  paidAmountCents BigInt?   // Actual amount paid (may differ due to fees)
+
+  // ... rest of existing fields
+}
+```
+
+### New Enum for Payout Status (src/lib/db/types.ts)
+
+```typescript
+export enum FixedPayoutStatus {
+  PENDING = 'PENDING', // Approved, awaiting payout
+  PROCESSING = 'PROCESSING', // Stripe transfer initiated
+  PAID = 'PAID', // Successfully paid
+  FAILED = 'FAILED', // Payment failed (needs retry)
+}
+```
+
+### Migration Strategy
+
+```sql
+-- Add rewardType with default for existing bounties
+ALTER TABLE "bounty" ADD COLUMN "rewardType" TEXT NOT NULL DEFAULT 'PROFIT_SHARE';
+
+-- Add valueCents for fixed-payment bounties
+ALTER TABLE "bounty" ADD COLUMN "valueCents" BIGINT;
+
+-- Add payout tracking to submissions
+ALTER TABLE "submission" ADD COLUMN "payoutStatus" TEXT;
+ALTER TABLE "submission" ADD COLUMN "payoutId" TEXT;
+ALTER TABLE "submission" ADD COLUMN "paidAt" TIMESTAMPTZ(3);
+ALTER TABLE "submission" ADD COLUMN "paidAmountCents" BIGINT;
+```
+
+---
+
+## Stripe Integration
+
+Shippy acts as the **payment facilitator** (like Upwork, Fiverr, or GitHub Sponsors). Founders pay Shippy, Shippy pays contributors.
+
+### How It Works
+
+```
+Founder creates bounty ($500)
+     ↓
+Contributor claims, completes, submits
+     ↓
+Founder approves
+     ↓
+Shippy charges founder ($500 + fees)
+     ↓
+Shippy pays contributor via Stripe Connect ($500)
+     ↓
+Contributor receives funds in bank account
+```
+
+### Contributor Setup (Stripe Connect Express)
+
+1. Contributor claims a fixed-payment bounty (or receives first profit-share payout)
+2. Prompted to connect Stripe Express account
+3. Stripe handles KYC, tax info, bank account setup
+4. Contributor's account ready to receive payouts
+5. `stripeAccountId` stored on User model
+
+### Founder Payment
+
+Founders pay Shippy directly — no Stripe Connect setup needed:
+
+- **Per-approval:** Charged when approving a FIXED_PAYMENT submission
+- **Balance/credits:** Pre-fund Shippy account (future)
+- **Invoicing:** Monthly invoice for all payouts (future, for larger customers)
+
+### Approval → Payout Flow
+
+```
+1. Contributor submits work
+2. Founder reviews and clicks "Approve & Pay"
+3. approveSubmission() detects FIXED_PAYMENT bounty
+4. Shippy charges founder:
+   - Bounty amount: $500
+   - Platform fee (10%): $50
+   - Stripe fees: ~$16
+   - Total charged: ~$566
+5. Shippy transfers $500 to contributor's Express account
+6. Submission.payoutStatus = "PAID"
+7. Both parties notified
+```
+
+### Fee Structure
+
+```
+Bounty value:           $500.00
+Platform fee (10%):     + $50.00
+Stripe fee (~2.9%+$0.30): + $16.33
+─────────────────────────────────
+Founder pays:           $566.33
+Contributor receives:   $500.00
+```
+
+**Contributor always gets the full bounty amount.** Founder covers all fees.
+
+### Profit-Share Payouts (Future Enhancement)
+
+Same infrastructure can automate periodic profit-share payouts:
+
+1. Payout period ends (monthly/quarterly)
+2. Founder enters profit and clicks "Run Payout"
+3. Shippy calculates each contributor's share
+4. Shippy charges founder the total pool amount + fees
+5. Shippy pays each contributor their share via Stripe Connect
+
+This replaces the current manual "mark as sent" → "confirm receipt" flow.
+
+---
+
+## Service Changes
+
+### createBounty (src/server/services/bounty.ts)
+
+Add validation for reward type:
+
+```typescript
+export interface CreateBountyParams {
+  // ... existing params
+  rewardType?: RewardType // NEW
+  valueCents?: bigint // NEW (for FIXED_PAYMENT)
+}
+
+// In createBounty():
+if (rewardType === RewardType.FIXED_PAYMENT) {
+  if (!valueCents || valueCents <= 0) {
+    return { success: false, code: 'INVALID_VALUE', message: 'Fixed payment bounties require a positive valueCents' }
+  }
+  if (points !== null) {
+    return { success: false, code: 'INVALID_POINTS', message: 'Fixed payment bounties cannot have points' }
+  }
+} else {
+  if (valueCents) {
+    return { success: false, code: 'INVALID_VALUE', message: 'Profit share bounties cannot have valueCents' }
+  }
+}
+```
+
+### approveSubmission (src/server/services/submission.ts)
+
+Branch on reward type:
+
+```typescript
+// In approveSubmission():
+const rewardType = submission.bounty.rewardType as RewardType
+
+if (rewardType === RewardType.FIXED_PAYMENT) {
+  const valueCents = submission.bounty.valueCents!
+  const contributor = await prisma.user.findUnique({
+    where: { id: submission.userId },
+  })
+
+  // Verify contributor has Stripe account
+  if (!contributor?.stripeAccountId) {
+    throw new Error('Contributor must connect Stripe to receive payment')
+  }
+
+  await prisma.submission.update({
+    where: { id: submissionId },
+    data: {
+      status: SubmissionStatus.APPROVED,
+      approvedAt: new Date(),
+      payoutStatus: FixedPayoutStatus.PENDING,
+      paidAmountCents: valueCents,
+    },
+  })
+
+  // Charge founder and pay contributor (via Shippy's Stripe account)
+  await processFixedPayment({
+    submissionId,
+    founderId: project.founderId,
+    contributorStripeAccountId: contributor.stripeAccountId,
+    amountCents: valueCents,
+    platformFeePercent: 10,
+  })
+} else {
+  // Existing points logic (unchanged)
+  await prisma.submission.update({
+    where: { id: submissionId },
+    data: {
+      status: SubmissionStatus.APPROVED,
+      pointsAwarded,
+      approvedAt: new Date(),
+    },
+  })
+  // ... pool expansion logic
 }
 ```
 
 ---
 
-## Pool Lifecycle
+## UI Changes
 
+### Bounty Editor (src/components/bounty/bounty-editor.tsx)
+
+Add reward type toggle:
+
+```tsx
+<div className="space-y-2">
+  <Label>Reward Type</Label>
+  <RadioGroup value={rewardType} onValueChange={setRewardType}>
+    <RadioGroupItem value="PROFIT_SHARE" label="Profit Share">
+      Points earned = ongoing share of reward pool
+    </RadioGroupItem>
+    <RadioGroupItem value="FIXED_PAYMENT" label="Fixed Payment" disabled={!hasStripeConnect}>
+      Dollar amount paid immediately on approval
+      {!hasStripeConnect && <span className="text-muted-foreground"> (requires Stripe Connect)</span>}
+    </RadioGroupItem>
+  </RadioGroup>
+</div>
+
+{rewardType === 'PROFIT_SHARE' ? (
+  <div className="space-y-2">
+    <Label>Points</Label>
+    <Input type="number" value={points} onChange={...} />
+  </div>
+) : (
+  <div className="space-y-2">
+    <Label>Amount</Label>
+    <div className="flex items-center gap-2">
+      <span>$</span>
+      <Input type="number" value={valueDollars} onChange={...} />
+    </div>
+  </div>
+)}
 ```
-ACTIVE → SUNSET → CLOSED
+
+### Bounty Card/Detail
+
+```tsx
+// Display based on reward type
+{
+  bounty.rewardType === 'FIXED_PAYMENT' ? (
+    <Badge variant="secondary">
+      ${(Number(bounty.valueCents) / 100).toLocaleString()}
+    </Badge>
+  ) : bounty.points ? (
+    <Badge variant="secondary">{bounty.points} pts</Badge>
+  ) : (
+    <Badge variant="outline">Backlog</Badge>
+  )
+}
 ```
 
-| Status     | New Bounties | Claims | Payouts | Points        |
-| ---------- | ------------ | ------ | ------- | ------------- |
-| **ACTIVE** | ✅           | ✅     | ✅      | ✅            |
-| **SUNSET** | ❌           | ❌     | ✅      | ✅ (existing) |
-| **CLOSED** | ❌           | ❌     | ❌      | ❌            |
+### Approval Flow (Fixed Payment)
 
-**SUNSET** (for PROFIT_SHARE):
+```tsx
+// When approving a FIXED_PAYMENT submission
+<AlertDialog>
+  <AlertDialogContent>
+    <AlertDialogHeader>
+      <AlertDialogTitle>Approve & Pay</AlertDialogTitle>
+      <AlertDialogDescription>
+        This will approve the submission and immediately pay the contributor{' '}
+        <strong>${(Number(bounty.valueCents) / 100).toLocaleString()}</strong>{' '}
+        via Stripe.
+      </AlertDialogDescription>
+    </AlertDialogHeader>
+    <AlertDialogFooter>
+      <AlertDialogCancel>Cancel</AlertDialogCancel>
+      <AlertDialogAction onClick={handleApprove}>
+        Approve & Pay
+      </AlertDialogAction>
+    </AlertDialogFooter>
+  </AlertDialogContent>
+</AlertDialog>
+```
 
-- No new bounties, existing work can complete
-- Payouts continue until commitment ends
-- Contributors keep earning on approved work
+### Contributor Dashboard
 
-**CLOSED** (for FIXED_BUDGET):
+```tsx
+<Tabs defaultValue="profit-share">
+  <TabsList>
+    <TabsTrigger value="profit-share">Profit Share</TabsTrigger>
+    <TabsTrigger value="fixed-payments">Fixed Payments</TabsTrigger>
+  </TabsList>
 
-- Budget exhausted or manually closed
-- Final payouts processed
-- No further activity
+  <TabsContent value="profit-share">
+    {/* Existing points/pool share view */}
+  </TabsContent>
+
+  <TabsContent value="fixed-payments">
+    <div className="space-y-4">
+      <div className="text-2xl font-bold">
+        ${totalFixedEarnings.toLocaleString()}
+      </div>
+      <div className="text-muted-foreground">
+        Total earned from fixed-payment bounties
+      </div>
+      {/* List of fixed-payment submissions */}
+    </div>
+  </TabsContent>
+</Tabs>
+```
 
 ---
 
-## UI
+## Validation Rules
 
-### Project Settings (Founder)
+### Creating Bounties
 
-```
-Reward Pools
-─────────────────────────────────────────
-[+] Create New Pool
+| Field        | PROFIT_SHARE       | FIXED_PAYMENT        |
+| ------------ | ------------------ | -------------------- |
+| `rewardType` | Required           | Required             |
+| `points`     | Required (or null) | Must be null         |
+| `valueCents` | Must be null       | Required, > 0        |
+| Stripe       | Not required       | Founder must connect |
 
-┌─ Sales Pool ───────────────────────────┐
-│ Type: Profit Share (33% net profit)    │
-│ Status: ACTIVE                         │
-│ Capacity: 450 / 1,000 pts              │
-│ [Manage] [Sunset]                      │
-└────────────────────────────────────────┘
+### Claiming Bounties
 
-┌─ Security Bounties ────────────────────┐
-│ Type: Fixed Budget ($20,000)           │
-│ Status: ACTIVE                         │
-│ Spent: $7,500 / $20,000                │
-│ [Manage]                               │
-└────────────────────────────────────────┘
+| Condition          | PROFIT_SHARE | FIXED_PAYMENT                |
+| ------------------ | ------------ | ---------------------------- |
+| Contributor Stripe | Not required | Prompted before first payout |
 
-┌─ Content Campaign (Legacy) ────────────┐
-│ Type: Fixed Budget ($4,000)            │
-│ Status: CLOSED (budget exhausted)      │
-│ Spent: $4,000 / $4,000                 │
-└────────────────────────────────────────┘
-```
+### Approving Submissions
 
-### Bounty Creation
-
-```
-Which pool does this bounty belong to?
-[Sales Pool (Profit Share) ▼]
-
-Reward:
-[100] points → ~10% of pool
-
--- OR for Fixed Budget pool --
-
-Which pool does this bounty belong to?
-[Security Bounties (Fixed Budget) ▼]
-
-Reward:
-[$] [5000] → $5,000 per approval
-```
-
-### Contributor View
-
-```
-My Earnings - Oath
-
-┌─ Sales Pool (Profit Share) ────────────┐
-│ 150 pts • 15% of pool                  │
-│ Lifetime: $1,200                       │
-│ Next payout: Jan 15                    │
-└────────────────────────────────────────┘
-
-┌─ Content Campaign (Closed) ────────────┐
-│ Earned: $600                           │
-│ Status: Paid                           │
-└────────────────────────────────────────┘
-```
-
----
-
-## Payout Mechanics by Type
-
-### PROFIT_SHARE
-
-```
-1. Payout period ends (monthly/quarterly)
-2. Founder enters profit for period
-3. Pool amount = profit × pool %
-4. Each contributor gets: (their pts / capacity) × pool amount
-5. Founder pays externally, contributors confirm
-```
-
-### FIXED_BUDGET
-
-```
-1. Bounty is approved
-2. $ amount deducted from pool budget
-3. Contributor earns that $ amount
-4. Payout can be:
-   - Immediate (on approval)
-   - Batched (weekly/monthly)
-5. When budget exhausted, pool closes
-```
-
-### PER_BOUNTY
-
-```
-1. Bounty has explicit $ value
-2. Contributor submits, founder approves
-3. $ paid directly (no pool calculation)
-4. Payout can be immediate or batched
-```
+| Condition              | PROFIT_SHARE   | FIXED_PAYMENT                        |
+| ---------------------- | -------------- | ------------------------------------ |
+| Founder payment method | N/A            | Required (Stripe charges on approve) |
+| Contributor Stripe     | Not required   | Required (prompted if missing)       |
+| Points override        | Yes (existing) | No (fixed amount)                    |
 
 ---
 
 ## MVP Scope
 
-### In Scope
+### Phase 1: Data Model & UI (No Payments Yet)
 
-- [ ] Multiple pools per project (PROFIT_SHARE type only for MVP)
-- [ ] Bounty linked to specific pool
-- [ ] Pool lifecycle: ACTIVE → SUNSET → CLOSED
-- [ ] Pool management UI for founders (e.g. mirror others like `pool-editor` or `pools` tab)
-- [ ] Contributor view of earnings, agnostic of pools
+- [ ] Add `RewardType` enum to `src/lib/db/types.ts`
+- [ ] Add `rewardType` and `valueCents` to Bounty model
+- [ ] Create migration (default existing bounties to PROFIT_SHARE)
+- [ ] Update bounty services: `createBounty`, `updateBounty`
+- [ ] Update tRPC router validation schemas
+- [ ] Bounty editor: toggle between profit-share and fixed-payment
+- [ ] Display $ amounts on fixed-payment bounties
+- [ ] Block fixed-payment creation (show "Coming soon" / require Stripe setup later)
 
-### Out of Scope (Later)
+### Phase 2: Stripe Connect Integration (SHP-12)
 
-- [ ] FIXED_BUDGET pool type
-- [ ] PER_BOUNTY pool type
-- [ ] Direct $ pricing on bounties
-- [ ] Immediate payout on approval
-- [ ] Multi-currency support
+- [ ] Founder Stripe Connect onboarding
+- [ ] Contributor Stripe Express account setup
+- [ ] Add payout tracking fields to Submission
+- [ ] Approval triggers Stripe payout for FIXED_PAYMENT
+- [ ] Payout status tracking
+- [ ] Error handling and retry logic
+
+### Phase 3: Polish
+
+- [ ] Contributor dashboard for fixed earnings
+- [ ] Payout history and receipts
+- [ ] Fee transparency (who pays what)
+- [ ] Notifications for payout events
 
 ---
 
 ## Open Questions
 
-1. **Point migration?** Can founders move contributor points from old pool to new?
-   - _Recommendation: No, keeps accounting clean_
+1. **Who pays Stripe fees?**
+   - Option A: Contributor absorbs (simpler, but they get less)
+   - Option B: Founder pays extra (cleaner for contributor)
+   - _Recommendation: Founder pays, contributor gets exact amount_
 
-2. **Default pool?** When creating a bounty, should there be a default pool?
-   - _Recommendation: Yes, but if only one active pool, auto-select. If multiple, require selection or choose the default pool and let them change it after if needed._
+2. **Minimum payout?**
+   - Stripe has minimum transfer amounts (~$1)
+   - _Recommendation: $5 minimum for fixed-payment bounties_
 
-3. **Mixed pools?** Can a single bounty earn both points AND fixed $?
-   - _Recommendation: No, keep it simple. One reward type per bounty._
+3. **What if founder's payment fails?**
+   - Stripe charge fails (insufficient funds, expired card, etc.)
+   - _Recommendation: Submission stays APPROVED but payoutStatus = FAILED. Prompt founder to retry payment._
 
-4. **Budget top-up?** Can founders add more budget to FIXED_BUDGET pools?
-   - _Recommendation: Yes, with audit trail._
+4. **Refunds/disputes?**
+   - What if founder wants to reverse a payout?
+   - _Recommendation: Out of scope for MVP. Handle manually via Stripe dashboard._
 
-5. **Payout timing for FIXED_BUDGET?** When do contributors get paid?
-   - _Recommendation: Same as pool's payout frequency (e.g. daily/weekly/monthly/quarterly). Keeps it simple and consistent._
+5. **Can fixed-payment bounties go to backlog?**
+   - _Recommendation: No. valueCents is required. Use PROFIT_SHARE with null points for backlog._
+
+---
+
+## Relationship to Other Bounties
+
+### SHP-12: Stripe Connect Integration
+
+That bounty handles the technical Stripe integration infrastructure. This PRD defines _what_ we're building (fixed-payment bounties); SHP-12 defines _how_ we implement the payment rails.
+
+**Dependency:** Phase 2 of this feature requires SHP-12 to be completed first.
+
+### Reward Pool
+
+Fixed-payment bounties exist _outside_ the reward pool system:
+
+- They don't consume pool capacity
+- They don't affect point calculations
+- They don't dilute profit-share contributors
+- The pool is purely for PROFIT_SHARE bounties
+
+### Platform Fee
+
+Shippy's platform fee (currently 10%) applies to both:
+
+- **Profit-share:** % of each periodic payout
+- **Fixed-payment:** % of each bounty value (taken at approval time)
 
 ---
 
 ## Future Considerations
 
-These are not MVP but worth considering for architectural planning later
+### Pre-Funded Balance / Credits
 
-### Additional Pool Types
+Instead of charging per-approval:
 
-| Type           | Concept                                                             |
-| -------------- | ------------------------------------------------------------------- |
-| **MILESTONE**  | Payments unlock at project phases or KPI milestones                 |
-| **OUTCOME**    | Pay % of measured result (MRR increase, leads converted)            |
-| **TOURNAMENT** | Ranked payouts to top N submissions (design contests, competitions) |
-| **TIERED**     | Payment scales with volume (first 10 = $50, next 40 = $75, etc.)    |
+1. Founder pre-funds Shippy account (like ad credits)
+2. Approvals deduct from balance
+3. Auto-top-up when low
 
-### Marketplace Dynamics
+_Pros: Faster approvals (no payment step), predictable for founders_
+_Cons: Requires balance management UI_
 
-**Price discovery via bidding:**
+### Escrow Model
 
-- Bounties could have a "floor price" that rises over time until someone claims
-- Or contributors bid on work, lowest qualified bid wins
-- Creates a bid/ask market for work over time
+Instead of founder paying on approval:
 
-**Why this matters:**
+1. Founder funds escrow when bounty created
+2. Funds held by Shippy until approval
+3. Released to contributor on approval
 
-- Efficient price discovery without founder guessing
-- Market determines fair value for work
-- Natural fit as volume scales
+_Pros: Guaranteed payment, builds contributor trust_
+_Cons: Ties up founder capital, adds complexity_
 
-### AI Agents
+### Hybrid Bounties
 
-AI agents should work like any other contributor:
+Could a bounty have _both_ points and fixed payment?
 
-- Claim bounties, submit work, earn points
-- No special "AI pool type" needed
-- They just work faster and at higher volume and that will drive payouts per task lower most likely
-- Same verification, same payouts
+```
+"Close enterprise deal" → $500 bonus + 50 pts ongoing
+```
 
-The platform should be agent-agnostic—good work is good work regardless of who (or what) does it.
+_Recommendation: Keep it simple. One reward type per bounty for MVP._
 
----
+### Bonus/Tip on Approval
 
-## Migration Path
+Founder wants to add extra on a fixed-payment bounty:
 
-### From Current Model
+```
+Bounty: $500
+Tip: $100
+Total paid: $600
+```
 
-1. Create `poolType` field on RewardPool (default: "PROFIT_SHARE")
-2. Add `poolId` to Bounty (nullable, foreign key to RewardPool)
-3. Migrate existing bounties to link to project's default pool
-4. Update payout logic to handle pool-specific calculations
-5. Move pools to a new tab on project page instead of in project settings
+_Could be added later as optional field on approval (similar to existing pointsAwarded override)._
 
-### Supporting Multiple Pools
+### Multiple Currencies
 
-1. Remove unique constraint on RewardPool.projectId
-2. Add pool selector to bounty creation
-3. Update contributor dashboard to be agnostic to pools and be just about payouts (fine to have an audit link to a pool similar to how one-time invoices work, but keep dashboard simple)
-4. Update payout flow to run per-pool
+Support EUR, GBP, etc. for international contributors.
+
+_Recommendation: USD only for MVP. Add multi-currency when demand justifies complexity._

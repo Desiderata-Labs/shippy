@@ -1,12 +1,13 @@
-import {
-  NotificationReferenceType,
-  NotificationType,
-  PayoutRecipientStatus,
-  PayoutStatus,
-  SubmissionStatus,
-} from '@/lib/db/types'
+import { PayoutRecipientStatus, PayoutStatus } from '@/lib/db/types'
 import { nanoId } from '@/lib/nanoid/zod'
-import { createNotifications } from './notification'
+import {
+  calculatePayout,
+  confirmReceipt,
+  createPayout,
+  getContributorPoints,
+  markAllPaid,
+  markRecipientPaid,
+} from '@/server/services/payout'
 import {
   protectedProcedure,
   publicProcedure,
@@ -242,65 +243,34 @@ export const payoutRouter = router({
         throw userError('BAD_REQUEST', 'Project has no reward pool')
       }
 
-      // Get all contributors with points
+      // Get all contributors with points using shared service
       const contributors = await getContributorPoints(
         ctx.prisma,
         input.projectId,
       )
 
-      // Calculate amounts using capacity-based model
-      const poolPercentage = project.rewardPool.poolPercentage
-      const poolCapacity = project.rewardPool.poolCapacity
-      const platformFeePercentage = project.rewardPool.platformFeePercentage
-
-      const poolAmountCents = Math.floor(
-        (input.reportedProfitCents * poolPercentage) / 100,
-      )
-      const platformFeeCents = Math.floor(
-        (poolAmountCents * platformFeePercentage) / 100,
-      )
-      const maxDistributableCents = poolAmountCents - platformFeeCents
-
-      const totalEarnedPoints = contributors.reduce(
-        (sum, c) => sum + c.points,
-        0,
-      )
-
-      // Use capacity as denominator, but cap at 100% if earned > capacity
-      const effectiveDenominator = Math.max(poolCapacity, totalEarnedPoints)
-
-      // Only distribute for earned points (not full capacity)
-      const distributedAmountCents = Math.floor(
-        (maxDistributableCents * Math.min(totalEarnedPoints, poolCapacity)) /
-          poolCapacity,
-      )
-
-      const breakdown = contributors.map((c) => {
-        const amountCents =
-          effectiveDenominator > 0
-            ? Math.floor(
-                (distributedAmountCents * c.points) / totalEarnedPoints,
-              )
-            : 0
-        // sharePercent is % of total pool (including platform fee)
-        const sharePercent =
-          poolAmountCents > 0 ? (amountCents / poolAmountCents) * 100 : 0
-        return {
-          userId: c.userId,
-          userName: c.userName,
-          userImage: c.userImage,
-          points: c.points,
-          sharePercent,
-          amountCents,
-        }
+      // Calculate amounts using shared service
+      const {
+        poolAmountCents,
+        platformFeeCents,
+        maxDistributableCents,
+        distributedAmountCents,
+        totalEarnedPoints,
+        breakdown,
+      } = calculatePayout({
+        reportedProfitCents: input.reportedProfitCents,
+        poolPercentage: project.rewardPool.poolPercentage,
+        poolCapacity: project.rewardPool.poolCapacity,
+        platformFeePercentage: project.rewardPool.platformFeePercentage,
+        contributors,
       })
 
       return {
         reportedProfitCents: input.reportedProfitCents,
-        poolPercentage,
-        poolCapacity,
+        poolPercentage: project.rewardPool.poolPercentage,
+        poolCapacity: project.rewardPool.poolCapacity,
         poolAmountCents,
-        platformFeePercentage,
+        platformFeePercentage: project.rewardPool.platformFeePercentage,
         platformFeeCents,
         maxDistributableCents,
         distributedAmountCents,
@@ -315,83 +285,26 @@ export const payoutRouter = router({
   create: protectedProcedure
     .input(createPayoutSchema)
     .mutation(async ({ ctx, input }) => {
-      // Verify ownership
-      const project = await ctx.prisma.project.findUnique({
-        where: { id: input.projectId },
-        include: { rewardPool: true },
+      const result = await createPayout({
+        prisma: ctx.prisma,
+        userId: ctx.user.id,
+        projectId: input.projectId,
+        periodStart: input.periodStart,
+        periodEnd: input.periodEnd,
+        periodLabel: input.periodLabel,
+        reportedProfitCents: input.reportedProfitCents,
       })
 
-      if (!project || project.founderId !== ctx.user.id) {
-        throw userError('FORBIDDEN', 'Access denied')
+      if (!result.success) {
+        throw userError(
+          result.code === 'FORBIDDEN' ? 'FORBIDDEN' : 'BAD_REQUEST',
+          result.message,
+        )
       }
 
-      if (!project.rewardPool) {
-        throw userError('BAD_REQUEST', 'Project has no reward pool')
-      }
-
-      // Get all contributors with points
-      const contributors = await getContributorPoints(
-        ctx.prisma,
-        input.projectId,
-      )
-
-      if (contributors.length === 0) {
-        throw userError('BAD_REQUEST', 'No contributors with points to pay out')
-      }
-
-      // Calculate amounts using capacity-based model
-      const poolPercentage = project.rewardPool.poolPercentage
-      const poolCapacity = project.rewardPool.poolCapacity
-      const platformFeePercentage = project.rewardPool.platformFeePercentage
-
-      const poolAmountCents = Math.floor(
-        (input.reportedProfitCents * poolPercentage) / 100,
-      )
-      const platformFeeCents = Math.floor(
-        (poolAmountCents * platformFeePercentage) / 100,
-      )
-      const maxDistributableCents = poolAmountCents - platformFeeCents
-
-      const totalEarnedPoints = contributors.reduce(
-        (sum, c) => sum + c.points,
-        0,
-      )
-
-      // Only distribute for earned points (not full capacity)
-      const distributedAmountCents = Math.floor(
-        (maxDistributableCents * Math.min(totalEarnedPoints, poolCapacity)) /
-          poolCapacity,
-      )
-
-      // Create payout with recipients
-      const payout = await ctx.prisma.payout.create({
-        data: {
-          projectId: input.projectId,
-          periodStart: input.periodStart,
-          periodEnd: input.periodEnd,
-          periodLabel: input.periodLabel,
-          reportedProfitCents: input.reportedProfitCents,
-          poolAmountCents,
-          platformFeeCents,
-          totalPointsAtPayout: totalEarnedPoints,
-          poolCapacityAtPayout: poolCapacity,
-          recipients: {
-            create: contributors.map((c) => {
-              const amountCents = Math.floor(
-                (distributedAmountCents * c.points) / totalEarnedPoints,
-              )
-              // sharePercent is % of total pool (including platform fee)
-              const sharePercent =
-                poolAmountCents > 0 ? (amountCents / poolAmountCents) * 100 : 0
-              return {
-                userId: c.userId,
-                pointsAtPayout: c.points,
-                sharePercent,
-                amountCents,
-              }
-            }),
-          },
-        },
+      // Fetch full payout for response serialization
+      const payout = await ctx.prisma.payout.findUnique({
+        where: { id: result.payout.id },
         include: {
           recipients: {
             include: {
@@ -403,20 +316,7 @@ export const payoutRouter = router({
         },
       })
 
-      // Notify all recipients about the payout announcement
-      const recipientIds = payout.recipients.map((r) => r.userId)
-      createNotifications({
-        prisma: ctx.prisma,
-        type: NotificationType.PAYOUT_ANNOUNCED,
-        referenceType: NotificationReferenceType.PAYOUT,
-        referenceId: payout.id,
-        actorId: ctx.user.id,
-        recipientIds,
-      }).catch((err) => {
-        console.error('Failed to create payout announced notifications:', err)
-      })
-
-      return serializePayout(payout)
+      return serializePayout(payout!)
     }),
 
   /**
@@ -455,65 +355,26 @@ export const payoutRouter = router({
   markRecipientPaid: protectedProcedure
     .input(markRecipientPaidSchema)
     .mutation(async ({ ctx, input }) => {
+      const result = await markRecipientPaid({
+        prisma: ctx.prisma,
+        recipientId: input.recipientId,
+        userId: ctx.user.id,
+        note: input.note,
+      })
+
+      if (!result.success) {
+        throw userError(
+          result.code === 'FORBIDDEN' ? 'FORBIDDEN' : 'NOT_FOUND',
+          result.message,
+        )
+      }
+
+      // Fetch the updated recipient with bigint for serialization
       const recipient = await ctx.prisma.payoutRecipient.findUnique({
         where: { id: input.recipientId },
-        include: {
-          payout: {
-            include: { project: { select: { founderId: true } } },
-          },
-        },
       })
 
-      if (!recipient) {
-        throw userError('NOT_FOUND', 'Recipient not found')
-      }
-
-      if (recipient.payout.project.founderId !== ctx.user.id) {
-        throw userError('FORBIDDEN', 'Access denied')
-      }
-
-      const now = new Date()
-
-      // Update the recipient
-      const updated = await ctx.prisma.payoutRecipient.update({
-        where: { id: input.recipientId },
-        data: {
-          paidAt: now,
-          paidNote: input.note,
-        },
-      })
-
-      // Notify recipient that their payout has been sent
-      createNotifications({
-        prisma: ctx.prisma,
-        type: NotificationType.PAYOUT_SENT,
-        referenceType: NotificationReferenceType.PAYOUT,
-        referenceId: recipient.payoutId,
-        actorId: ctx.user.id,
-        recipientIds: [recipient.userId],
-      }).catch((err) => {
-        console.error('Failed to create payout sent notification:', err)
-      })
-
-      // Check if all recipients are now paid, update payout status if so
-      const unpaidCount = await ctx.prisma.payoutRecipient.count({
-        where: {
-          payoutId: recipient.payoutId,
-          paidAt: null,
-        },
-      })
-
-      if (unpaidCount === 0) {
-        await ctx.prisma.payout.update({
-          where: { id: recipient.payoutId },
-          data: {
-            status: PayoutStatus.SENT,
-            sentAt: now,
-          },
-        })
-      }
-
-      return serializeRecipient(updated)
+      return serializeRecipient(recipient!)
     }),
 
   /**
@@ -522,67 +383,26 @@ export const payoutRouter = router({
   markAllPaid: protectedProcedure
     .input(markAllPaidSchema)
     .mutation(async ({ ctx, input }) => {
+      const result = await markAllPaid({
+        prisma: ctx.prisma,
+        payoutId: input.payoutId,
+        userId: ctx.user.id,
+        note: input.note,
+      })
+
+      if (!result.success) {
+        throw userError(
+          result.code === 'FORBIDDEN' ? 'FORBIDDEN' : 'NOT_FOUND',
+          result.message,
+        )
+      }
+
+      // Fetch full payout for serialization
       const payout = await ctx.prisma.payout.findUnique({
         where: { id: input.payoutId },
-        include: { project: { select: { founderId: true } } },
       })
 
-      if (!payout) {
-        throw userError('NOT_FOUND', 'Payout not found')
-      }
-
-      if (payout.project.founderId !== ctx.user.id) {
-        throw userError('FORBIDDEN', 'Access denied')
-      }
-
-      const now = new Date()
-
-      // Get recipient IDs before updating (for notifications)
-      const unpaidRecipients = await ctx.prisma.payoutRecipient.findMany({
-        where: {
-          payoutId: input.payoutId,
-          paidAt: null,
-        },
-        select: { userId: true },
-      })
-
-      // Update all unpaid recipients
-      await ctx.prisma.payoutRecipient.updateMany({
-        where: {
-          payoutId: input.payoutId,
-          paidAt: null,
-        },
-        data: {
-          paidAt: now,
-          paidNote: input.note,
-        },
-      })
-
-      // Notify all recipients that their payout has been sent
-      const recipientIds = unpaidRecipients.map((r) => r.userId)
-      if (recipientIds.length > 0) {
-        createNotifications({
-          prisma: ctx.prisma,
-          type: NotificationType.PAYOUT_SENT,
-          referenceType: NotificationReferenceType.PAYOUT,
-          referenceId: input.payoutId,
-          actorId: ctx.user.id,
-          recipientIds,
-        }).catch((err) => {
-          console.error('Failed to create payout sent notifications:', err)
-        })
-      }
-
-      // Update payout status
-      const updatedPayout = await ctx.prisma.payout.update({
-        where: { id: input.payoutId },
-        data: {
-          status: PayoutStatus.SENT,
-          sentAt: now,
-          sentNote: input.note,
-        },
-      })
-      return serializePayout(updatedPayout)
+      return serializePayout(payout!)
     }),
 
   /**
@@ -591,54 +411,28 @@ export const payoutRouter = router({
   confirmReceipt: protectedProcedure
     .input(confirmReceiptSchema)
     .mutation(async ({ ctx, input }) => {
+      const result = await confirmReceipt({
+        prisma: ctx.prisma,
+        payoutId: input.payoutId,
+        userId: ctx.user.id,
+        confirmed: input.confirmed,
+        note: input.note,
+        disputeReason: input.disputeReason,
+      })
+
+      if (!result.success) {
+        throw userError('NOT_FOUND', result.message)
+      }
+
+      // Fetch the updated recipient with bigint for serialization
       const recipient = await ctx.prisma.payoutRecipient.findFirst({
         where: {
           payoutId: input.payoutId,
           userId: ctx.user.id,
         },
-        include: {
-          payout: {
-            include: { project: { select: { founderId: true } } },
-          },
-        },
       })
 
-      if (!recipient) {
-        throw userError('NOT_FOUND', 'You are not a recipient of this payout')
-      }
-
-      const now = new Date()
-
-      const updated = await ctx.prisma.payoutRecipient.update({
-        where: { id: recipient.id },
-        data: input.confirmed
-          ? {
-              status: PayoutRecipientStatus.CONFIRMED,
-              confirmedAt: now,
-              confirmNote: input.note,
-            }
-          : {
-              status: PayoutRecipientStatus.DISPUTED,
-              disputedAt: now,
-              disputeReason: input.disputeReason,
-            },
-      })
-
-      // Notify founder about confirmation or dispute
-      createNotifications({
-        prisma: ctx.prisma,
-        type: input.confirmed
-          ? NotificationType.PAYOUT_CONFIRMED
-          : NotificationType.PAYOUT_DISPUTED,
-        referenceType: NotificationReferenceType.PAYOUT,
-        referenceId: input.payoutId,
-        actorId: ctx.user.id,
-        recipientIds: [recipient.payout.project.founderId],
-      }).catch((err) => {
-        console.error('Failed to create payout confirmation notification:', err)
-      })
-
-      return serializeRecipient(updated)
+      return serializeRecipient(recipient!)
     }),
 
   /**
@@ -663,52 +457,3 @@ export const payoutRouter = router({
     }))
   }),
 })
-
-/**
- * Helper to get all contributors with their total points for a project
- */
-async function getContributorPoints(
-  prisma: typeof import('@/lib/db/server').prisma,
-  projectId: string,
-) {
-  // Get all approved submissions for this project
-  const submissions = await prisma.submission.findMany({
-    where: {
-      bounty: { projectId },
-      status: SubmissionStatus.APPROVED,
-      pointsAwarded: { not: null },
-    },
-    select: {
-      userId: true,
-      pointsAwarded: true,
-      user: { select: { id: true, name: true, image: true } },
-    },
-  })
-
-  // Aggregate points by user
-  const pointsByUser = new Map<
-    string,
-    {
-      userId: string
-      userName: string
-      userImage: string | null
-      points: number
-    }
-  >()
-
-  for (const sub of submissions) {
-    const existing = pointsByUser.get(sub.userId)
-    if (existing) {
-      existing.points += sub.pointsAwarded ?? 0
-    } else {
-      pointsByUser.set(sub.userId, {
-        userId: sub.userId,
-        userName: sub.user.name,
-        userImage: sub.user.image,
-        points: sub.pointsAwarded ?? 0,
-      })
-    }
-  }
-
-  return Array.from(pointsByUser.values()).sort((a, b) => b.points - a.points)
-}

@@ -57,6 +57,7 @@ import { cn } from '@/lib/utils'
 import { AppButton } from '@/components/app'
 import { AttachmentList } from '@/components/attachments/attachment-list'
 import { CommentInput } from '@/components/comments'
+import { ContributorAgreementModal } from '@/components/contributor-agreement'
 import { AppBackground } from '@/components/layout/app-background'
 import { SubmissionModal } from '@/components/submission/submission-modal'
 import { Avatar, AvatarFallback, AvatarImage } from '@/components/ui/avatar'
@@ -136,6 +137,9 @@ export function BountyDetailContent() {
   // Submission modal state
   const [showSubmissionModal, setShowSubmissionModal] = useState(false)
 
+  // Contributor agreement modal state
+  const [showAgreementModal, setShowAgreementModal] = useState(false)
+
   const {
     data: bounty,
     isLoading,
@@ -155,6 +159,14 @@ export function BountyDetailContent() {
       utils.bounty.getById.invalidate({ id: bountyId })
     },
     onError: (error) => {
+      // Check if this is an AGREEMENT_REQUIRED error
+      const errorCause = (error.data as { cause?: { code?: string } } | null)
+        ?.cause
+      if (errorCause?.code === 'AGREEMENT_REQUIRED') {
+        // Show the agreement modal instead of an error toast
+        setShowAgreementModal(true)
+        return
+      }
       toast.error(error.message)
     },
   })
@@ -1894,6 +1906,18 @@ export function BountyDetailContent() {
         onOpenChange={setShowSubmissionModal}
         mode="create"
         bountyId={bounty.id}
+      />
+
+      {/* Contributor agreement modal */}
+      <ContributorAgreementModal
+        projectId={bounty.project.id}
+        projectName={bounty.project.name}
+        open={showAgreementModal}
+        onOpenChange={setShowAgreementModal}
+        onAccepted={() => {
+          // After accepting, retry the claim
+          claimBounty.mutate({ bountyId: bounty.id })
+        }}
       />
 
       {/* Reject suggestion modal */}

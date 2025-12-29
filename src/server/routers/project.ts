@@ -71,6 +71,14 @@ const createProjectSchema = z.object({
     .enum([PayoutVisibility.PRIVATE, PayoutVisibility.PUBLIC])
     .optional()
     .default(PayoutVisibility.PRIVATE),
+  // Contributor agreement config
+  contributorTermsEnabled: z.boolean().optional(),
+  contributorTermsCustom: z.string().optional(),
+  projectOwnerLegalName: z.string().max(200).optional(),
+  projectOwnerContactEmail: z.string().email().optional(),
+  contributorTermsGoverningLaw: z.string().max(200).optional(),
+  projectOwnerAuthorizedRepresentativeName: z.string().max(100).optional(),
+  projectOwnerAuthorizedRepresentativeTitle: z.string().max(100).optional(),
 })
 
 const updateProjectSchema = z.object({
@@ -116,6 +124,22 @@ const updateProjectSchema = z.object({
   payoutVisibility: z
     .enum([PayoutVisibility.PRIVATE, PayoutVisibility.PUBLIC])
     .optional(),
+  // Contributor agreement config
+  contributorTermsEnabled: z.boolean().optional(),
+  contributorTermsCustom: z.string().optional().nullable(),
+  projectOwnerLegalName: z.string().max(200).optional().nullable(),
+  projectOwnerContactEmail: z.string().email().optional().nullable(),
+  contributorTermsGoverningLaw: z.string().max(200).optional().nullable(),
+  projectOwnerAuthorizedRepresentativeName: z
+    .string()
+    .max(100)
+    .optional()
+    .nullable(),
+  projectOwnerAuthorizedRepresentativeTitle: z
+    .string()
+    .max(100)
+    .optional()
+    .nullable(),
 })
 
 export const projectRouter = router({
@@ -373,6 +397,16 @@ export const projectRouter = router({
         profitBasis: input.profitBasis,
         commitmentMonths: input.commitmentMonths,
         payoutVisibility: input.payoutVisibility,
+        // Contributor agreement settings
+        contributorTermsEnabled: input.contributorTermsEnabled,
+        contributorTermsCustom: input.contributorTermsCustom,
+        projectOwnerLegalName: input.projectOwnerLegalName,
+        projectOwnerContactEmail: input.projectOwnerContactEmail,
+        contributorTermsGoverningLaw: input.contributorTermsGoverningLaw,
+        projectOwnerAuthorizedRepresentativeName:
+          input.projectOwnerAuthorizedRepresentativeName,
+        projectOwnerAuthorizedRepresentativeTitle:
+          input.projectOwnerAuthorizedRepresentativeTitle,
       })
 
       if (!result.success) {
@@ -441,6 +475,16 @@ export const projectRouter = router({
           payoutFrequency: input.payoutFrequency,
           commitmentMonths: input.commitmentMonths,
           payoutVisibility: input.payoutVisibility,
+          // Contributor agreement settings
+          contributorTermsEnabled: input.contributorTermsEnabled,
+          contributorTermsCustom: input.contributorTermsCustom,
+          projectOwnerLegalName: input.projectOwnerLegalName,
+          projectOwnerContactEmail: input.projectOwnerContactEmail,
+          contributorTermsGoverningLaw: input.contributorTermsGoverningLaw,
+          projectOwnerAuthorizedRepresentativeName:
+            input.projectOwnerAuthorizedRepresentativeName,
+          projectOwnerAuthorizedRepresentativeTitle:
+            input.projectOwnerAuthorizedRepresentativeTitle,
         },
       })
 

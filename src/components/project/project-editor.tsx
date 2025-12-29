@@ -3,13 +3,11 @@
 import { useSession } from '@/lib/auth/react'
 import { trpc } from '@/lib/trpc/react'
 import {
-  Calendar,
-  Clock,
-  Eye,
-  EyeOff,
   Globe02,
   MessageTextSquare02,
   PieChart01,
+  Scale01,
+  Settings01,
 } from '@untitled-ui/icons-react'
 import { Check, Loader2, X } from 'lucide-react'
 import { useEffect, useState } from 'react'
@@ -31,6 +29,11 @@ import { slugify } from '@/lib/slugify'
 import { cn } from '@/lib/utils'
 import { useDebounce } from '@/hooks/use-debounce'
 import { AppButton, AppInput } from '@/components/app'
+import {
+  ContributorAgreementPreview,
+  ContributorAgreementSettings,
+  type ContributorAgreementSettingsValue,
+} from '@/components/contributor-agreement'
 import { AppBackground } from '@/components/layout/app-background'
 import { ProjectLogoUpload } from '@/components/project/project-logo-upload'
 import { ErrorState } from '@/components/ui/error-state'
@@ -47,12 +50,9 @@ import { Separator } from '@/components/ui/separator'
 import { Skeleton } from '@/components/ui/skeleton'
 import { Slider } from '@/components/ui/slider'
 import { Switch } from '@/components/ui/switch'
-import {
-  Tooltip,
-  TooltipContent,
-  TooltipTrigger,
-} from '@/components/ui/tooltip'
 import { toast } from 'sonner'
+
+type ProjectSettingsTab = 'general' | 'profit-share' | 'agreements'
 
 interface ProjectEditorProps {
   mode: 'create' | 'edit'
@@ -85,6 +85,25 @@ export function ProjectEditor({ mode, username, slug }: ProjectEditorProps) {
   const [payoutVisibility, setPayoutVisibility] = useState<PayoutVisibility>(
     PayoutVisibility.PRIVATE,
   )
+
+  // Contributor agreement settings (enabled by default, required for all projects)
+  const [contributorAgreement, setContributorAgreement] =
+    useState<ContributorAgreementSettingsValue>({
+      contributorTermsEnabled: true,
+      projectOwnerLegalName: '',
+      projectOwnerContactEmail: '',
+      projectOwnerAuthorizedRepresentativeName: '',
+      projectOwnerAuthorizedRepresentativeTitle: '',
+      contributorTermsGoverningLaw: '',
+      contributorTermsCustom: '',
+    })
+
+  // Tab state
+  const [activeTab, setActiveTab] = useState<ProjectSettingsTab>('general')
+  const [showAgreementPreview, setShowAgreementPreview] = useState(false)
+
+  // Track if user has attempted to submit (to show validation errors)
+  const [hasAttemptedSubmit, setHasAttemptedSubmit] = useState(false)
 
   // Track if slug/key were manually edited
   const [slugManuallyEdited, setSlugManuallyEdited] = useState(mode === 'edit')
@@ -133,6 +152,19 @@ export function ProjectEditor({ mode, username, slug }: ProjectEditorProps) {
         else setCommitmentMonths(CommitmentMonths.FIVE_YEARS)
       }
       setPayoutVisibility(project.payoutVisibility as PayoutVisibility)
+      // Contributor agreement settings
+      setContributorAgreement({
+        contributorTermsEnabled: project.contributorTermsEnabled,
+        projectOwnerLegalName: project.projectOwnerLegalName ?? '',
+        projectOwnerContactEmail: project.projectOwnerContactEmail ?? '',
+        projectOwnerAuthorizedRepresentativeName:
+          project.projectOwnerAuthorizedRepresentativeName ?? '',
+        projectOwnerAuthorizedRepresentativeTitle:
+          project.projectOwnerAuthorizedRepresentativeTitle ?? '',
+        contributorTermsGoverningLaw:
+          project.contributorTermsGoverningLaw ?? '',
+        contributorTermsCustom: project.contributorTermsCustom ?? '',
+      })
       setInitialized(true)
     }
   }, [mode, project, initialized])
@@ -287,8 +319,23 @@ export function ProjectEditor({ mode, username, slug }: ProjectEditorProps) {
       ? true
       : !isCheckingKey && keyAvailability?.available)
 
+  // Agreement validation - if enabled, must have required fields
+  const isAgreementValid =
+    !contributorAgreement.contributorTermsEnabled ||
+    (contributorAgreement.projectOwnerLegalName.trim() !== '' &&
+      contributorAgreement.projectOwnerContactEmail.trim() !== '')
+
+  const agreementValidationError =
+    contributorAgreement.contributorTermsEnabled && !isAgreementValid
+      ? 'Contributor Agreement requires Legal Entity Name and Contact Email'
+      : null
+
   const isValid =
-    name.trim() && isSlugValid && isProjectKeyValid && poolPercentage > 0
+    name.trim() &&
+    isSlugValid &&
+    isProjectKeyValid &&
+    poolPercentage > 0 &&
+    isAgreementValid
 
   // Auto-generate slug from name
   const handleNameChange = (value: string) => {
@@ -353,6 +400,7 @@ export function ProjectEditor({ mode, username, slug }: ProjectEditorProps) {
 
   const handleSubmit = async (e: React.FormEvent) => {
     e.preventDefault()
+    setHasAttemptedSubmit(true)
     if (!isValid) return
 
     setIsLoading(true)
@@ -372,6 +420,22 @@ export function ProjectEditor({ mode, username, slug }: ProjectEditorProps) {
           profitBasis: ProfitBasis.NET_PROFIT,
           commitmentMonths,
           payoutVisibility,
+          // Contributor agreement settings
+          contributorTermsEnabled: contributorAgreement.contributorTermsEnabled,
+          contributorTermsCustom:
+            contributorAgreement.contributorTermsCustom || undefined,
+          projectOwnerLegalName:
+            contributorAgreement.projectOwnerLegalName || undefined,
+          projectOwnerContactEmail:
+            contributorAgreement.projectOwnerContactEmail || undefined,
+          projectOwnerAuthorizedRepresentativeName:
+            contributorAgreement.projectOwnerAuthorizedRepresentativeName ||
+            undefined,
+          projectOwnerAuthorizedRepresentativeTitle:
+            contributorAgreement.projectOwnerAuthorizedRepresentativeTitle ||
+            undefined,
+          contributorTermsGoverningLaw:
+            contributorAgreement.contributorTermsGoverningLaw || undefined,
         })
       } else {
         await updateProject.mutateAsync({
@@ -397,6 +461,22 @@ export function ProjectEditor({ mode, username, slug }: ProjectEditorProps) {
                 commitmentMonths,
               }
             : {}),
+          // Contributor agreement settings
+          contributorTermsEnabled: contributorAgreement.contributorTermsEnabled,
+          contributorTermsCustom:
+            contributorAgreement.contributorTermsCustom || null,
+          projectOwnerLegalName:
+            contributorAgreement.projectOwnerLegalName || null,
+          projectOwnerContactEmail:
+            contributorAgreement.projectOwnerContactEmail || null,
+          projectOwnerAuthorizedRepresentativeName:
+            contributorAgreement.projectOwnerAuthorizedRepresentativeName ||
+            null,
+          projectOwnerAuthorizedRepresentativeTitle:
+            contributorAgreement.projectOwnerAuthorizedRepresentativeTitle ||
+            null,
+          contributorTermsGoverningLaw:
+            contributorAgreement.contributorTermsGoverningLaw || null,
         })
       }
     } catch {
@@ -417,7 +497,6 @@ export function ProjectEditor({ mode, username, slug }: ProjectEditorProps) {
   }
 
   const canEditRewardPool = mode === 'create' || project?.canEditRewardPool
-  const submitLabel = mode === 'create' ? 'Create Project' : 'Save Changes'
   const slugChanged = mode === 'edit' && projectSlug !== project?.slug
 
   return (
@@ -450,11 +529,127 @@ export function ProjectEditor({ mode, username, slug }: ProjectEditorProps) {
           )}
         </div>
 
-        <form onSubmit={handleSubmit}>
-          {/* Main layout */}
-          <div className="grid gap-6 lg:grid-cols-[1fr_auto_280px]">
-            {/* Main content - left side */}
-            <div className="space-y-6">
+        {/* Header with tabs and action button */}
+        <div className="mx-auto mb-6 flex max-w-3xl flex-col gap-4 sm:flex-row sm:items-center sm:justify-between">
+          {/* Settings Tabs */}
+          <div className="border-b border-border sm:border-b-0">
+            <nav className="scrollbar-hide -mb-px flex gap-0.5 overflow-x-auto sm:mb-0">
+              {(
+                [
+                  { value: 'general', label: 'General', icon: Settings01 },
+                  {
+                    value: 'profit-share',
+                    label: 'Profit Share',
+                    icon: PieChart01,
+                  },
+                  { value: 'agreements', label: 'Agreements', icon: Scale01 },
+                ] as const
+              ).map((tab, index) => {
+                const Icon = tab.icon
+                const isActive = activeTab === tab.value
+                const hasError =
+                  tab.value === 'agreements' && agreementValidationError
+                const stepNumber = index + 1
+                return (
+                  <button
+                    key={tab.value}
+                    type="button"
+                    onClick={() => setActiveTab(tab.value)}
+                    className={cn(
+                      'group relative flex shrink-0 cursor-pointer items-center gap-1.5 px-3 py-2.5 text-sm font-medium transition-colors sm:gap-2 sm:px-4',
+                      isActive
+                        ? 'text-foreground'
+                        : 'text-muted-foreground hover:text-foreground',
+                      hasError && !isActive && 'text-destructive',
+                    )}
+                  >
+                    {mode === 'create' && (
+                      <span
+                        className={cn(
+                          'flex size-5 items-center justify-center rounded-full text-xs',
+                          isActive
+                            ? 'bg-primary text-primary-foreground'
+                            : 'bg-muted text-muted-foreground',
+                        )}
+                      >
+                        {stepNumber}
+                      </span>
+                    )}
+                    {mode === 'edit' && <Icon className="size-4" />}
+                    <span>{tab.label}</span>
+                    {hasError && !isActive && (
+                      <span className="size-1.5 rounded-full bg-destructive" />
+                    )}
+                    {isActive && (
+                      <span className="absolute right-0 bottom-0 left-0 h-0.5 rounded-full bg-primary sm:hidden" />
+                    )}
+                  </button>
+                )
+              })}
+            </nav>
+          </div>
+
+          {/* Action button */}
+          <div className="flex items-center gap-3">
+            {mode === 'create' ? (
+              activeTab === 'agreements' ? (
+                <AppButton
+                  type="submit"
+                  form="project-form"
+                  disabled={isLoading || !isValid}
+                  className="w-full sm:w-auto"
+                >
+                  {isLoading && (
+                    <Loader2 className="mr-1.5 size-3.5 animate-spin" />
+                  )}
+                  Create Project
+                </AppButton>
+              ) : (
+                <AppButton
+                  type="button"
+                  onClick={() => {
+                    if (activeTab === 'general') {
+                      setActiveTab('profit-share')
+                    } else if (activeTab === 'profit-share') {
+                      setActiveTab('agreements')
+                      // Show validation errors when reaching the final step
+                      setHasAttemptedSubmit(true)
+                    }
+                  }}
+                  className="w-full sm:w-auto"
+                >
+                  Next Step →
+                </AppButton>
+              )
+            ) : (
+              <AppButton
+                type="submit"
+                form="project-form"
+                disabled={isLoading || !isValid}
+                className="w-full sm:w-auto"
+              >
+                {isLoading && (
+                  <Loader2 className="mr-1.5 size-3.5 animate-spin" />
+                )}
+                Save Changes
+              </AppButton>
+            )}
+          </div>
+        </div>
+
+        {/* Validation errors (only shown after user attempts to submit) */}
+        {hasAttemptedSubmit && agreementValidationError && (
+          <div className="mx-auto my-4 max-w-3xl">
+            <div className="rounded-lg border border-destructive/50 bg-destructive/10 px-4 py-3 text-sm text-destructive">
+              {agreementValidationError}
+            </div>
+          </div>
+        )}
+
+        <form id="project-form" onSubmit={handleSubmit}>
+          {/* General Tab */}
+          {activeTab === 'general' && (
+            <div className="mx-auto max-w-3xl space-y-6">
               {/* Main input area - bordered container */}
               <div className="rounded-lg border border-border bg-accent">
                 {/* Logo upload */}
@@ -612,7 +807,12 @@ export function ProjectEditor({ mode, username, slug }: ProjectEditorProps) {
                   </div>
                 </div>
               </div>
+            </div>
+          )}
 
+          {/* Profit Share Tab */}
+          {activeTab === 'profit-share' && (
+            <div className="mx-auto max-w-3xl space-y-6">
               {/* Reward Pool locked message - only in edit mode */}
               {mode === 'edit' && !canEditRewardPool && (
                 <div className="rounded-lg border border-muted bg-muted/30 p-4 text-sm text-muted-foreground">
@@ -650,46 +850,19 @@ export function ProjectEditor({ mode, username, slug }: ProjectEditorProps) {
                   </div>
                 </div>
               )}
-            </div>
 
-            {/* Vertical separator */}
-            <Separator orientation="vertical" className="hidden lg:block" />
-
-            {/* Sidebar - right side */}
-            <div className="space-y-4">
-              {/* Submit button at top */}
-              <AppButton
-                type="submit"
-                disabled={isLoading || !isValid}
-                className="w-full"
-                size="sm"
-              >
-                {isLoading && (
-                  <Loader2 className="mr-1.5 size-3.5 animate-spin" />
-                )}
-                {submitLabel}
-              </AppButton>
-
-              <Separator />
-
-              {/* Profit Share Settings - only show if editable */}
               {canEditRewardPool && (
-                <div className="space-y-4 pt-2">
-                  <span className="text-xs font-medium text-muted-foreground">
-                    Profit Share
-                  </span>
-
-                  {/* Pool Percentage */}
-                  <div className="space-y-3 pt-2">
-                    {/* Label with inline input */}
-                    <div className="flex items-center justify-between">
-                      <div className="flex items-center gap-2">
-                        <PieChart01 className="size-3.5 text-muted-foreground" />
-                        <span className="text-xs text-muted-foreground">
-                          Profit share
-                        </span>
-                      </div>
-                      <div className="flex items-center">
+                <div className="space-y-6 rounded-lg border border-border bg-accent p-6">
+                  <div>
+                    <h3 className="text-sm font-medium">
+                      Profit Share Percentage
+                    </h3>
+                    <p className="mt-1 text-xs text-muted-foreground">
+                      What percentage of profits will be shared with
+                      contributors
+                    </p>
+                    <div className="mt-4 space-y-3">
+                      <div className="flex items-center gap-4">
                         <AppInput
                           type="number"
                           min="1"
@@ -703,179 +876,201 @@ export function ProjectEditor({ mode, username, slug }: ProjectEditorProps) {
                             if (poolPercentage > 100) setPoolPercentage(100)
                           }}
                           disabled={isLoading}
-                          className="h-7 w-20 text-center text-sm font-semibold"
+                          className="h-10 w-24 text-center text-lg font-semibold"
                         />
-                        <span className="ml-1 text-sm text-muted-foreground">
-                          %
-                        </span>
+                        <span className="text-lg text-muted-foreground">%</span>
                       </div>
-                    </div>
-
-                    {/* Slider */}
-                    <Slider
-                      value={[poolPercentage]}
-                      onValueChange={([value]) => setPoolPercentage(value)}
-                      min={1}
-                      max={50}
-                      step={1}
-                      disabled={isLoading}
-                      className="py-1"
-                    />
-
-                    {/* Quick selects */}
-                    <div className="flex flex-wrap gap-1">
-                      {[5, 10, 15, 20].map((preset) => (
-                        <button
-                          key={preset}
-                          type="button"
-                          onClick={() => setPoolPercentage(preset)}
-                          disabled={isLoading}
-                          className={cn(
-                            'cursor-pointer rounded-md border px-2 py-0.5 text-xs font-medium transition-colors',
-                            poolPercentage === preset
-                              ? 'border-primary bg-primary/10 text-primary'
-                              : 'border-border bg-muted/50 text-muted-foreground hover:bg-muted',
-                          )}
-                        >
-                          {preset}%
-                        </button>
-                      ))}
-                    </div>
-
-                    {/* Example info */}
-                    <div className="rounded-md bg-primary/5 px-3 py-2 text-xs">
-                      <span className="whitespace-nowrap text-muted-foreground">
-                        e.g. $
+                      <Slider
+                        value={[poolPercentage]}
+                        onValueChange={([value]) => setPoolPercentage(value)}
+                        min={1}
+                        max={50}
+                        step={1}
+                        disabled={isLoading}
+                      />
+                      <div className="flex flex-wrap gap-2">
+                        {[5, 10, 15, 20, 25].map((preset) => (
+                          <button
+                            key={preset}
+                            type="button"
+                            onClick={() => setPoolPercentage(preset)}
+                            disabled={isLoading}
+                            className={cn(
+                              'cursor-pointer rounded-md border px-3 py-1.5 text-sm font-medium transition-colors',
+                              poolPercentage === preset
+                                ? 'border-primary bg-primary/10 text-primary'
+                                : 'border-border bg-muted/50 text-muted-foreground hover:bg-muted',
+                            )}
+                          >
+                            {preset}%
+                          </button>
+                        ))}
+                      </div>
+                      <div className="rounded-md bg-primary/5 px-4 py-3 text-sm text-muted-foreground">
+                        Example: $
                         {((10000 * poolPercentage) / 100).toLocaleString()} of
                         $10,000 profit → contributors
-                      </span>
+                      </div>
                     </div>
                   </div>
 
                   <Separator />
 
-                  {/* Payout Frequency */}
-                  <div className="flex items-center justify-between">
-                    <Tooltip>
-                      <TooltipTrigger asChild>
-                        <span className="flex cursor-help items-center gap-1 text-xs text-muted-foreground">
-                          <Clock className="size-3" />
-                          Payout Frequency
-                        </span>
-                      </TooltipTrigger>
-                      <TooltipContent className="max-w-xs text-wrap">
-                        How often you&apos;ll run payouts to contributors
-                      </TooltipContent>
-                    </Tooltip>
-                    <Select
-                      value={payoutFrequency}
-                      onValueChange={(v: PayoutFrequency) =>
-                        setPayoutFrequency(v)
-                      }
-                      disabled={isLoading}
-                    >
-                      <SelectTrigger className="h-7 w-24 rounded-md border-border text-xs">
-                        <SelectValue />
-                      </SelectTrigger>
-                      <SelectContent>
-                        <SelectItem value={PayoutFrequency.MONTHLY}>
-                          Monthly
-                        </SelectItem>
-                        <SelectItem value={PayoutFrequency.QUARTERLY}>
-                          Quarterly
-                        </SelectItem>
-                      </SelectContent>
-                    </Select>
-                  </div>
+                  <div className="grid gap-6 sm:grid-cols-2">
+                    <div>
+                      <h3 className="text-sm font-medium">Payout Frequency</h3>
+                      <p className="mt-1 text-xs text-muted-foreground">
+                        How often you&apos;ll run payouts
+                      </p>
+                      <Select
+                        value={payoutFrequency}
+                        onValueChange={(v: PayoutFrequency) =>
+                          setPayoutFrequency(v)
+                        }
+                        disabled={isLoading}
+                      >
+                        <SelectTrigger className="mt-3">
+                          <SelectValue />
+                        </SelectTrigger>
+                        <SelectContent>
+                          <SelectItem value={PayoutFrequency.MONTHLY}>
+                            Monthly
+                          </SelectItem>
+                          <SelectItem value={PayoutFrequency.QUARTERLY}>
+                            Quarterly
+                          </SelectItem>
+                        </SelectContent>
+                      </Select>
+                    </div>
 
-                  {/* Commitment Period */}
-                  <div className="flex items-center justify-between">
-                    <Tooltip>
-                      <TooltipTrigger asChild>
-                        <span className="flex cursor-help items-center gap-1 text-xs text-muted-foreground">
-                          <Calendar className="size-3" />
-                          Commitment
-                        </span>
-                      </TooltipTrigger>
-                      <TooltipContent className="max-w-xs text-wrap">
-                        How long you commit to running the profit share and
-                        paying contributors
-                      </TooltipContent>
-                    </Tooltip>
-                    <Select
-                      value={commitmentMonths}
-                      onValueChange={(v: CommitmentMonths) =>
-                        setCommitmentMonths(v)
-                      }
-                      disabled={isLoading}
-                    >
-                      <SelectTrigger className="h-7 w-24 rounded-md border-border text-xs">
-                        <SelectValue>
-                          {commitmentLabel[commitmentMonths]}
-                        </SelectValue>
-                      </SelectTrigger>
-                      <SelectContent>
-                        <SelectItem value={CommitmentMonths.SIX_MONTHS}>
-                          6 months
-                        </SelectItem>
-                        <SelectItem value={CommitmentMonths.ONE_YEAR}>
-                          1 year
-                        </SelectItem>
-                        <SelectItem value={CommitmentMonths.TWO_YEARS}>
-                          2 years
-                        </SelectItem>
-                        <SelectItem value={CommitmentMonths.THREE_YEARS}>
-                          3 years
-                        </SelectItem>
-                        <SelectItem value={CommitmentMonths.FIVE_YEARS}>
-                          5 years
-                        </SelectItem>
-                        <SelectItem value={CommitmentMonths.TEN_YEARS}>
-                          10 years
-                        </SelectItem>
-                        <SelectItem value={CommitmentMonths.FOREVER}>
-                          Forever
-                        </SelectItem>
-                      </SelectContent>
-                    </Select>
+                    <div>
+                      <h3 className="text-sm font-medium">Commitment Period</h3>
+                      <p className="mt-1 text-xs text-muted-foreground">
+                        How long you commit to paying contributors
+                      </p>
+                      <Select
+                        value={commitmentMonths}
+                        onValueChange={(v: CommitmentMonths) =>
+                          setCommitmentMonths(v)
+                        }
+                        disabled={isLoading}
+                      >
+                        <SelectTrigger className="mt-3">
+                          <SelectValue>
+                            {commitmentLabel[commitmentMonths]}
+                          </SelectValue>
+                        </SelectTrigger>
+                        <SelectContent>
+                          <SelectItem value={CommitmentMonths.SIX_MONTHS}>
+                            6 months
+                          </SelectItem>
+                          <SelectItem value={CommitmentMonths.ONE_YEAR}>
+                            1 year
+                          </SelectItem>
+                          <SelectItem value={CommitmentMonths.TWO_YEARS}>
+                            2 years
+                          </SelectItem>
+                          <SelectItem value={CommitmentMonths.THREE_YEARS}>
+                            3 years
+                          </SelectItem>
+                          <SelectItem value={CommitmentMonths.FIVE_YEARS}>
+                            5 years
+                          </SelectItem>
+                          <SelectItem value={CommitmentMonths.TEN_YEARS}>
+                            10 years
+                          </SelectItem>
+                          <SelectItem value={CommitmentMonths.FOREVER}>
+                            Forever
+                          </SelectItem>
+                        </SelectContent>
+                      </Select>
+                    </div>
                   </div>
 
                   <Separator />
+
+                  <div className="flex items-center justify-between">
+                    <div>
+                      <h3 className="text-sm font-medium">Public Payouts</h3>
+                      <p className="mt-1 text-xs text-muted-foreground">
+                        When enabled, payout amounts are visible to everyone
+                      </p>
+                    </div>
+                    <Switch
+                      checked={payoutVisibility === PayoutVisibility.PUBLIC}
+                      onCheckedChange={(checked) =>
+                        setPayoutVisibility(
+                          checked
+                            ? PayoutVisibility.PUBLIC
+                            : PayoutVisibility.PRIVATE,
+                        )
+                      }
+                      disabled={isLoading}
+                    />
+                  </div>
                 </div>
               )}
-
-              {/* Payout Visibility - always editable */}
-              <div className="flex items-center justify-between pt-2">
-                <Tooltip>
-                  <TooltipTrigger asChild>
-                    <span className="flex cursor-help items-center gap-1 text-xs text-muted-foreground">
-                      {payoutVisibility === PayoutVisibility.PUBLIC ? (
-                        <Eye className="size-3" />
-                      ) : (
-                        <EyeOff className="size-3" />
-                      )}
-                      Public Payouts
-                    </span>
-                  </TooltipTrigger>
-                  <TooltipContent className="max-w-xs text-wrap">
-                    When enabled, payout amounts are visible to everyone. When
-                    disabled, only confirmation status is shown publicly.
-                  </TooltipContent>
-                </Tooltip>
-                <Switch
-                  checked={payoutVisibility === PayoutVisibility.PUBLIC}
-                  onCheckedChange={(checked) =>
-                    setPayoutVisibility(
-                      checked
-                        ? PayoutVisibility.PUBLIC
-                        : PayoutVisibility.PRIVATE,
-                    )
-                  }
-                  disabled={isLoading}
-                />
-              </div>
             </div>
-          </div>
+          )}
+
+          {/* Agreements Tab */}
+          {activeTab === 'agreements' && (
+            <div className="mx-auto max-w-3xl space-y-6">
+              {/* Preview toggle - GitHub style */}
+              <div className="flex items-center justify-end">
+                <div className="inline-flex rounded-md border border-border">
+                  <button
+                    type="button"
+                    onClick={() => setShowAgreementPreview(false)}
+                    className={cn(
+                      'cursor-pointer rounded-l-md px-3 py-1.5 text-xs font-medium transition-colors',
+                      !showAgreementPreview
+                        ? 'bg-accent text-foreground'
+                        : 'text-muted-foreground hover:bg-muted hover:text-foreground',
+                    )}
+                  >
+                    Edit
+                  </button>
+                  <button
+                    type="button"
+                    onClick={() => setShowAgreementPreview(true)}
+                    className={cn(
+                      'cursor-pointer rounded-r-md border-l border-border px-3 py-1.5 text-xs font-medium transition-colors',
+                      showAgreementPreview
+                        ? 'bg-accent text-foreground'
+                        : 'text-muted-foreground hover:bg-muted hover:text-foreground',
+                    )}
+                  >
+                    Preview
+                  </button>
+                </div>
+              </div>
+
+              {!showAgreementPreview ? (
+                <ContributorAgreementSettings
+                  value={contributorAgreement}
+                  onChange={setContributorAgreement}
+                  disabled={isLoading}
+                  currentVersion={project?.contributorTermsVersion ?? 1}
+                  showVersionWarning={
+                    mode === 'edit' &&
+                    contributorAgreement.contributorTermsCustom !==
+                      (project?.contributorTermsCustom ?? '')
+                  }
+                  hideToggle
+                />
+              ) : (
+                <ContributorAgreementPreview
+                  projectName={name || 'Your Project'}
+                  projectSlug={projectSlug || undefined}
+                  contributorAgreement={contributorAgreement}
+                  rewardPoolCommitmentEndsAt={
+                    project?.rewardPool?.commitmentEndsAt
+                  }
+                />
+              )}
+            </div>
+          )}
         </form>
       </div>
     </AppBackground>

@@ -11,14 +11,26 @@ import superjson from 'superjson'
  * Create context for each tRPC request
  */
 export const createTRPCContext = async () => {
+  const reqHeaders = await headers()
   const session = await auth.api.getSession({
-    headers: await headers(),
+    headers: reqHeaders,
   })
+
+  // Extract IP address from various headers (proxy-aware)
+  const ipAddress =
+    reqHeaders.get('x-forwarded-for')?.split(',')[0]?.trim() ||
+    reqHeaders.get('x-real-ip') ||
+    reqHeaders.get('cf-connecting-ip') || // Cloudflare
+    null
+
+  const userAgent = reqHeaders.get('user-agent') || null
 
   return {
     prisma,
     session,
     user: session?.user ?? null,
+    ipAddress,
+    userAgent,
   }
 }
 
@@ -31,6 +43,7 @@ const EXPECTED_ERROR_CODES = new Set([
   'FORBIDDEN',
   'BAD_REQUEST',
   'CONFLICT',
+  'PRECONDITION_FAILED',
 ])
 
 // User-friendly error messages by code
@@ -40,6 +53,7 @@ const ERROR_MESSAGES: Record<string, string> = {
   NOT_FOUND: 'The requested resource was not found.',
   BAD_REQUEST: 'Invalid request.',
   CONFLICT: 'This action conflicts with the current state.',
+  PRECONDITION_FAILED: 'A prerequisite was not met.',
   TOO_MANY_REQUESTS: 'Too many requests. Please slow down.',
   TIMEOUT: 'The request timed out. Please try again.',
   INTERNAL_SERVER_ERROR: 'Something went wrong on our end.',
@@ -54,12 +68,25 @@ interface UserSafeErrorCause {
 
 /**
  * Check if an error was created with userError() and is safe to show
+ * Also considers structured cause objects with a 'code' property as user-safe
+ * (e.g., AGREEMENT_REQUIRED errors that need to pass the message to the client)
  */
 function isUserSafeError(error: TRPCError): boolean {
   if (!error.cause || typeof error.cause !== 'object') return false
-  return (
+  // Explicitly marked as user-safe via userError()
+  if (
     (error.cause as unknown as UserSafeErrorCause)[USER_SAFE_ERROR] === true
-  )
+  ) {
+    return true
+  }
+  // Structured cause with a code property (for client-side handling)
+  if (
+    'code' in error.cause &&
+    typeof (error.cause as Record<string, unknown>).code === 'string'
+  ) {
+    return true
+  }
+  return false
 }
 
 /**
@@ -112,6 +139,21 @@ const t = initTRPC.context<Context>().create({
       ? error.message
       : ERROR_MESSAGES[code] || 'Something went wrong.'
 
+    // Extract cause data if it's a structured object (e.g., for AGREEMENT_REQUIRED)
+    // Error objects don't serialize custom properties by default, so we extract them
+    let causeData: Record<string, unknown> | undefined
+    if (
+      error.cause &&
+      typeof error.cause === 'object' &&
+      'code' in error.cause
+    ) {
+      const cause = error.cause as Record<string, unknown>
+      causeData = {
+        code: cause.code,
+        ...(cause.projectId ? { projectId: cause.projectId } : {}),
+      }
+    }
+
     return {
       ...shape,
       message: safeMessage,
@@ -120,6 +162,7 @@ const t = initTRPC.context<Context>().create({
         errorId, // User can quote this in support requests
         zodError: null, // Hide validation details in production
         stack: undefined, // Never expose stack traces
+        cause: causeData, // Include structured cause data for client handling
       },
     }
   },

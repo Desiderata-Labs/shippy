@@ -1,4 +1,4 @@
-# Project Contributor Agreement (Template)
+# Project Contributor Agreement
 
 Last updated: 2025-12-19
 
@@ -183,26 +183,3 @@ Contributor acceptance:
 - Name / username: {contributor_display_name}
 - Accepted at: {accepted_at}
 - Acceptance record ID (optional): {acceptance_record_id}
-
-<!--
-Template variables (suggested minimal set):
-
-{platform_name}
-{platform_operator_legal_name}
-{project_name}
-{project_url}
-{project_owner_party_legal_name}
-{project_owner_contact_email}
-{project_owner_authorized_representative_name}
-{project_owner_authorized_representative_title}
-{contributor_display_name}
-{contributor_legal_name_or_display_name}
-{contributor_contact_email}
-{payment_processor_name}
-{reward_pool_commitment_ends_at}
-{pool_expiration_notice_days}
-{governing_law} // If not specified by Project Owner, default: "the Commonwealth of Pennsylvania"
-{forum_selection} // If not specified by Project Owner, default: "the state or federal courts located in Allegheny County, Pennsylvania"
-{accepted_at}
-{acceptance_record_id}
--->

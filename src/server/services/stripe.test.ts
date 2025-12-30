@@ -769,12 +769,45 @@ describe('transferFunds', () => {
       amount: 1000,
       currency: 'usd',
       destination: 'acct_123',
+      sourceTransaction: undefined,
       metadata: {
         userId: 'user-1',
         platform: 'shippy',
         payoutId: 'payout-1',
         projectId: 'project-1',
         periodLabel: 'January 2024',
+      },
+    })
+  })
+
+  test('transfers funds with sourceTransaction when provided', async () => {
+    mockPrisma.user.findUnique.mockResolvedValue({
+      id: 'user-1',
+      stripeConnectAccountId: 'acct_123',
+      stripeConnectAccountStatus: StripeConnectAccountStatus.ACTIVE,
+    })
+    ;(
+      mockStripeOps.createTransfer as ReturnType<typeof vi.fn>
+    ).mockResolvedValue({
+      id: 'tr_transfer123',
+    })
+
+    const result = await transferFunds({
+      prisma: mockPrisma as any,
+      recipientUserId: 'user-1',
+      amountCents: 1000,
+      sourceTransaction: 'pi_original_payment',
+    })
+
+    expect(result.success).toBe(true)
+    expect(mockStripeOps.createTransfer).toHaveBeenCalledWith({
+      amount: 1000,
+      currency: 'usd',
+      destination: 'acct_123',
+      sourceTransaction: 'pi_original_payment',
+      metadata: {
+        userId: 'user-1',
+        platform: 'shippy',
       },
     })
   })
@@ -1391,6 +1424,7 @@ describe('processPayoutTransfers', () => {
     mockPrisma.payout.findUnique.mockResolvedValue({
       id: 'payout-1',
       paymentStatus: PayoutPaymentStatus.PENDING,
+      stripePaymentIntent: null,
       project: { id: 'proj-1', slug: 'test', name: 'Test' },
       recipients: [],
     })
@@ -1410,6 +1444,7 @@ describe('processPayoutTransfers', () => {
     mockPrisma.payout.findUnique.mockResolvedValue({
       id: 'payout-1',
       paymentStatus: PayoutPaymentStatus.PAID,
+      stripePaymentIntent: 'pi_test123',
       project: { id: 'proj-1', slug: 'test', name: 'Test' },
       recipients: [
         {
@@ -1447,6 +1482,7 @@ describe('processPayoutTransfers', () => {
     mockPrisma.payout.findUnique.mockResolvedValue({
       id: 'payout-1',
       paymentStatus: PayoutPaymentStatus.PAID,
+      stripePaymentIntent: 'pi_test123',
       project: { id: 'proj-1', slug: 'test', name: 'Test' },
       recipients: [
         {
@@ -1481,6 +1517,7 @@ describe('processPayoutTransfers', () => {
     mockPrisma.payout.findUnique.mockResolvedValue({
       id: 'payout-1',
       paymentStatus: PayoutPaymentStatus.PAID,
+      stripePaymentIntent: 'pi_test123',
       project: { id: 'proj-1', slug: 'test', name: 'Test' },
       recipients: [
         {
@@ -1515,6 +1552,7 @@ describe('processPayoutTransfers', () => {
     mockPrisma.payout.findUnique.mockResolvedValue({
       id: 'payout-1',
       paymentStatus: PayoutPaymentStatus.PAID,
+      stripePaymentIntent: 'pi_test123',
       project: { id: 'proj-1', slug: 'test', name: 'Test' },
       recipients: [
         {
@@ -1549,6 +1587,7 @@ describe('processPayoutTransfers', () => {
     mockPrisma.payout.findUnique.mockResolvedValue({
       id: 'payout-1',
       paymentStatus: PayoutPaymentStatus.PAID,
+      stripePaymentIntent: 'pi_test123',
       project: { id: 'proj-1', slug: 'test', name: 'Test' },
       recipients: [
         {
@@ -1608,6 +1647,7 @@ describe('processPayoutTransfers', () => {
     mockPrisma.payout.findUnique.mockResolvedValue({
       id: 'payout-1',
       paymentStatus: PayoutPaymentStatus.PAID,
+      stripePaymentIntent: 'pi_test123',
       project: { id: 'proj-1', slug: 'test', name: 'Test' },
       recipients: [
         {
@@ -1658,6 +1698,7 @@ describe('processPayoutTransfers', () => {
     mockPrisma.payout.findUnique.mockResolvedValue({
       id: 'payout-1',
       paymentStatus: PayoutPaymentStatus.PAID,
+      stripePaymentIntent: 'pi_test123',
       project: { id: 'proj-1', slug: 'test', name: 'Test' },
       recipients: [
         // Already paid
@@ -1736,6 +1777,7 @@ describe('processPayoutTransfers', () => {
     mockPrisma.payout.findUnique.mockResolvedValue({
       id: 'payout-1',
       paymentStatus: PayoutPaymentStatus.PAID,
+      stripePaymentIntent: 'pi_test123',
       project: {
         id: 'proj-1',
         slug: 'test',
@@ -1933,6 +1975,7 @@ describe('processPendingTransfersForUser', () => {
       amount: 3000,
       currency: 'usd',
       destination: 'acct_123',
+      sourceTransaction: undefined, // No source for retroactive transfers
       metadata: expect.objectContaining({
         projectSlug: 'test-project',
         recipientCount: '2',
@@ -2092,11 +2135,17 @@ describe('processPendingTransfersForUser', () => {
     }
 
     // Should create a transfer for the combined amount
-    expect(mockStripeOps.createTransfer).toHaveBeenCalledWith(
-      expect.objectContaining({
-        amount: 55,
+    expect(mockStripeOps.createTransfer).toHaveBeenCalledWith({
+      amount: 55,
+      currency: 'usd',
+      destination: 'acct_123',
+      sourceTransaction: undefined, // No source for retroactive transfers
+      metadata: expect.objectContaining({
+        projectSlug: 'test-project',
+        recipientCount: '2',
+        retroactive: 'true',
       }),
-    )
+    })
   })
 
   test('handles transfer failures gracefully', async () => {
@@ -2314,6 +2363,7 @@ describe('retryRecipientTransfer', () => {
       amount: 55,
       currency: 'usd',
       destination: 'acct_123',
+      sourceTransaction: undefined, // No source for retroactive transfers
       metadata: expect.objectContaining({
         projectSlug: 'test-project',
         recipientCount: '2',

@@ -59,6 +59,7 @@ export interface StripeOperations {
     amount: number
     currency: string
     destination: string
+    sourceTransaction?: string // Charge or PaymentIntent ID to use as source
     metadata?: Record<string, string>
   }): Promise<{ id: string }>
 
@@ -130,11 +131,20 @@ export function createRealStripeOperations(): StripeOperations {
       }
     },
 
-    async createTransfer({ amount, currency, destination, metadata }) {
+    async createTransfer({
+      amount,
+      currency,
+      destination,
+      sourceTransaction,
+      metadata,
+    }) {
       const transfer = await stripe.transfers.create({
         amount,
         currency,
         destination,
+        // source_transaction links the transfer to the original payment,
+        // ensuring it happens when those funds become available (not immediately)
+        ...(sourceTransaction && { source_transaction: sourceTransaction }),
         metadata,
       })
       return { id: transfer.id }
@@ -697,6 +707,13 @@ export interface TransferFundsParams {
   recipientUserId: string
   amountCents: number
   currency?: string
+  /**
+   * Stripe PaymentIntent ID from the founder's checkout payment.
+   * When provided, the transfer is linked to this payment and will
+   * only execute when those funds become available (after settlement).
+   * This prevents "insufficient funds" errors from pending balances.
+   */
+  sourceTransaction?: string
   metadata?: {
     payoutId?: string
     recipientId?: string
@@ -732,6 +749,7 @@ export async function transferFunds({
   recipientUserId,
   amountCents,
   currency = 'usd',
+  sourceTransaction,
   metadata = {},
 }: TransferFundsParams): Promise<TransferFundsResult | TransferFundsError> {
   if (amountCents <= 0) {
@@ -786,6 +804,7 @@ export async function transferFunds({
       amount: amountCents,
       currency,
       destination: user.stripeConnectAccountId,
+      sourceTransaction,
       metadata: {
         userId: recipientUserId,
         platform: 'shippy',
@@ -805,15 +824,15 @@ export async function transferFunds({
     const errorMessage =
       error instanceof Error ? error.message : 'Transfer failed'
 
-    // Insufficient funds error (common in test mode)
+    // Insufficient funds error
     if (errorMessage.includes('insufficient')) {
       return {
         success: false,
         code: 'INSUFFICIENT_FUNDS',
         message:
           'Platform has insufficient available funds for transfers. ' +
-          'In test mode, use card 4000000000000077 which adds funds directly to available balance. ' +
-          'In production, funds may still be settling (typically 2 business days).',
+          'For retroactive transfers, funds from older payments may have been paid out. ' +
+          'In test mode, use card 4000000000000077 which adds funds directly to available balance.',
       }
     }
 
@@ -879,6 +898,7 @@ export async function processPayoutTransfers({
     select: {
       id: true,
       paymentStatus: true,
+      stripePaymentIntent: true, // Used as source_transaction for transfers
       project: {
         select: { id: true, slug: true, name: true, founderId: true },
       },
@@ -978,10 +998,13 @@ export async function processPayoutTransfers({
     }
 
     // Attempt the transfer
+    // Use source_transaction to link transfer to the founder's payment,
+    // ensuring it executes when those funds become available
     const transferResult = await transferFunds({
       prisma,
       recipientUserId: recipient.user.id,
       amountCents,
+      sourceTransaction: payout.stripePaymentIntent ?? undefined,
       metadata: {
         payoutId: payout.id,
         recipientId: recipient.id,

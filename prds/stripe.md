@@ -5,6 +5,7 @@ Shippy uses Stripe for:
 1. **Stripe Connect (Express)** - Contributors receive payouts via their connected Stripe accounts
 2. **Stripe Checkout** - Founders pay for payouts (pool + platform fee + processing fees)
 3. **Stripe Transfers** - Shippy distributes funds to contributors after founder payment
+4. **ACH Direct Debit** - US bank account payments for lower fees and reduced fraud risk
 
 ## Quick Start
 
@@ -60,6 +61,8 @@ Shippy needs webhooks to:
 4. Select events:
    - `account.updated`
    - `checkout.session.completed`
+   - `checkout.session.async_payment_succeeded` (for ACH)
+   - `checkout.session.async_payment_failed` (for ACH)
 5. Click **Add endpoint**
 6. Copy the **Signing secret** to `STRIPE_WEBHOOK_SECRET`
 
@@ -151,6 +154,150 @@ When a founder runs a payout:
 - **Contributors receive**: ~$22.91 ($24.50 - Stripe)
 - **Shippy receives**: $20
 
+## Payment Methods & Fraud Prevention Strategy
+
+> **TL;DR:** Use credit cards with **mandatory 3D Secure** for most payments (liability shifts to issuer). Require **ACH for large payouts** (>$2k) due to lower fraud and shorter business account dispute windows. **Always delay transfers 7-14 days** regardless of payment method.
+
+### Payment Method Comparison
+
+| Method             | Dispute Window      | Contestable? | Liability Shift?  | Fraud Risk | Stripe Fees   |
+| ------------------ | ------------------- | ------------ | ----------------- | ---------- | ------------- |
+| **Credit Card**    | 120 days            | ✅ Yes       | ✅ With 3D Secure | Higher     | 2.9% + $0.30  |
+| **ACH (Personal)** | 60 days             | ❌ No, final | ❌ No             | Lower      | 0.8% (max $5) |
+| **ACH (Business)** | **2 business days** | ❌ No, final | ❌ No             | Lower      | 0.8% (max $5) |
+
+### Why 3D Secure Changes Everything
+
+**3D Secure (3DS)** is the key to safe credit card payments. When 3DS authentication succeeds:
+
+1. **Liability shifts to the card issuer** - The bank eats fraud chargebacks, not Shippy
+2. **Disputes are still contestable** - Unlike ACH, you can fight and win
+3. **Better fraud detection** - Bank verifies cardholder identity
+
+This makes credit cards with mandatory 3DS potentially **safer than ACH** because:
+
+- ACH disputes are final and uncontestable
+- 3DS shifts fraud liability away from the platform
+- You retain the ability to dispute non-fraud chargebacks
+
+### ACH Direct Debit (US Bank Accounts)
+
+ACH has lower fraud rates but different trade-offs:
+
+**Pros:**
+
+- Lower fees (0.8%, capped at $5 vs 2.9% + $0.30 for cards)
+- Business accounts have only 2-day dispute window
+- Lower fraud rates overall (no stolen card numbers)
+- Stripe Radar covers ACH (reduces fraud by ~20%)
+
+**Cons:**
+
+- Disputes are **final and uncontestable** - once disputed, money is gone forever
+- Personal accounts have 60-day window (longer than credit cards for fraud liability!)
+- No chargeback protection product available from Stripe
+- Slower settlement (3-5 business days vs instant)
+- US-only
+
+**ACH Return Codes to Monitor:**
+
+- `R01` - Insufficient funds
+- `R02` - Account closed
+- `R10` - Customer advises unauthorized (fraud)
+- `R29` - Corporate customer advises not authorized
+
+### Recommended Strategy: Tiered Payment Methods
+
+Based on payout size, require different payment methods:
+
+| Payout Size   | Required Method              | Rationale                                |
+| ------------- | ---------------------------- | ---------------------------------------- |
+| < $500        | Credit Card (3DS required)   | Liability shifts to issuer, low friction |
+| $500 - $2,000 | ACH preferred, card allowed  | Business accounts = 2-day window         |
+| > $2,000      | ACH required + manual review | Lower fraud rates justify friction       |
+
+**Implementation:**
+
+```typescript
+// In checkout session creation
+const paymentMethodTypes = getPaymentMethodsForAmount(totalAmount)
+
+function getPaymentMethodsForAmount(amountCents: number): string[] {
+  const amount = amountCents / 100
+
+  if (amount < 500) {
+    return ['card'] // 3DS will be required via payment_method_options
+  } else if (amount < 2000) {
+    return ['us_bank_account', 'card'] // ACH preferred, card allowed
+  } else {
+    return ['us_bank_account'] // ACH only for large payouts
+  }
+}
+```
+
+### Delayed Transfers (Critical)
+
+**Regardless of payment method**, delay all transfers to contributors:
+
+| Founder Account Age  | Transfer Delay |
+| -------------------- | -------------- |
+| < 30 days            | 14 days        |
+| 30-90 days           | 7 days         |
+| > 90 days + verified | 3 days         |
+
+This catches most fraud before funds leave the platform:
+
+- Most stolen card fraud is detected within 7 days
+- ACH returns typically occur within 5 business days
+- Gives time for Stripe Radar to flag suspicious patterns
+
+**Implementation:**
+
+```typescript
+// Add to PayoutRecipient model
+scheduledTransferAt: DateTime // When transfer will execute
+actualTransferAt: DateTime?   // When transfer actually executed
+
+// In payout creation
+const transferDelay = getTransferDelayDays(founder);
+recipient.scheduledTransferAt = addDays(new Date(), transferDelay);
+```
+
+### Mandatory 3D Secure for All Card Payments
+
+Always require 3D Secure authentication for card payments:
+
+```typescript
+const session = await stripe.checkout.sessions.create({
+  // ... other options
+  payment_method_types: ['card'],
+  payment_method_options: {
+    card: {
+      request_three_d_secure: 'any', // Always request 3DS
+    },
+  },
+  payment_intent_data: {
+    setup_future_usage: undefined, // Don't save card (reduces fraud surface)
+  },
+})
+```
+
+**Why "any" instead of "automatic":**
+
+- `automatic` - Only requests 3DS when Stripe thinks it's needed
+- `any` - Always requests 3DS, maximizing liability shift
+
+The slight UX friction is worth the fraud protection.
+
+### Stripe Chargeback Protection (Optional)
+
+For additional protection, enable [Stripe Chargeback Protection](https://stripe.com/chargeback-protection):
+
+- **Cost:** 0.4% per transaction
+- **Coverage:** Fraud-related chargebacks only (not "product not as described")
+- **Limit:** Up to $25,000/year
+- **When to use:** If chargeback rate exceeds 0.5% or for high-risk periods
+
 ### Stripe Connect
 
 Contributors connect their Stripe accounts to receive payouts:
@@ -219,6 +366,46 @@ stripe trigger checkout.session.completed
 
 In test mode, Stripe provides a simplified onboarding flow. You can skip verification steps by using test data.
 
+### Test ACH Payments
+
+#### Test Bank Connections (Financial Connections UI)
+
+When testing ACH in Stripe Checkout, you'll see a bank selection UI. Use these test banks:
+
+| Bank                    | What it tests                                      |
+| ----------------------- | -------------------------------------------------- |
+| **Test (Non-OAuth)** ✅ | Success - instant verification (recommended)       |
+| **Test (OAuth)**        | Success - with OAuth popup flow                    |
+| **Invalid Pay...**      | Payment fails (for testing `async_payment_failed`) |
+| **Down (Error)**        | Bank connection error                              |
+
+> **Tip:** Use **"Test (Non-OAuth)"** for quick successful tests.
+
+#### Manual Test Bank Account Numbers
+
+If using manual bank account entry (microdeposit verification):
+
+| Routing Number | Account Number | Result                                          |
+| -------------- | -------------- | ----------------------------------------------- |
+| 110000000      | 000123456789   | Success                                         |
+| 110000000      | 000111111116   | Fails with `insufficient_funds`                 |
+| 110000000      | 000111111113   | Fails with `account_closed`                     |
+| 110000000      | 000222222227   | Fails with `debit_not_authorized` (R10 - fraud) |
+
+**Important ACH Testing Notes:**
+
+1. **Async nature** - ACH payments don't complete immediately. Use `checkout.session.async_payment_succeeded` webhook.
+
+2. **Microdeposit verification** - In test mode, use amounts `0.32` and `0.45` to verify.
+
+3. **Instant verification** - Stripe Financial Connections can verify instantly (no microdeposits). More secure.
+
+4. **Simulating ACH returns:**
+   ```bash
+   # Trigger an ACH failure event
+   stripe trigger payment_intent.payment_failed --add payment_intent:payment_method_types=["us_bank_account"]
+   ```
+
 ## Platform Risks & Mitigation
 
 ### Negative Balance Liability
@@ -252,6 +439,8 @@ As a platform using Stripe Connect with the "Buyers purchase from you" model, **
 4. **Audit trail** - All payments and transfers are logged in `stripe_event` table for disputes
 
 #### Fraud Prevention (Priority: HIGH)
+
+> **See also:** [Payment Methods & Fraud Prevention Strategy](#payment-methods--fraud-prevention-strategy) for the complete tiered approach including ACH, 3D Secure liability shift, and delayed transfers.
 
 Stolen credit cards are a major risk, especially from certain regions. Implement these measures:
 
@@ -402,5 +591,9 @@ Ensure `STRIPE_SECRET_KEY` is set in your `.env` file and the server was restart
 - [Stripe Documentation](https://stripe.com/docs)
 - [Stripe Connect Documentation](https://stripe.com/docs/connect)
 - [Stripe Checkout Documentation](https://stripe.com/docs/payments/checkout)
+- [Stripe ACH Direct Debit](https://stripe.com/docs/payments/ach-debit)
+- [Stripe 3D Secure](https://stripe.com/docs/payments/3d-secure)
+- [Stripe Chargeback Protection](https://stripe.com/docs/disputes/chargeback-protection)
+- [Stripe Radar Rules](https://stripe.com/docs/radar/rules)
 - [Stripe CLI Documentation](https://stripe.com/docs/stripe-cli)
 - [Stripe API Reference](https://stripe.com/docs/api)

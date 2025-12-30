@@ -6,12 +6,16 @@ import {
   StripeConnectAccountStatus,
 } from '@/lib/db/types'
 import {
+  type PaymentMethodType,
+  getPaymentMethodsForAmount,
+} from '@/lib/stripe/fees'
+import {
   getAppUrl,
   getConnectRefreshUrl,
   getConnectReturnUrl,
   getStripeClient,
 } from '@/lib/stripe/server'
-import { createNotifications } from '@/server/routers/notification'
+import { createSystemNotification } from '@/server/routers/notification'
 import type { Prisma, PrismaClient } from '@prisma/client'
 import type Stripe from 'stripe'
 
@@ -68,6 +72,7 @@ export interface StripeOperations {
     cancelUrl: string
     metadata: Record<string, string>
     lineItemDescription: string
+    paymentMethodTypes?: PaymentMethodType[]
   }): Promise<{ id: string; url: string }>
 
   retrieveCheckoutSession(sessionId: string): Promise<{
@@ -148,20 +153,44 @@ export function createRealStripeOperations(): StripeOperations {
       cancelUrl,
       metadata,
       lineItemDescription,
+      paymentMethodTypes = ['card'],
     }) {
+      // Build payment method options based on allowed types
+      const includesCard = paymentMethodTypes.includes('card')
+      const includesAch = paymentMethodTypes.includes('us_bank_account')
+
       const session = await stripe.checkout.sessions.create({
         mode: 'payment',
-        payment_method_types: ['card'],
+        payment_method_types: paymentMethodTypes,
         customer_email: customerEmail,
-        // Fraud prevention: Always request 3D Secure authentication
-        payment_intent_data: {
-          setup_future_usage: undefined, // Don't save card for future use
-        },
-        payment_method_options: {
-          card: {
-            request_three_d_secure: 'any', // Always request 3DS when available
+        // Fraud prevention: Always request 3D Secure for card payments
+        ...(includesCard && {
+          payment_intent_data: {
+            setup_future_usage: undefined, // Don't save card for future use
           },
-        },
+          payment_method_options: {
+            card: {
+              request_three_d_secure: 'any', // Always request 3DS when available
+            },
+          },
+        }),
+        // ACH-specific options
+        ...(includesAch && {
+          payment_method_options: {
+            ...((includesCard && {
+              card: {
+                request_three_d_secure: 'any',
+              },
+            }) ||
+              {}),
+            us_bank_account: {
+              financial_connections: {
+                permissions: ['payment_method'], // Instant verification via Plaid
+              },
+              verification_method: 'instant', // Prefer instant over microdeposits
+            },
+          },
+        }),
         line_items: [
           {
             price_data: {
@@ -971,13 +1000,13 @@ export async function processPayoutTransfers({
       })
 
       // Send notification to recipient that they've been paid
-      await createNotifications({
+      // Use system notification to ensure it goes through even if founder pays themselves
+      await createSystemNotification({
         prisma,
         type: NotificationType.PAYOUT_TRANSFER_SENT,
         referenceType: NotificationReferenceType.PAYOUT,
         referenceId: payout.id,
-        actorId: payout.project.founderId,
-        recipientIds: [recipient.user.id],
+        recipientId: recipient.user.id,
       })
 
       results.push({
@@ -994,13 +1023,12 @@ export async function processPayoutTransfers({
         transferResult.code === 'NO_ACCOUNT' ||
         transferResult.code === 'NOT_ACTIVE'
       ) {
-        await createNotifications({
+        await createSystemNotification({
           prisma,
           type: NotificationType.PAYOUT_TRANSFER_PENDING,
           referenceType: NotificationReferenceType.PAYOUT,
           referenceId: payout.id,
-          actorId: payout.project.founderId,
-          recipientIds: [recipient.user.id],
+          recipientId: recipient.user.id,
         })
       }
 
@@ -1190,18 +1218,17 @@ export async function processPendingTransfersForUser({
         },
       })
 
-      // Send notification for each payout covered and update status if all paid
+      // Send notification for each payout covered
       const uniquePayoutIds = [
         ...new Set(projectData.recipients.map((r) => r.payout.id)),
       ]
       for (const payoutId of uniquePayoutIds) {
-        await createNotifications({
+        await createSystemNotification({
           prisma,
           type: NotificationType.PAYOUT_TRANSFER_SENT,
           referenceType: NotificationReferenceType.PAYOUT,
           referenceId: payoutId,
-          actorId: projectData.founderId,
-          recipientIds: [userId],
+          recipientId: userId,
         })
       }
 
@@ -1411,19 +1438,13 @@ export async function retryRecipientTransfer({
     ...new Set(allUnpaidRecipients.map((r) => r.payout.id)),
   ]
   for (const payoutId of uniquePayoutIds) {
-    const payoutRecipient = allUnpaidRecipients.find(
-      (r) => r.payout.id === payoutId,
-    )
-    if (payoutRecipient) {
-      await createNotifications({
-        prisma,
-        type: NotificationType.PAYOUT_TRANSFER_SENT,
-        referenceType: NotificationReferenceType.PAYOUT,
-        referenceId: payoutId,
-        actorId: payoutRecipient.payout.project.founderId,
-        recipientIds: [userId],
-      })
-    }
+    await createSystemNotification({
+      prisma,
+      type: NotificationType.PAYOUT_TRANSFER_SENT,
+      referenceType: NotificationReferenceType.PAYOUT,
+      referenceId: payoutId,
+      recipientId: userId,
+    })
   }
 
   return {
@@ -1444,6 +1465,8 @@ export async function retryRecipientTransfer({
 type StripeWebhookEvent =
   | Stripe.AccountUpdatedEvent
   | Stripe.CheckoutSessionCompletedEvent
+  | Stripe.CheckoutSessionAsyncPaymentSucceededEvent
+  | Stripe.CheckoutSessionAsyncPaymentFailedEvent
 
 /**
  * Event type constants extracted from Stripe types
@@ -1454,6 +1477,11 @@ const StripeEventType = {
     'account.updated' as const satisfies Stripe.AccountUpdatedEvent['type'],
   CheckoutSessionCompleted:
     'checkout.session.completed' as const satisfies Stripe.CheckoutSessionCompletedEvent['type'],
+  // ACH payments complete asynchronously - these events fire when the bank transfer settles
+  CheckoutSessionAsyncPaymentSucceeded:
+    'checkout.session.async_payment_succeeded' as const satisfies Stripe.CheckoutSessionAsyncPaymentSucceededEvent['type'],
+  CheckoutSessionAsyncPaymentFailed:
+    'checkout.session.async_payment_failed' as const satisfies Stripe.CheckoutSessionAsyncPaymentFailedEvent['type'],
 } as const
 
 /**
@@ -1462,7 +1490,9 @@ const StripeEventType = {
 function isHandledEvent(event: Stripe.Event): event is StripeWebhookEvent {
   return (
     event.type === StripeEventType.AccountUpdated ||
-    event.type === StripeEventType.CheckoutSessionCompleted
+    event.type === StripeEventType.CheckoutSessionCompleted ||
+    event.type === StripeEventType.CheckoutSessionAsyncPaymentSucceeded ||
+    event.type === StripeEventType.CheckoutSessionAsyncPaymentFailed
   )
 }
 
@@ -1696,6 +1726,164 @@ export async function handleWebhook({
 
         return { success: true, handled: true, eventType }
       }
+
+      case 'checkout.session.async_payment_succeeded': {
+        // ACH payment completed successfully (async settlement)
+        // This fires when the bank transfer actually settles (3-5 business days)
+        const session = event.data.object
+
+        // Only process payout funding sessions
+        if (session.metadata?.type !== 'payout_funding') {
+          if (storedEvent) {
+            await prisma.stripeEvent.update({
+              where: { id: storedEvent.id },
+              data: { processed: true, processedAt: new Date() },
+            })
+          }
+          return { success: true, handled: false, eventType }
+        }
+
+        // Confirm the payment (same flow as checkout.session.completed)
+        const result = await confirmPayoutPayment({
+          prisma,
+          sessionId: session.id,
+        })
+
+        if (!result.success) {
+          console.error('Failed to confirm ACH payout payment:', result.message)
+          if (storedEvent) {
+            await prisma.stripeEvent.update({
+              where: { id: storedEvent.id },
+              data: {
+                payoutId: session.metadata?.payoutId,
+                processed: true,
+                processedAt: new Date(),
+                error: result.message,
+              },
+            })
+          }
+          return { success: true, handled: true, eventType }
+        }
+
+        // Get payout with project info for notification
+        const payout = await prisma.payout.findUnique({
+          where: { id: result.payoutId },
+          select: {
+            id: true,
+            project: {
+              select: { founderId: true },
+            },
+          },
+        })
+
+        // Notify founder that ACH payment cleared
+        if (payout) {
+          await createSystemNotification({
+            prisma,
+            type: NotificationType.PAYOUT_PAYMENT_SUCCEEDED,
+            referenceType: NotificationReferenceType.PAYOUT,
+            referenceId: result.payoutId,
+            recipientId: payout.project.founderId,
+          })
+        }
+
+        // Process transfers to recipients
+        const transferResult = await processPayoutTransfers({
+          prisma,
+          payoutId: result.payoutId,
+        })
+
+        if (transferResult.success) {
+          console.log(
+            `ACH payment confirmed - Processed ${transferResult.summary.total} recipients: ` +
+              `${transferResult.summary.paid} paid, ` +
+              `${transferResult.summary.failed} failed, ` +
+              `${transferResult.summary.skipped} skipped`,
+          )
+        } else {
+          console.error(
+            'Failed to process ACH transfers:',
+            transferResult.message,
+          )
+        }
+
+        if (storedEvent) {
+          await prisma.stripeEvent.update({
+            where: { id: storedEvent.id },
+            data: {
+              payoutId: result.payoutId,
+              processed: true,
+              processedAt: new Date(),
+            },
+          })
+        }
+
+        return { success: true, handled: true, eventType }
+      }
+
+      case 'checkout.session.async_payment_failed': {
+        // ACH payment failed (insufficient funds, account closed, etc.)
+        const session = event.data.object
+
+        if (session.metadata?.type !== 'payout_funding') {
+          if (storedEvent) {
+            await prisma.stripeEvent.update({
+              where: { id: storedEvent.id },
+              data: { processed: true, processedAt: new Date() },
+            })
+          }
+          return { success: true, handled: false, eventType }
+        }
+
+        const payoutId = session.metadata?.payoutId
+        if (payoutId) {
+          // Get payout with project info for notification
+          const payout = await prisma.payout.findUnique({
+            where: { id: payoutId },
+            select: {
+              id: true,
+              project: {
+                select: { founderId: true },
+              },
+            },
+          })
+
+          // Update payout status to FAILED
+          await prisma.payout.update({
+            where: { id: payoutId },
+            data: {
+              paymentStatus: PayoutPaymentStatus.FAILED,
+            },
+          })
+
+          // Send notification to founder about failed payment
+          if (payout) {
+            await createSystemNotification({
+              prisma,
+              type: NotificationType.PAYOUT_PAYMENT_FAILED,
+              referenceType: NotificationReferenceType.PAYOUT,
+              referenceId: payoutId,
+              recipientId: payout.project.founderId,
+            })
+          }
+
+          console.error(`ACH payment failed for payout ${payoutId}`)
+        }
+
+        if (storedEvent) {
+          await prisma.stripeEvent.update({
+            where: { id: storedEvent.id },
+            data: {
+              payoutId,
+              processed: true,
+              processedAt: new Date(),
+              error: 'ACH payment failed',
+            },
+          })
+        }
+
+        return { success: true, handled: true, eventType }
+      }
     }
   } catch (error) {
     const errorMessage =
@@ -1827,6 +2015,9 @@ export async function createPayoutCheckout({
   const cancelUrl = `${appUrl}/p/${projectSlug}/payouts/${payoutId}?payment=cancel`
 
   try {
+    // Determine allowed payment methods based on amount (tiered fraud prevention)
+    const paymentMethodTypes = getPaymentMethodsForAmount(founderTotalCents)
+
     const session = await stripeOps.createCheckoutSession({
       amountCents: founderTotalCents,
       currency: 'usd',
@@ -1841,6 +2032,7 @@ export async function createPayoutCheckout({
         type: 'payout_funding',
       },
       lineItemDescription: `${payout.project.name} - ${payout.periodLabel} Payout`,
+      paymentMethodTypes,
     })
 
     // Update payout with session info (status only, amounts already set)

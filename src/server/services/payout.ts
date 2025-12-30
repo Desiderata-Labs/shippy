@@ -6,7 +6,7 @@ import {
   StripeConnectAccountStatus,
   SubmissionStatus,
 } from '@/lib/db/types'
-import { calculateStripeFeeFromGross } from '@/lib/stripe/fees'
+import { calculateExpectedFeeFromGross } from '@/lib/stripe/fees'
 import { createNotifications } from '@/server/routers/notification'
 import { transferFunds } from '@/server/services/stripe'
 import type { Prisma, PrismaClient } from '@prisma/client'
@@ -151,7 +151,8 @@ export function calculatePayout({
   const founderPaysCents = platformFeeCents + potentialContributorCents
 
   // Stripe takes their fee from the gross amount
-  const stripeFeeCents = calculateStripeFeeFromGross(founderPaysCents)
+  // Uses expected fee based on likely payment method (ACH for >= $500)
+  const stripeFeeCents = calculateExpectedFeeFromGross(founderPaysCents)
 
   // Contributors get what's left after Shippy and Stripe
   const distributedAmountCents = Math.max(

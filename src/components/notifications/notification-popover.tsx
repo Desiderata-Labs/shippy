@@ -73,6 +73,18 @@ function getNotificationDescription(
     case NotificationType.PAYOUT_DISPUTED:
       return `${actorName} disputed a payout`
 
+    // Stripe payout transfers
+    case NotificationType.PAYOUT_TRANSFER_SENT:
+      return `Your payout has been transferred to your Stripe account`
+    case NotificationType.PAYOUT_TRANSFER_PENDING:
+      return `Your payout is ready — connect Stripe to receive it`
+
+    // Payment status (sent to founder)
+    case NotificationType.PAYOUT_PAYMENT_SUCCEEDED:
+      return `Payment cleared for "${title}" — payouts processing`
+    case NotificationType.PAYOUT_PAYMENT_FAILED:
+      return `Payment failed for "${title}" — please retry`
+
     default:
       return `${actorName} did something`
   }

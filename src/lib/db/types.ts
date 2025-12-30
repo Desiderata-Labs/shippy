@@ -183,6 +183,10 @@ export enum NotificationType {
   // Stripe payouts (contributor receives transfer)
   PAYOUT_TRANSFER_SENT = 'PAYOUT_TRANSFER_SENT', // Transfer sent to contributor's Stripe account
   PAYOUT_TRANSFER_PENDING = 'PAYOUT_TRANSFER_PENDING', // Founder paid but contributor needs Stripe Connect
+
+  // Payment status (sent to founder)
+  PAYOUT_PAYMENT_SUCCEEDED = 'PAYOUT_PAYMENT_SUCCEEDED', // ACH payment cleared (sent to founder)
+  PAYOUT_PAYMENT_FAILED = 'PAYOUT_PAYMENT_FAILED', // ACH or card payment failed (sent to founder)
 }
 
 export enum NotificationReferenceType {

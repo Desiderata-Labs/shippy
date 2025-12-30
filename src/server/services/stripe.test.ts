@@ -1,5 +1,10 @@
 /* eslint-disable @typescript-eslint/no-explicit-any */
-import { PayoutPaymentStatus, StripeConnectAccountStatus } from '@/lib/db/types'
+import {
+  NotificationReferenceType,
+  NotificationType,
+  PayoutPaymentStatus,
+  StripeConnectAccountStatus,
+} from '@/lib/db/types'
 import {
   type StripeOperations,
   createConnectAccount,
@@ -47,6 +52,7 @@ vi.mock('@/lib/db/server', () => ({
 // Mock the notification router (uses server-only imports)
 vi.mock('@/server/routers/notification', () => ({
   createNotifications: vi.fn().mockResolvedValue(undefined),
+  createSystemNotification: vi.fn().mockResolvedValue(undefined),
 }))
 
 // ================================
@@ -76,6 +82,10 @@ type MockPrisma = {
     updateMany: ReturnType<typeof vi.fn>
     count: ReturnType<typeof vi.fn>
   }
+  notification: {
+    create: ReturnType<typeof vi.fn>
+    createMany: ReturnType<typeof vi.fn>
+  }
 }
 
 function createMockPrisma(): MockPrisma {
@@ -101,6 +111,10 @@ function createMockPrisma(): MockPrisma {
       update: vi.fn(),
       updateMany: vi.fn(),
       count: vi.fn(),
+    },
+    notification: {
+      create: vi.fn(),
+      createMany: vi.fn(),
     },
   }
 }
@@ -1078,6 +1092,209 @@ describe('handleWebhook', () => {
       if (result.success) {
         expect(result.handled).toBe(false) // Not handled because not a payout session
       }
+    })
+  })
+
+  describe('checkout.session.async_payment_succeeded handling (ACH)', () => {
+    test('ignores non-payout ACH sessions', async () => {
+      const event = createMockEvent(
+        'checkout.session.async_payment_succeeded',
+        {
+          id: 'cs_ach_123',
+          payment_status: 'paid',
+          metadata: { type: 'subscription' }, // Not a payout session
+        },
+      )
+
+      mockPrisma.stripeEvent.upsert.mockResolvedValue({
+        id: 'se_123',
+        stripeEventId: event.id,
+        processed: false,
+      })
+      mockPrisma.stripeEvent.update.mockResolvedValue({})
+
+      const result = await handleWebhook({ prisma: mockPrisma as any, event })
+
+      expect(result.success).toBe(true)
+      if (result.success) {
+        expect(result.handled).toBe(false)
+      }
+    })
+
+    test('processes ACH payment for payout funding', async () => {
+      const event = createMockEvent(
+        'checkout.session.async_payment_succeeded',
+        {
+          id: 'cs_ach_123',
+          payment_status: 'paid',
+          payment_intent: 'pi_123',
+          amount_total: 10000,
+          metadata: {
+            type: 'payout_funding',
+            payoutId: 'payout-1',
+          },
+        },
+      )
+
+      mockPrisma.stripeEvent.upsert.mockResolvedValue({
+        id: 'se_123',
+        stripeEventId: event.id,
+        processed: false,
+      })
+      mockPrisma.stripeEvent.update.mockResolvedValue({})
+
+      // Mock payout lookup for confirmPayoutPayment
+      mockPrisma.payout.findFirst.mockResolvedValue({
+        id: 'payout-1',
+        paymentStatus: PayoutPaymentStatus.PROCESSING,
+      })
+      mockPrisma.payout.update.mockResolvedValue({})
+
+      // Mock payout lookup for processPayoutTransfers
+      mockPrisma.payout.findUnique.mockResolvedValue({
+        id: 'payout-1',
+        paymentStatus: PayoutPaymentStatus.PAID,
+        project: {
+          id: 'proj-1',
+          slug: 'test',
+          name: 'Test',
+          founderId: 'founder-1',
+        },
+        recipients: [],
+      })
+
+      // Mock Stripe session retrieval
+      ;(
+        mockStripeOps.retrieveCheckoutSession as ReturnType<typeof vi.fn>
+      ).mockResolvedValue({
+        id: 'cs_ach_123',
+        paymentStatus: 'paid',
+        paymentIntent: 'pi_123',
+        amountTotal: 10000,
+      })
+
+      const result = await handleWebhook({ prisma: mockPrisma as any, event })
+
+      expect(result.success).toBe(true)
+      if (result.success) {
+        expect(result.handled).toBe(true)
+        expect(result.eventType).toBe(
+          'checkout.session.async_payment_succeeded',
+        )
+      }
+
+      // Should have updated the payout
+      expect(mockPrisma.payout.update).toHaveBeenCalled()
+    })
+  })
+
+  describe('checkout.session.async_payment_failed handling (ACH)', () => {
+    test('ignores non-payout ACH sessions', async () => {
+      const event = createMockEvent('checkout.session.async_payment_failed', {
+        id: 'cs_ach_fail_123',
+        metadata: { type: 'subscription' },
+      })
+
+      mockPrisma.stripeEvent.upsert.mockResolvedValue({
+        id: 'se_123',
+        stripeEventId: event.id,
+        processed: false,
+      })
+      mockPrisma.stripeEvent.update.mockResolvedValue({})
+
+      const result = await handleWebhook({ prisma: mockPrisma as any, event })
+
+      expect(result.success).toBe(true)
+      if (result.success) {
+        expect(result.handled).toBe(false)
+      }
+    })
+
+    test('marks payout as FAILED and sends notification to founder', async () => {
+      // Import the mocked function to check if it was called
+      const { createSystemNotification } =
+        await import('@/server/routers/notification')
+
+      const event = createMockEvent('checkout.session.async_payment_failed', {
+        id: 'cs_ach_fail_123',
+        metadata: {
+          type: 'payout_funding',
+          payoutId: 'payout-1',
+        },
+      })
+
+      mockPrisma.stripeEvent.upsert.mockResolvedValue({
+        id: 'se_123',
+        stripeEventId: event.id,
+        processed: false,
+      })
+      mockPrisma.stripeEvent.update.mockResolvedValue({})
+
+      // Mock payout lookup
+      mockPrisma.payout.findUnique.mockResolvedValue({
+        id: 'payout-1',
+        project: { founderId: 'founder-1' },
+      })
+      mockPrisma.payout.update.mockResolvedValue({})
+
+      const result = await handleWebhook({ prisma: mockPrisma as any, event })
+
+      expect(result.success).toBe(true)
+      if (result.success) {
+        expect(result.handled).toBe(true)
+        expect(result.eventType).toBe('checkout.session.async_payment_failed')
+      }
+
+      // Should have updated payout status to FAILED
+      expect(mockPrisma.payout.update).toHaveBeenCalledWith({
+        where: { id: 'payout-1' },
+        data: { paymentStatus: PayoutPaymentStatus.FAILED },
+      })
+
+      // Should have sent a system notification to the founder
+      expect(createSystemNotification).toHaveBeenCalledWith({
+        prisma: mockPrisma,
+        type: NotificationType.PAYOUT_PAYMENT_FAILED,
+        referenceType: NotificationReferenceType.PAYOUT,
+        referenceId: 'payout-1',
+        recipientId: 'founder-1',
+      })
+
+      // Should have stored the error in the event
+      expect(mockPrisma.stripeEvent.update).toHaveBeenCalledWith({
+        where: { id: 'se_123' },
+        data: expect.objectContaining({
+          payoutId: 'payout-1',
+          error: 'ACH payment failed',
+        }),
+      })
+    })
+
+    test('handles missing payoutId gracefully', async () => {
+      const event = createMockEvent('checkout.session.async_payment_failed', {
+        id: 'cs_ach_fail_123',
+        metadata: {
+          type: 'payout_funding',
+          // No payoutId
+        },
+      })
+
+      mockPrisma.stripeEvent.upsert.mockResolvedValue({
+        id: 'se_123',
+        stripeEventId: event.id,
+        processed: false,
+      })
+      mockPrisma.stripeEvent.update.mockResolvedValue({})
+
+      const result = await handleWebhook({ prisma: mockPrisma as any, event })
+
+      expect(result.success).toBe(true)
+      if (result.success) {
+        expect(result.handled).toBe(true)
+      }
+
+      // Should not have tried to update a payout
+      expect(mockPrisma.payout.update).not.toHaveBeenCalled()
     })
   })
 

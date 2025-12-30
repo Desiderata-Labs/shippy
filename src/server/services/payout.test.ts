@@ -565,12 +565,12 @@ describe('Payout Calculation Edge Cases', () => {
     // Max distributable: $4.75M = 475000000 cents
     // 100% utilization, founder pays $5M
     expect(result.founderPaysCents).toBe(500000000)
-    // Stripe fee: ceil($5M * 2.9%) + 30 = 14500030 cents
-    expect(result.stripeFeeCents).toBe(14500030)
+    // Stripe fee: ACH for large amounts, 0.8% capped at $5 = 500 cents
+    expect(result.stripeFeeCents).toBe(500)
     // Shippy: 25000000 cents
     expect(result.platformFeeCents).toBe(25000000)
-    // Distributed: $5M - $250K - Stripe = 500000000 - 25000000 - 14500030 = 460499970
-    expect(result.distributedAmountCents).toBe(460499970)
+    // Distributed: $5M - $250K - Stripe = 500000000 - 25000000 - 500 = 474999500
+    expect(result.distributedAmountCents).toBe(474999500)
   })
 
   test('handles single point contributor', () => {

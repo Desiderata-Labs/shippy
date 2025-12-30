@@ -486,8 +486,20 @@ export function PayoutDetailContent() {
                       to receive your payout.
                     </p>
                   )
+                ) : payout.paymentStatus === PayoutPaymentStatus.PROCESSING ? (
+                  // Payment is processing (likely ACH settling)
+                  <p className="mt-1 text-xs text-yellow-700/70 dark:text-yellow-400/70">
+                    Payment is processing. Bank transfers (ACH) typically take
+                    3-5 business days to settle.
+                  </p>
+                ) : payout.paymentStatus === PayoutPaymentStatus.FAILED ? (
+                  // Payment failed
+                  <p className="mt-1 text-xs text-red-700/70 dark:text-red-400/70">
+                    The payment failed. The founder will need to retry the
+                    payment.
+                  </p>
                 ) : (
-                  // Founder hasn't paid yet
+                  // Founder hasn't started payment yet (PENDING)
                   <p className="mt-1 text-xs text-yellow-700/70 dark:text-yellow-400/70">
                     The founder hasn&apos;t completed the payout payment yet.
                   </p>
@@ -801,7 +813,7 @@ export function PayoutDetailContent() {
                 </div>
                 {/* Stripe fee */}
                 <div className="flex items-center justify-between text-sm">
-                  <span className="text-muted-foreground">Processing fee</span>
+                  <span className="text-muted-foreground">Stripe fee</span>
                   <span className="font-medium">
                     {formatCurrency(payout.stripeFeeCents ?? 0)}
                   </span>

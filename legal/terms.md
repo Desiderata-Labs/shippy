@@ -75,7 +75,7 @@ For clarity: points, reward pools, and any references to "royalties" or "upside"
 
 Shippy charges a **2% platform fee** on payouts, calculated on the full reward pool amount for each payout period. This fee is paid by the founder (project owner) at the time of payout.
 
-Additionally, Stripe charges payment processing fees (currently approximately 2.9% + $0.30 per transaction for card payments). These fees are absorbed from the contributors' share of the payout.
+Additionally, Stripe charges payment processing fees that vary by payment method: approximately 2.9% + $0.30 per transaction for card payments, or 0.8% (capped at $5) for ACH bank transfers. These fees are absorbed from the contributors' share of the payout.
 
 We may introduce additional fees for other parts of the Service in the future. If we do, we will disclose applicable fees before you incur them.
 

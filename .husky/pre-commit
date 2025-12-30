@@ -1,1 +1,1 @@
-pnpm format && pnpm lint && pnpm check-types
+pnpm format && git add -u && pnpm lint && pnpm check-types

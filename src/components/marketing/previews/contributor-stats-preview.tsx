@@ -63,7 +63,7 @@ const ContributorStatsPreviewComponent = () => {
                 <div>
                   <p className="text-sm font-medium">{project.name}</p>
                   <p className="text-xs text-muted-foreground">
-                    {project.share} of profit share
+                    {project.share}
                   </p>
                 </div>
                 <span className="text-sm font-semibold text-emerald-600 dark:text-emerald-400">

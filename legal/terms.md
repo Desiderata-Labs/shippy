@@ -1,6 +1,6 @@
 # Terms of Service
 
-Last updated: 2025-12-14
+Last updated: 2025-12-30
 
 These Terms of Service ("Terms") govern your access to and use of Shippy (the "Service"). The Service is operated by **Desiderata LLC**, a Pennsylvania limited liability company ("Desiderata," "we," "us," or "our").
 
@@ -11,7 +11,7 @@ By accessing or using the Service, you agree to these Terms. If you do not agree
 This section is a convenience summary. The full Terms below control.
 
 - Shippy helps founders and contributors coordinate work, points, and payout history; users provide projects/bounties/submissions.
-- Reward pools/points/payouts are between users; payouts may be handled through third-party payment processors (for example, Stripe Connect) or other methods depending on the project; nothing is guaranteed and you handle your own taxes.
+- Reward pools/points/payouts are between users; payouts are processed through Stripe (founders pay via Stripe Checkout, contributors receive funds via Stripe Connect); nothing is guaranteed and you handle your own taxes.
 - You own what you post, but you give us a license to host and display it so the Service can work.
 - Use the Service legally and respectfully; don’t hack, scrape excessively, or misrepresent work.
 - We can change the Service and may suspend/terminate accounts or remove content when needed.
@@ -63,7 +63,7 @@ Projects may describe a reward pool, point allocations, and payout history. Thes
 Unless we explicitly state otherwise in a signed writing:
 
 - **No guaranteed payouts.** Shippy does not guarantee any payout amount, timing, frequency, or availability.
-- **Payments via third parties.** Payments to contributors may be handled off-platform by project owners and/or through third-party payment processors (for example, Stripe Connect), depending on the project. Shippy is not the payment processor, and payment processor terms apply.
+- **Payments via Stripe.** Payouts are processed through Stripe. Founders pay via Stripe Checkout; contributors receive funds via Stripe Connect (Express accounts). By using Shippy's payout features, you agree to [Stripe's terms of service](https://stripe.com/legal). Stripe is a third-party service, and Shippy is not responsible for Stripe's availability, fees, or policies.
 - **Project owner responsibility.** Any payout obligations are solely between a project (and/or its owner) and its contributors.
 - **Accuracy and inputs.** Profit and payout calculations may rely on information supplied by project owners and may be incomplete or inaccurate.
 - **Taxes.** You are solely responsible for taxes, reporting, and compliance obligations related to any payouts you receive or make (including any withholding, VAT/GST, or issuance of tax forms such as 1099s where applicable).
@@ -73,7 +73,11 @@ For clarity: points, reward pools, and any references to "royalties" or "upside"
 
 ## 6. Fees
 
-We may charge fees for some parts of the Service now or in the future. If we do, we will disclose applicable fees before you incur them.
+Shippy charges a **2% platform fee** on payouts, calculated on the full reward pool amount for each payout period. This fee is paid by the founder (project owner) at the time of payout.
+
+Additionally, Stripe charges payment processing fees that vary by payment method: approximately 2.9% + $0.30 per transaction for card payments, or 0.8% (capped at $5) for ACH bank transfers. These fees are absorbed from the contributors' share of the payout.
+
+We may introduce additional fees for other parts of the Service in the future. If we do, we will disclose applicable fees before you incur them.
 
 ## 7. User Content; licenses; IP
 

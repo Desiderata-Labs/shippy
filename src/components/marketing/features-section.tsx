@@ -71,7 +71,7 @@ export function FeaturesSection() {
           <GlassCard className="md:col-span-2">
             <CardHeader icon={BankNote03} title="Recurring royalties" />
             <p className="mt-2 text-sm text-muted-foreground">
-              Every time the project profits, you get paid.
+              Every time the project profits, you get paid via Stripe.
             </p>
             <div className="mt-5 flex flex-col gap-2">
               <PayoutItem month="March" amount={480} verified />
@@ -135,7 +135,7 @@ export function FeaturesSection() {
             </p>
             <div className="mt-5 flex flex-wrap gap-2">
               <Pill variant="success">✓ Verified payouts</Pill>
-              <Pill variant="primary">Growing community</Pill>
+              <Pill variant="primary">Stripe-powered</Pill>
               <Pill variant="default">Public history</Pill>
               <Pill variant="default">No hidden terms</Pill>
             </div>

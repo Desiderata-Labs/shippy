@@ -5,34 +5,26 @@ import { trpc } from '@/lib/trpc/react'
 import {
   ArrowUpRight,
   BankNote03,
-  Check,
   ChevronRight,
   Clock,
   Folder,
   MessageTextSquare02,
   Target01,
-  X,
 } from '@untitled-ui/icons-react'
-import { Loader2 } from 'lucide-react'
-import { useEffect, useState } from 'react'
+import { useEffect } from 'react'
 import Image from 'next/image'
 import Link from 'next/link'
 import { redirect, useRouter } from 'next/navigation'
-import {
-  PayoutRecipientStatus,
-  PayoutStatus,
-  SubmissionStatus,
-} from '@/lib/db/types'
+import { SubmissionStatus } from '@/lib/db/types'
 import { routes } from '@/lib/routes'
 import { submissionStatusLabels } from '@/lib/status-colors'
 import { cn } from '@/lib/utils'
-import { AppButton, AppTextarea } from '@/components/app'
+import { AppButton } from '@/components/app'
 import { AppBackground } from '@/components/layout/app-background'
 import { Badge } from '@/components/ui/badge'
 import { Card } from '@/components/ui/card'
 import { Separator } from '@/components/ui/separator'
 import { Skeleton } from '@/components/ui/skeleton'
-import { toast } from 'sonner'
 
 function formatCurrency(cents: number): string {
   return new Intl.NumberFormat('en-US', {
@@ -70,12 +62,6 @@ function StatCard({
 export function DashboardContent() {
   const router = useRouter()
   const { data: session, isPending: sessionLoading } = useSession()
-  const [confirmingPayoutId, setConfirmingPayoutId] = useState<string | null>(
-    null,
-  )
-  const [showDisputeForm, setShowDisputeForm] = useState<string | null>(null)
-  const [disputeReason, setDisputeReason] = useState('')
-
   const { data, isLoading } = trpc.contributor.myDashboard.useQuery(undefined, {
     enabled: !!session,
   })
@@ -84,21 +70,6 @@ export function DashboardContent() {
     {},
     { enabled: !!session },
   )
-
-  const utils = trpc.useUtils()
-
-  const confirmReceipt = trpc.payout.confirmReceipt.useMutation({
-    onSuccess: () => {
-      toast.success('Receipt confirmed!')
-      utils.contributor.myDashboard.invalidate()
-      setConfirmingPayoutId(null)
-      setShowDisputeForm(null)
-      setDisputeReason('')
-    },
-    onError: (error) => {
-      toast.error(error.message)
-    },
-  })
 
   // Check if user needs onboarding (no username set)
   const { data: userData, isLoading: userLoading } = trpc.user.me.useQuery(
@@ -357,58 +328,18 @@ export function DashboardContent() {
             ) : (
               <div>
                 {data.recentPayouts.map((recipient, index) => {
-                  const needsConfirmation =
-                    recipient.status === PayoutRecipientStatus.PENDING &&
-                    recipient.payout.status === PayoutStatus.SENT
-
-                  const handleConfirm = async () => {
-                    setConfirmingPayoutId(recipient.payoutId)
-                    try {
-                      await confirmReceipt.mutateAsync({
-                        payoutId: recipient.payoutId,
-                        confirmed: true,
-                      })
-                    } catch {
-                      // Error is handled by onError callback
-                    } finally {
-                      setConfirmingPayoutId(null)
-                    }
-                  }
-
-                  const handleDispute = async () => {
-                    setConfirmingPayoutId(recipient.payoutId)
-                    try {
-                      await confirmReceipt.mutateAsync({
-                        payoutId: recipient.payoutId,
-                        confirmed: false,
-                        disputeReason: disputeReason || 'Payment not received',
-                      })
-                    } catch {
-                      // Error is handled by onError callback
-                    } finally {
-                      setConfirmingPayoutId(null)
-                    }
-                  }
-
-                  const statusBadge = {
-                    [PayoutRecipientStatus.CONFIRMED]: {
-                      label: 'Confirmed',
-                      color: 'bg-primary/10 text-primary border-primary/20',
-                    },
-                    [PayoutRecipientStatus.DISPUTED]: {
-                      label: 'Disputed',
-                      color: 'bg-red-500/10 text-red-500 border-red-500/20',
-                    },
-                    [PayoutRecipientStatus.PENDING]: {
-                      label: 'Pending',
-                      color:
-                        'bg-yellow-500/10 text-yellow-600 dark:text-yellow-400 border-yellow-500/20',
-                    },
-                  }
-
-                  const badge =
-                    statusBadge[recipient.status as keyof typeof statusBadge] ??
-                    statusBadge[PayoutRecipientStatus.PENDING]
+                  // Stripe transfers auto-verify payment - simple paid/pending status
+                  const isPaid = !!recipient.paidAt
+                  const badge = isPaid
+                    ? {
+                        label: 'Paid',
+                        color: 'bg-primary/10 text-primary border-primary/20',
+                      }
+                    : {
+                        label: 'Pending',
+                        color:
+                          'bg-yellow-500/10 text-yellow-600 dark:text-yellow-400 border-yellow-500/20',
+                      }
 
                   return (
                     <div key={recipient.id}>
@@ -452,114 +383,6 @@ export function DashboardContent() {
                             </Badge>
                           </div>
                         </div>
-
-                        {/* Confirmation actions */}
-                        {needsConfirmation &&
-                          showDisputeForm !== recipient.payoutId && (
-                            <div className="mt-3 flex gap-2">
-                              <AppButton
-                                size="sm"
-                                onClick={handleConfirm}
-                                disabled={
-                                  confirmingPayoutId === recipient.payoutId
-                                }
-                                className="flex-1 bg-primary hover:bg-primary/90"
-                              >
-                                {confirmingPayoutId === recipient.payoutId ? (
-                                  <Loader2 className="mr-2 size-3 animate-spin" />
-                                ) : (
-                                  <Check className="mr-2 size-3" />
-                                )}
-                                Confirm
-                              </AppButton>
-                              <AppButton
-                                size="sm"
-                                variant="outline"
-                                onClick={() =>
-                                  setShowDisputeForm(recipient.payoutId)
-                                }
-                                disabled={
-                                  confirmingPayoutId === recipient.payoutId
-                                }
-                                className="text-red-500 hover:bg-red-500/10"
-                              >
-                                <X className="mr-2 size-3" />
-                                Dispute
-                              </AppButton>
-                            </div>
-                          )}
-
-                        {/* Dispute form */}
-                        {showDisputeForm === recipient.payoutId && (
-                          <div className="mt-3 space-y-2 rounded-lg border border-red-500/20 bg-red-500/5 p-3">
-                            <p className="text-xs font-medium text-red-500">
-                              Report a problem with this payout
-                            </p>
-                            <AppTextarea
-                              value={disputeReason}
-                              onChange={(e) => setDisputeReason(e.target.value)}
-                              placeholder="Describe the issue..."
-                              rows={2}
-                              disabled={
-                                confirmingPayoutId === recipient.payoutId
-                              }
-                            />
-                            <div className="flex gap-2">
-                              <AppButton
-                                size="sm"
-                                variant="outline"
-                                onClick={() => {
-                                  setShowDisputeForm(null)
-                                  setDisputeReason('')
-                                }}
-                                disabled={
-                                  confirmingPayoutId === recipient.payoutId
-                                }
-                              >
-                                Cancel
-                              </AppButton>
-                              <AppButton
-                                size="sm"
-                                onClick={handleDispute}
-                                disabled={
-                                  confirmingPayoutId === recipient.payoutId
-                                }
-                                className="bg-red-600 hover:bg-red-700"
-                              >
-                                {confirmingPayoutId === recipient.payoutId ? (
-                                  <Loader2 className="mr-2 size-3 animate-spin" />
-                                ) : (
-                                  <X className="mr-2 size-3" />
-                                )}
-                                Submit
-                              </AppButton>
-                            </div>
-                          </div>
-                        )}
-
-                        {/* Resolve dispute - allow marking as received after dispute */}
-                        {recipient.status ===
-                          PayoutRecipientStatus.DISPUTED && (
-                          <div className="mt-3 flex items-center justify-between rounded-lg border border-red-500/20 bg-red-500/5 p-3">
-                            <p className="text-xs text-muted-foreground">
-                              Received it after all?
-                            </p>
-                            <AppButton
-                              size="sm"
-                              onClick={handleConfirm}
-                              disabled={
-                                confirmingPayoutId === recipient.payoutId
-                              }
-                            >
-                              {confirmingPayoutId === recipient.payoutId ? (
-                                <Loader2 className="mr-1.5 size-3 animate-spin" />
-                              ) : (
-                                <Check className="mr-1.5 size-3" />
-                              )}
-                              Mark as Received
-                            </AppButton>
-                          </div>
-                        )}
                       </div>
                     </div>
                   )

@@ -10,6 +10,7 @@ import {
 import { dashboardPaths, dashboardRoutes } from './dashboard'
 import { discoverPaths, discoverRoutes } from './discover'
 import { projectPaths, projectRoutes } from './project'
+import { settingsPaths, settingsRoutes } from './settings'
 import { userPaths, userRoutes } from './user'
 
 // Routes that don't require authentication
@@ -35,6 +36,7 @@ export const routes = {
   docs: docsRoutes,
   llmsTxt: llmsTxtRoutes,
   project: projectRoutes,
+  settings: settingsRoutes,
   user: userRoutes,
 } as const
 
@@ -48,6 +50,7 @@ export const paths = {
   docs: docsPaths,
   llmsTxt: llmsTxtPaths,
   project: projectPaths,
+  settings: settingsPaths,
   user: userPaths,
 } as const
 

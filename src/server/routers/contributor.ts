@@ -1,4 +1,4 @@
-import { PayoutRecipientStatus, SubmissionStatus } from '@/lib/db/types'
+import { SubmissionStatus } from '@/lib/db/types'
 import { nanoId } from '@/lib/nanoid/zod'
 import { protectedProcedure, publicProcedure, router } from '@/server/trpc'
 import { z } from 'zod/v4'
@@ -24,11 +24,11 @@ export const contributorRouter = router({
         },
       })
 
-      // Get lifetime earnings for each contributor
+      // Get lifetime earnings for each contributor (only those paid via Stripe transfer)
       const payoutRecipients = await ctx.prisma.payoutRecipient.findMany({
         where: {
           payout: { projectId: input.projectId },
-          status: PayoutRecipientStatus.CONFIRMED,
+          paidAt: { not: null }, // Only count recipients who've been paid
         },
         select: {
           userId: true,
@@ -159,14 +159,16 @@ export const contributorRouter = router({
       }
     }
 
-    // Add payout data
+    // Add payout data - now based on Stripe transfer status (paidAt)
     for (const recipient of payoutRecipients) {
       const projectId = recipient.payout.projectId
       const existing = projectMap.get(projectId)
       if (existing) {
-        if (recipient.status === PayoutRecipientStatus.CONFIRMED) {
+        if (recipient.paidAt) {
+          // Recipient has been paid via Stripe transfer
           existing.lifetimeEarningsCents += Number(recipient.amountCents)
-        } else if (recipient.status === PayoutRecipientStatus.PENDING) {
+        } else {
+          // Awaiting payment (pending Stripe transfer)
           existing.pendingPayouts += 1
         }
       }

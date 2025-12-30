@@ -6,7 +6,7 @@ import {
   BountyClaimMode,
   BountyStatus,
   ClaimStatus,
-  PayoutStatus,
+  PayoutPaymentStatus,
   PayoutVisibility,
   SubmissionStatus,
 } from '@/lib/db/types'
@@ -98,13 +98,13 @@ async function getProject(slug: string) {
       payouts: {
         select: {
           id: true,
-          status: true,
+          paymentStatus: true,
           poolAmountCents: true,
           recipients: {
             select: {
               userId: true,
               amountCents: true,
-              status: true,
+              paidAt: true,
             },
           },
         },
@@ -133,9 +133,9 @@ async function getProject(slug: string) {
     0,
   )
 
+  // Payouts are verified when founder has paid via Stripe
   const verifiedPayoutCount = project.payouts.filter(
-    (p) =>
-      p.status === PayoutStatus.COMPLETED || p.status === PayoutStatus.SENT,
+    (p) => p.paymentStatus === PayoutPaymentStatus.PAID,
   ).length
 
   // Transform bounties to include pendingSubmissions count and approved submission

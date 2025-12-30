@@ -2,11 +2,13 @@ import { prisma as globalPrisma } from '@/lib/db/server'
 import {
   NotificationReferenceType,
   NotificationType,
-  PayoutRecipientStatus,
-  PayoutStatus,
+  PayoutPaymentStatus,
+  StripeConnectAccountStatus,
   SubmissionStatus,
 } from '@/lib/db/types'
+import { calculateExpectedFeeFromGross } from '@/lib/stripe/fees'
 import { createNotifications } from '@/server/routers/notification'
+import { transferFunds } from '@/server/services/stripe'
 import type { Prisma, PrismaClient } from '@prisma/client'
 
 // Type for either PrismaClient or a transaction client
@@ -87,8 +89,13 @@ export interface PayoutBreakdown {
 
 export interface CalculatePayoutResult {
   poolAmountCents: number
+  /** What founder actually pays (pool * utilization) */
+  founderPaysCents: number
+  /** Stripe processing fee (comes out of founderPaysCents) */
+  stripeFeeCents: number
+  /** Platform fee (comes out of founderPaysCents) */
   platformFeeCents: number
-  maxDistributableCents: number
+  /** What contributors receive (founderPaysCents - stripeFeeCents - platformFeeCents) */
   distributedAmountCents: number
   totalEarnedPoints: number
   breakdown: PayoutBreakdown[]
@@ -97,11 +104,18 @@ export interface CalculatePayoutResult {
 /**
  * Calculate payout amounts based on contributor points
  *
- * This handles:
- * - Calculating pool amount from profit
- * - Calculating platform fee
- * - Calculating individual contributor shares using capacity-based model
- * - If earned points exceed capacity, capacity auto-expands (capped at 100%)
+ * Fee model:
+ * - Shippy takes 2% of the FULL pool (regardless of utilization)
+ * - Contributors get the remaining 98% of pool, scaled by utilization
+ * - Founder pays: Shippy's full share + Contributors' utilized share
+ * - Stripe fee comes out of founder's payment, absorbed by contributors
+ *
+ * Example at 2.5% utilization of $1,000 pool:
+ * - Shippy: 2% of $1,000 = $20.00 (full, not scaled)
+ * - Contributors (pre-Stripe): 98% of $1,000 × 2.5% = $24.50
+ * - Founder pays: $44.50
+ * - Stripe takes: ~$1.59
+ * - Contributors get: $22.91 ($44.50 - $20 - $1.59)
  */
 export function calculatePayout({
   reportedProfitCents,
@@ -110,30 +124,51 @@ export function calculatePayout({
   platformFeePercentage,
   contributors,
 }: CalculatePayoutParams): CalculatePayoutResult {
+  // Max pool amount (if 100% utilized)
   const poolAmountCents = Math.floor(
     (reportedProfitCents * poolPercentage) / 100,
   )
+
+  // Platform fee = 2% of FULL pool (Shippy gets this regardless of utilization)
   const platformFeeCents = Math.floor(
     (poolAmountCents * platformFeePercentage) / 100,
   )
+
+  // Max distributable to actual contributors (remaining 98% of pool)
   const maxDistributableCents = poolAmountCents - platformFeeCents
 
   const totalEarnedPoints = contributors.reduce((sum, c) => sum + c.points, 0)
 
-  // Only distribute for earned points (not full capacity)
-  const distributedAmountCents = Math.floor(
-    (maxDistributableCents * Math.min(totalEarnedPoints, poolCapacity)) /
-      poolCapacity,
+  // Utilization ratio (capped at 100%)
+  const utilizationRatio = Math.min(totalEarnedPoints / poolCapacity, 1)
+
+  // What contributors would get if no Stripe fee (scaled by utilization)
+  const potentialContributorCents = Math.floor(
+    maxDistributableCents * utilizationRatio,
   )
 
+  // What founder pays (full Shippy fee + utilized contributor amount)
+  const founderPaysCents = platformFeeCents + potentialContributorCents
+
+  // Stripe takes their fee from the gross amount
+  // Uses expected fee based on likely payment method (ACH for >= $500)
+  const stripeFeeCents = calculateExpectedFeeFromGross(founderPaysCents)
+
+  // Contributors get what's left after Shippy and Stripe
+  const distributedAmountCents = Math.max(
+    0,
+    founderPaysCents - platformFeeCents - stripeFeeCents,
+  )
+
+  // Calculate each contributor's share
   const breakdown = contributors.map((c) => {
     const amountCents =
       totalEarnedPoints > 0
         ? Math.floor((distributedAmountCents * c.points) / totalEarnedPoints)
         : 0
-    // sharePercent is % of total pool (including platform fee)
+    // sharePercent is % of what founder pays (before fees)
     const sharePercent =
-      poolAmountCents > 0 ? (amountCents / poolAmountCents) * 100 : 0
+      founderPaysCents > 0 ? (amountCents / founderPaysCents) * 100 : 0
     return {
       userId: c.userId,
       userName: c.userName,
@@ -146,8 +181,9 @@ export function calculatePayout({
 
   return {
     poolAmountCents,
+    founderPaysCents,
+    stripeFeeCents,
     platformFeeCents,
-    maxDistributableCents,
     distributedAmountCents,
     totalEarnedPoints,
     breakdown,
@@ -178,7 +214,7 @@ export interface CreatePayoutResult {
     platformFeeCents: bigint
     totalPointsAtPayout: number
     poolCapacityAtPayout: number
-    status: PayoutStatus
+    paymentStatus: string // PayoutPaymentStatus
     recipientCount: number
   }
 }
@@ -243,15 +279,22 @@ export async function createPayout({
   }
 
   // Calculate amounts using capacity-based model
-  const { poolAmountCents, platformFeeCents, breakdown } = calculatePayout({
+  // Fees come OUT of the pool (contributors are diluted, founder cost capped at pool %)
+  const {
+    poolAmountCents,
+    founderPaysCents,
+    stripeFeeCents,
+    platformFeeCents,
+    distributedAmountCents,
+    totalEarnedPoints,
+    breakdown,
+  } = calculatePayout({
     reportedProfitCents,
     poolPercentage: project.rewardPool.poolPercentage,
     poolCapacity: project.rewardPool.poolCapacity,
     platformFeePercentage: project.rewardPool.platformFeePercentage,
     contributors,
   })
-
-  const totalEarnedPoints = contributors.reduce((sum, c) => sum + c.points, 0)
 
   // Create payout with recipients
   const payout = await prisma.payout.create({
@@ -262,7 +305,11 @@ export async function createPayout({
       periodLabel,
       reportedProfitCents,
       poolAmountCents,
+      distributedAmountCents,
       platformFeeCents,
+      // Pre-calculate Stripe fees (founder pays founderPaysCents, fees come out of it)
+      stripeFeeCents,
+      founderTotalCents: founderPaysCents,
       totalPointsAtPayout: totalEarnedPoints,
       poolCapacityAtPayout: project.rewardPool.poolCapacity,
       recipients: {
@@ -309,170 +356,86 @@ export async function createPayout({
       platformFeeCents: payout.platformFeeCents,
       totalPointsAtPayout: payout.totalPointsAtPayout,
       poolCapacityAtPayout: payout.poolCapacityAtPayout,
-      status: payout.status as PayoutStatus,
+      paymentStatus: payout.paymentStatus,
       recipientCount: payout.recipients.length,
     },
   }
 }
 
 // ================================
-// Mark Recipient Paid Service
+// Process Stripe Payouts Service
 // ================================
 
-export interface MarkRecipientPaidParams {
-  prisma: PrismaClientOrTx
-  recipientId: string
-  userId: string // Founder marking paid
-  note?: string
-}
-
-export interface MarkRecipientPaidResult {
-  success: true
-  recipient: {
-    id: string
-    paidAt: Date
-    paidNote: string | null
-  }
-  payoutStatusUpdated: boolean
-}
-
-export type MarkRecipientPaidError =
-  | { success: false; code: 'NOT_FOUND'; message: string }
-  | { success: false; code: 'FORBIDDEN'; message: string }
-
-/**
- * Mark a single recipient as paid
- *
- * This handles:
- * - Validating recipient exists
- * - Validating user is project founder
- * - Updating recipient with paidAt timestamp
- * - Notifying recipient
- * - Updating payout status to SENT if all recipients are now paid
- */
-export async function markRecipientPaid({
-  prisma,
-  recipientId,
-  userId,
-  note,
-}: MarkRecipientPaidParams): Promise<
-  MarkRecipientPaidResult | MarkRecipientPaidError
-> {
-  const recipient = await prisma.payoutRecipient.findUnique({
-    where: { id: recipientId },
-    include: {
-      payout: {
-        include: { project: { select: { founderId: true } } },
-      },
-    },
-  })
-
-  if (!recipient) {
-    return { success: false, code: 'NOT_FOUND', message: 'Recipient not found' }
-  }
-
-  if (recipient.payout.project.founderId !== userId) {
-    return { success: false, code: 'FORBIDDEN', message: 'Access denied' }
-  }
-
-  const now = new Date()
-
-  // Update the recipient
-  const updated = await prisma.payoutRecipient.update({
-    where: { id: recipientId },
-    data: {
-      paidAt: now,
-      paidNote: note,
-    },
-  })
-
-  // Notify recipient that their payout has been sent (fire and forget)
-  createNotifications({
-    prisma: globalPrisma,
-    type: NotificationType.PAYOUT_SENT,
-    referenceType: NotificationReferenceType.PAYOUT,
-    referenceId: recipient.payoutId,
-    actorId: userId,
-    recipientIds: [recipient.userId],
-  }).catch((err) => {
-    console.error('Failed to create payout sent notification:', err)
-  })
-
-  // Check if all recipients are now paid, update payout status if so
-  const unpaidCount = await prisma.payoutRecipient.count({
-    where: {
-      payoutId: recipient.payoutId,
-      paidAt: null,
-    },
-  })
-
-  let payoutStatusUpdated = false
-  if (unpaidCount === 0) {
-    await prisma.payout.update({
-      where: { id: recipient.payoutId },
-      data: {
-        status: PayoutStatus.SENT,
-        sentAt: now,
-      },
-    })
-    payoutStatusUpdated = true
-  }
-
-  return {
-    success: true,
-    recipient: {
-      id: updated.id,
-      paidAt: updated.paidAt!,
-      paidNote: updated.paidNote,
-    },
-    payoutStatusUpdated,
-  }
-}
-
-// ================================
-// Mark All Paid Service
-// ================================
-
-export interface MarkAllPaidParams {
+export interface ProcessStripePayoutsParams {
   prisma: PrismaClientOrTx
   payoutId: string
-  userId: string // Founder marking all paid
-  note?: string
+  userId: string // Founder initiating the payout
 }
 
-export interface MarkAllPaidResult {
+export interface StripePayoutRecipientResult {
+  userId: string
+  userName: string
+  amountCents: number
+  success: boolean
+  transferId?: string
+  error?: string
+  reason?: 'no_account' | 'not_active' | 'below_minimum' | 'stripe_error'
+}
+
+export interface ProcessStripePayoutsResult {
   success: true
-  payout: {
-    id: string
-    status: PayoutStatus
-    sentAt: Date
-  }
-  recipientsUpdated: number
+  payoutId: string
+  results: StripePayoutRecipientResult[]
+  successCount: number
+  failureCount: number
+  totalTransferredCents: number
 }
 
-export type MarkAllPaidError =
+export type ProcessStripePayoutsError =
   | { success: false; code: 'NOT_FOUND'; message: string }
   | { success: false; code: 'FORBIDDEN'; message: string }
+  | { success: false; code: 'NOT_PAID'; message: string }
+  | { success: false; code: 'ALREADY_PROCESSED'; message: string }
+  | { success: false; code: 'NO_ELIGIBLE_RECIPIENTS'; message: string }
 
 /**
- * Mark all recipients as paid at once
+ * Process automated Stripe payouts for a payout
+ *
+ * IMPORTANT: Founder must have paid first (paymentStatus = PAID)
  *
  * This handles:
- * - Validating payout exists
+ * - Validating payout exists and founder has paid
+ * - Validating payout is in ANNOUNCED status (not already processed)
  * - Validating user is project founder
- * - Updating all unpaid recipients
- * - Notifying all recipients
- * - Updating payout status to SENT
+ * - Iterating through recipients and transferring funds via Stripe
+ * - Recording transfer results and updating recipient records
+ * - Updating payout status to SENT when complete
+ * - Handling partial failures (some succeed, some fail)
  */
-export async function markAllPaid({
+export async function processStripePayouts({
   prisma,
   payoutId,
   userId,
-  note,
-}: MarkAllPaidParams): Promise<MarkAllPaidResult | MarkAllPaidError> {
+}: ProcessStripePayoutsParams): Promise<
+  ProcessStripePayoutsResult | ProcessStripePayoutsError
+> {
   const payout = await prisma.payout.findUnique({
     where: { id: payoutId },
-    include: { project: { select: { founderId: true } } },
+    include: {
+      project: { select: { id: true, founderId: true, slug: true } },
+      recipients: {
+        include: {
+          user: {
+            select: {
+              id: true,
+              name: true,
+              stripeConnectAccountId: true,
+              stripeConnectAccountStatus: true,
+            },
+          },
+        },
+      },
+    },
   })
 
   if (!payout) {
@@ -483,168 +446,269 @@ export async function markAllPaid({
     return { success: false, code: 'FORBIDDEN', message: 'Access denied' }
   }
 
+  // CRITICAL: Founder must have paid first
+  if (payout.paymentStatus !== PayoutPaymentStatus.PAID) {
+    return {
+      success: false,
+      code: 'NOT_PAID',
+      message:
+        'Founder must complete payment before transfers can be processed',
+    }
+  }
+
+  // Filter to recipients who can receive payouts
+  const eligibleRecipients = payout.recipients.filter((r) => {
+    return (
+      r.user.stripeConnectAccountId &&
+      r.user.stripeConnectAccountStatus === StripeConnectAccountStatus.ACTIVE &&
+      Number(r.amountCents) >= 50 // Stripe minimum
+    )
+  })
+
+  if (eligibleRecipients.length === 0) {
+    return {
+      success: false,
+      code: 'NO_ELIGIBLE_RECIPIENTS',
+      message:
+        'No recipients have connected Stripe accounts or amounts above minimum',
+    }
+  }
+
   const now = new Date()
+  const results: StripePayoutRecipientResult[] = []
+  let successCount = 0
+  let failureCount = 0
+  let totalTransferredCents = 0
 
-  // Get recipient IDs before updating (for notifications)
-  const unpaidRecipients = await prisma.payoutRecipient.findMany({
-    where: {
-      payoutId,
-      paidAt: null,
-    },
-    select: { userId: true },
-  })
+  // Process each recipient
+  for (const recipient of payout.recipients) {
+    const amountCents = Number(recipient.amountCents)
 
-  // Update all unpaid recipients
-  const { count: recipientsUpdated } = await prisma.payoutRecipient.updateMany({
-    where: {
-      payoutId,
-      paidAt: null,
-    },
-    data: {
-      paidAt: now,
-      paidNote: note,
-    },
-  })
+    // Check eligibility
+    if (!recipient.user.stripeConnectAccountId) {
+      results.push({
+        userId: recipient.userId,
+        userName: recipient.user.name,
+        amountCents,
+        success: false,
+        reason: 'no_account',
+        error: 'User has not connected a Stripe account',
+      })
+      failureCount++
+      continue
+    }
 
-  // Notify all recipients that their payout has been sent (fire and forget)
-  const recipientIds = unpaidRecipients.map((r) => r.userId)
-  if (recipientIds.length > 0) {
+    if (
+      recipient.user.stripeConnectAccountStatus !==
+      StripeConnectAccountStatus.ACTIVE
+    ) {
+      results.push({
+        userId: recipient.userId,
+        userName: recipient.user.name,
+        amountCents,
+        success: false,
+        reason: 'not_active',
+        error: 'Stripe account is not fully active',
+      })
+      failureCount++
+      continue
+    }
+
+    if (amountCents < 50) {
+      results.push({
+        userId: recipient.userId,
+        userName: recipient.user.name,
+        amountCents,
+        success: false,
+        reason: 'below_minimum',
+        error: 'Amount is below Stripe minimum ($0.50)',
+      })
+      failureCount++
+      continue
+    }
+
+    // Attempt transfer
+    const transferResult = await transferFunds({
+      prisma,
+      recipientUserId: recipient.userId,
+      amountCents,
+      metadata: {
+        payoutId: payout.id,
+        projectId: payout.project.id,
+        periodLabel: payout.periodLabel,
+      },
+    })
+
+    if (transferResult.success) {
+      // Update recipient record with transfer ID
+      await prisma.payoutRecipient.update({
+        where: { id: recipient.id },
+        data: {
+          paidAt: now,
+          stripeTransferId: transferResult.transferId,
+        },
+      })
+
+      results.push({
+        userId: recipient.userId,
+        userName: recipient.user.name,
+        amountCents,
+        success: true,
+        transferId: transferResult.transferId,
+      })
+      successCount++
+      totalTransferredCents += amountCents
+    } else {
+      results.push({
+        userId: recipient.userId,
+        userName: recipient.user.name,
+        amountCents,
+        success: false,
+        reason: 'stripe_error',
+        error: transferResult.message,
+      })
+      failureCount++
+    }
+  }
+
+  // Notify recipients who were paid
+  const paidRecipientIds = results.filter((r) => r.success).map((r) => r.userId)
+
+  if (paidRecipientIds.length > 0) {
     createNotifications({
       prisma: globalPrisma,
       type: NotificationType.PAYOUT_SENT,
       referenceType: NotificationReferenceType.PAYOUT,
       referenceId: payoutId,
       actorId: userId,
-      recipientIds,
+      recipientIds: paidRecipientIds,
     }).catch((err) => {
       console.error('Failed to create payout sent notifications:', err)
     })
   }
 
-  // Update payout status
-  const updatedPayout = await prisma.payout.update({
-    where: { id: payoutId },
-    data: {
-      status: PayoutStatus.SENT,
-      sentAt: now,
-      sentNote: note,
-    },
-  })
-
   return {
     success: true,
-    payout: {
-      id: updatedPayout.id,
-      status: updatedPayout.status as PayoutStatus,
-      sentAt: updatedPayout.sentAt!,
-    },
-    recipientsUpdated,
+    payoutId: payout.id,
+    results,
+    successCount,
+    failureCount,
+    totalTransferredCents,
   }
 }
 
 // ================================
-// Confirm Receipt Service
+// Get Payout Stripe Readiness
 // ================================
 
-export interface ConfirmReceiptParams {
+export interface GetPayoutStripeReadinessParams {
   prisma: PrismaClientOrTx
   payoutId: string
-  userId: string // Recipient confirming
-  confirmed: boolean
-  note?: string
-  disputeReason?: string
+  userId: string
 }
 
-export interface ConfirmReceiptResult {
+export interface RecipientStripeStatus {
+  userId: string
+  userName: string
+  amountCents: number
+  hasStripeAccount: boolean
+  stripeAccountStatus: StripeConnectAccountStatus | null
+  canReceive: boolean
+  issue?: string
+}
+
+export interface GetPayoutStripeReadinessResult {
   success: true
-  recipient: {
-    id: string
-    status: PayoutRecipientStatus
-    confirmedAt: Date | null
-    disputedAt: Date | null
-  }
+  totalRecipients: number
+  eligibleCount: number
+  ineligibleCount: number
+  totalEligibleAmountCents: number
+  recipients: RecipientStripeStatus[]
 }
 
-export type ConfirmReceiptError =
+export type GetPayoutStripeReadinessError =
   | { success: false; code: 'NOT_FOUND'; message: string }
-  | { success: false; code: 'NOT_RECIPIENT'; message: string }
+  | { success: false; code: 'FORBIDDEN'; message: string }
 
 /**
- * Confirm or dispute receipt of a payout
+ * Check which recipients are ready to receive Stripe payouts
  *
- * This handles:
- * - Validating payout exists
- * - Validating user is a recipient
- * - Updating recipient status to CONFIRMED or DISPUTED
- * - Recording timestamp and note/reason
- * - Notifying founder
+ * This helps founders see who needs to connect Stripe before running payouts
  */
-export async function confirmReceipt({
+export async function getPayoutStripeReadiness({
   prisma,
   payoutId,
   userId,
-  confirmed,
-  note,
-  disputeReason,
-}: ConfirmReceiptParams): Promise<ConfirmReceiptResult | ConfirmReceiptError> {
-  const recipient = await prisma.payoutRecipient.findFirst({
-    where: {
-      payoutId,
-      userId,
-    },
+}: GetPayoutStripeReadinessParams): Promise<
+  GetPayoutStripeReadinessResult | GetPayoutStripeReadinessError
+> {
+  const payout = await prisma.payout.findUnique({
+    where: { id: payoutId },
     include: {
-      payout: {
-        include: { project: { select: { founderId: true } } },
+      project: { select: { founderId: true } },
+      recipients: {
+        include: {
+          user: {
+            select: {
+              id: true,
+              name: true,
+              stripeConnectAccountId: true,
+              stripeConnectAccountStatus: true,
+            },
+          },
+        },
       },
     },
   })
 
-  if (!recipient) {
-    return {
-      success: false,
-      code: 'NOT_RECIPIENT',
-      message: 'You are not a recipient of this payout',
-    }
+  if (!payout) {
+    return { success: false, code: 'NOT_FOUND', message: 'Payout not found' }
   }
 
-  const now = new Date()
+  if (payout.project.founderId !== userId) {
+    return { success: false, code: 'FORBIDDEN', message: 'Access denied' }
+  }
 
-  const updated = await prisma.payoutRecipient.update({
-    where: { id: recipient.id },
-    data: confirmed
-      ? {
-          status: PayoutRecipientStatus.CONFIRMED,
-          confirmedAt: now,
-          confirmNote: note,
-        }
-      : {
-          status: PayoutRecipientStatus.DISPUTED,
-          disputedAt: now,
-          disputeReason,
-        },
+  const recipients: RecipientStripeStatus[] = payout.recipients.map((r) => {
+    const amountCents = Number(r.amountCents)
+    const hasStripeAccount = !!r.user.stripeConnectAccountId
+    const stripeAccountStatus = r.user
+      .stripeConnectAccountStatus as StripeConnectAccountStatus | null
+    const isActive = stripeAccountStatus === StripeConnectAccountStatus.ACTIVE
+    const aboveMinimum = amountCents >= 50
+
+    let issue: string | undefined
+    if (!hasStripeAccount) {
+      issue = 'No Stripe account connected'
+    } else if (!isActive) {
+      issue = 'Stripe account setup incomplete'
+    } else if (!aboveMinimum) {
+      issue = 'Amount below minimum ($0.50)'
+    }
+
+    return {
+      userId: r.userId,
+      userName: r.user.name,
+      amountCents,
+      hasStripeAccount,
+      stripeAccountStatus,
+      canReceive: hasStripeAccount && isActive && aboveMinimum,
+      issue,
+    }
   })
 
-  // Notify founder about confirmation or dispute (fire and forget)
-  createNotifications({
-    prisma: globalPrisma,
-    type: confirmed
-      ? NotificationType.PAYOUT_CONFIRMED
-      : NotificationType.PAYOUT_DISPUTED,
-    referenceType: NotificationReferenceType.PAYOUT,
-    referenceId: payoutId,
-    actorId: userId,
-    recipientIds: [recipient.payout.project.founderId],
-  }).catch((err) => {
-    console.error('Failed to create payout confirmation notification:', err)
-  })
+  const eligibleCount = recipients.filter((r) => r.canReceive).length
+  const ineligibleCount = recipients.filter((r) => !r.canReceive).length
+  const totalEligibleAmountCents = recipients
+    .filter((r) => r.canReceive)
+    .reduce((sum, r) => sum + r.amountCents, 0)
 
   return {
     success: true,
-    recipient: {
-      id: updated.id,
-      status: updated.status as PayoutRecipientStatus,
-      confirmedAt: updated.confirmedAt,
-      disputedAt: updated.disputedAt,
-    },
+    totalRecipients: recipients.length,
+    eligibleCount,
+    ineligibleCount,
+    totalEligibleAmountCents,
+    recipients,
   }
 }

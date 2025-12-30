@@ -208,8 +208,12 @@ export const notificationRouter = router({
 // Notification Creation Helpers
 // ================================
 
+type PrismaClientOrTx =
+  | typeof import('@/lib/db/server').prisma
+  | import('@prisma/client').Prisma.TransactionClient
+
 interface CreateNotificationParams {
-  prisma: typeof import('@/lib/db/server').prisma
+  prisma: PrismaClientOrTx
   type: NotificationType
   referenceType: NotificationReferenceType
   referenceId: string
@@ -265,6 +269,70 @@ export async function createNotifications({
       referenceType,
       referenceId,
       actorId,
+    })),
+  })
+}
+
+interface CreateSystemNotificationParams {
+  prisma: PrismaClientOrTx
+  type: NotificationType
+  referenceType: NotificationReferenceType
+  referenceId: string
+  /** Single recipient or array of recipients */
+  recipientId: string | string[]
+}
+
+/**
+ * Create system notifications for one or more recipients.
+ *
+ * Use this for automated/system events where there's no real "actor" (e.g., payment
+ * failures, scheduled reminders, automated alerts). Unlike `createNotifications`,
+ * this does NOT filter out recipients even if they triggered the action.
+ *
+ * The recipient is set as both the actor and recipient since there's no other user
+ * involved in the action.
+ *
+ * @example
+ * // Payment failed notification to founder
+ * await createSystemNotification({
+ *   prisma,
+ *   type: NotificationType.PAYOUT_PAYMENT_FAILED,
+ *   referenceType: NotificationReferenceType.PAYOUT,
+ *   referenceId: payoutId,
+ *   recipientId: founderId,
+ * })
+ *
+ * @example
+ * // Transfer sent to multiple contributors
+ * await createSystemNotification({
+ *   prisma,
+ *   type: NotificationType.PAYOUT_TRANSFER_SENT,
+ *   referenceType: NotificationReferenceType.PAYOUT,
+ *   referenceId: payoutId,
+ *   recipientId: [contributorId1, contributorId2],
+ * })
+ */
+export async function createSystemNotification({
+  prisma,
+  type,
+  referenceType,
+  referenceId,
+  recipientId,
+}: CreateSystemNotificationParams): Promise<void> {
+  const recipientIds = Array.isArray(recipientId) ? recipientId : [recipientId]
+
+  if (recipientIds.length === 0) {
+    return
+  }
+
+  // Use createMany for efficient bulk insertion
+  await prisma.notification.createMany({
+    data: recipientIds.map((userId) => ({
+      userId,
+      type,
+      referenceType,
+      referenceId,
+      actorId: userId, // Self-referential for system notifications
     })),
   })
 }

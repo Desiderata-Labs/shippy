@@ -5,7 +5,10 @@ import { paths, routes } from '@/lib/routes'
  * Routes that require authentication
  * Note: User profile routes will be under /u/[username] when added
  */
-const protectedRoutes = [paths.dashboard.root]
+const protectedRoutes = [
+  paths.dashboard.root,
+  paths.settings.payments, // Stripe Connect redirect handler
+]
 
 /**
  * Route patterns that require authentication (regex patterns)
@@ -13,6 +16,7 @@ const protectedRoutes = [paths.dashboard.root]
  */
 const protectedPatterns = [
   /^\/p\/[^/]+\/integrations/, // Project integrations (founder only, checked in tRPC)
+  /^\/u\/[^/]+\/settings/, // User settings (Stripe Connect, MCP tokens, etc.)
 ]
 
 /**

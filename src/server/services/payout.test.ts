@@ -1,13 +1,9 @@
 /* eslint-disable @typescript-eslint/no-explicit-any */
-import { PayoutRecipientStatus, PayoutStatus } from '@/lib/db/types'
 import {
   type ContributorPoints,
   calculatePayout,
-  confirmReceipt,
   createPayout,
   getContributorPoints,
-  markAllPaid,
-  markRecipientPaid,
 } from './payout'
 import { beforeEach, describe, expect, test, vi } from 'vitest'
 
@@ -19,6 +15,13 @@ vi.mock('@/server/routers/notification', () => ({
 // Mock the global prisma client used for notifications
 vi.mock('@/lib/db/server', () => ({
   prisma: {},
+}))
+
+// Mock the stripe service (to avoid importing server-only modules)
+vi.mock('@/server/services/stripe', () => ({
+  transferFunds: vi
+    .fn()
+    .mockResolvedValue({ success: true, transferId: 'tr_test' }),
 }))
 
 // ================================
@@ -173,22 +176,29 @@ describe('calculatePayout', () => {
     // Pool: $1,000 * 20% = $200 = 20000 cents
     expect(result.poolAmountCents).toBe(20000)
 
-    // Platform fee: $200 * 2% = $4 = 400 cents
+    // 100% utilization (1000 points / 1000 capacity)
+    // Platform fee (Shippy's 2% of full pool) = $4 = 400 cents
+    // Max distributable (98%) = $196 = 19600 cents
+    // At 100%: Shippy = $4, Contributors potential = $196
+    // Founder pays = $200 = 20000 cents
+    expect(result.founderPaysCents).toBe(20000)
+
+    // Stripe fee from $200: ceil($200 * 2.9%) + $0.30 = $6.10 = 610 cents
+    expect(result.stripeFeeCents).toBe(610)
+
+    // Shippy gets 2% of pool at utilization = 400 cents
     expect(result.platformFeeCents).toBe(400)
 
-    // Max distributable: $200 - $4 = $196 = 19600 cents
-    expect(result.maxDistributableCents).toBe(19600)
-
-    // Total points: 1000 = capacity, so 100% is distributed
-    expect(result.distributedAmountCents).toBe(19600)
+    // Contributors: $200 - $4 (Shippy) - $6.10 (Stripe) = $189.90 = 18990 cents
+    expect(result.distributedAmountCents).toBe(18990)
 
     // Total earned points
     expect(result.totalEarnedPoints).toBe(1000)
 
-    // Each contributor gets 50%
+    // Each contributor gets 50% of distributed
     expect(result.breakdown).toHaveLength(2)
-    expect(result.breakdown[0].amountCents).toBe(9800)
-    expect(result.breakdown[1].amountCents).toBe(9800)
+    expect(result.breakdown[0].amountCents).toBe(9495)
+    expect(result.breakdown[1].amountCents).toBe(9495)
   })
 
   test('distributes proportionally when earned < capacity', () => {
@@ -200,13 +210,24 @@ describe('calculatePayout', () => {
       ],
     })
 
-    // Total earned: 500 / 1000 capacity = 50%
-    // Distributed: 19600 * 50% = 9800 cents
-    expect(result.distributedAmountCents).toBe(9800)
+    // 50% utilization (500 points / 1000 capacity)
+    // Shippy: 2% of FULL $200 pool = $4 = 400 cents (not scaled!)
+    // Contributors potential: 98% of $200 * 50% = $98 = 9800 cents
+    // Founder pays = $4 + $98 = $102 = 10200 cents
+    expect(result.founderPaysCents).toBe(10200)
 
-    // Each gets 4900 cents
-    expect(result.breakdown[0].amountCents).toBe(4900)
-    expect(result.breakdown[1].amountCents).toBe(4900)
+    // Stripe fee from $102: ceil($102 * 2.9%) + $0.30 = $3.26 = 326 cents
+    expect(result.stripeFeeCents).toBe(326)
+
+    // Shippy: 400 cents (full 2% of pool)
+    expect(result.platformFeeCents).toBe(400)
+
+    // Contributors: $102 - $4 - $3.26 = $94.74 = 9474 cents
+    expect(result.distributedAmountCents).toBe(9474)
+
+    // Each gets half
+    expect(result.breakdown[0].amountCents).toBe(4737)
+    expect(result.breakdown[1].amountCents).toBe(4737)
   })
 
   test('caps distribution at 100% when earned > capacity', () => {
@@ -219,13 +240,17 @@ describe('calculatePayout', () => {
     })
 
     // Total earned: 2000 > capacity 1000, so capped at 100%
-    expect(result.distributedAmountCents).toBe(19600)
+    // Founder pays full pool: $200 = 20000 cents
+    expect(result.founderPaysCents).toBe(20000)
+
+    // Contributors: 18990 cents (Stripe absorbed by contributors)
+    expect(result.distributedAmountCents).toBe(18990)
 
     // Proportional: Alice gets 75%, Bob gets 25%
-    // Alice: 19600 * 1500 / 2000 = 14700
-    // Bob: 19600 * 500 / 2000 = 4900
-    expect(result.breakdown[0].amountCents).toBe(14700)
-    expect(result.breakdown[1].amountCents).toBe(4900)
+    // Alice: 18990 * 1500 / 2000 = 14242
+    // Bob: 18990 * 500 / 2000 = 4747
+    expect(result.breakdown[0].amountCents).toBe(14242)
+    expect(result.breakdown[1].amountCents).toBe(4747)
   })
 
   test('handles zero contributors', () => {
@@ -247,9 +272,13 @@ describe('calculatePayout', () => {
       ],
     })
 
-    // 500/1000 = 50% of pool
-    expect(result.distributedAmountCents).toBe(9800)
-    expect(result.breakdown[0].amountCents).toBe(9800)
+    // 50% utilization
+    // Shippy: 2% of $200 = $4 (full, not scaled)
+    // Contributors: 98% of $200 * 50% = $98, minus Stripe
+    // Founder pays: $102, Stripe: $3.26
+    // Contributors: $102 - $4 - $3.26 = $94.74
+    expect(result.distributedAmountCents).toBe(9474)
+    expect(result.breakdown[0].amountCents).toBe(9474)
   })
 
   test('calculates share percentages correctly', () => {
@@ -261,9 +290,9 @@ describe('calculatePayout', () => {
       ],
     })
 
-    // Pool: 20000, fee: 400, distributable: 19600
-    // Alice gets 19600, which is 98% of 20000 pool
-    expect(result.breakdown[0].sharePercent).toBe(98)
+    // Pool: 20000, 100% utilization
+    // Distributed: 18990, sharePercent = 18990 / 20000 * 100 = 94.95%
+    expect(result.breakdown[0].sharePercent).toBeCloseTo(94.95, 1)
   })
 
   test('handles zero profit', () => {
@@ -308,13 +337,14 @@ describe('calculatePayout', () => {
       ],
     })
 
-    // Total: 100 = capacity, so full distribution
-    expect(result.distributedAmountCents).toBe(19600)
+    // Total: 100 = capacity, so 100% utilization
+    // Distributed: 18990 cents
+    expect(result.distributedAmountCents).toBe(18990)
 
-    // Alice: 80% of 19600 = 15680
-    // Bob: 20% of 19600 = 3920
-    expect(result.breakdown[0].amountCents).toBe(15680)
-    expect(result.breakdown[1].amountCents).toBe(3920)
+    // Alice: 80% of 18990 = 15192
+    // Bob: 20% of 18990 = 3798
+    expect(result.breakdown[0].amountCents).toBe(15192)
+    expect(result.breakdown[1].amountCents).toBe(3798)
   })
 })
 
@@ -449,7 +479,7 @@ describe('createPayout', () => {
         platformFeeCents: BigInt(400),
         totalPointsAtPayout: 1000,
         poolCapacityAtPayout: 1000,
-        status: PayoutStatus.ANNOUNCED,
+        paymentStatus: 'PENDING', // PayoutPaymentStatus.PENDING
         recipients: [
           { id: 'recipient-1', userId: 'user-1' },
           { id: 'recipient-2', userId: 'user-2' },
@@ -484,321 +514,8 @@ describe('createPayout', () => {
   })
 })
 
-// ================================
-// markRecipientPaid Tests
-// ================================
-
-describe('markRecipientPaid', () => {
-  let mockPrisma: ReturnType<typeof createMockPrisma>
-
-  beforeEach(() => {
-    mockPrisma = createMockPrisma()
-    vi.clearAllMocks()
-  })
-
-  test('returns NOT_FOUND when recipient does not exist', async () => {
-    mockPrisma.payoutRecipient.findUnique.mockResolvedValue(null)
-
-    const result = await markRecipientPaid({
-      prisma: mockPrisma as any,
-      recipientId: 'non-existent',
-      userId: 'founder-1',
-    })
-
-    expect(result.success).toBe(false)
-    if (!result.success) {
-      expect(result.code).toBe('NOT_FOUND')
-    }
-  })
-
-  test('returns FORBIDDEN when user is not founder', async () => {
-    mockPrisma.payoutRecipient.findUnique.mockResolvedValue({
-      id: 'recipient-1',
-      userId: 'user-1',
-      payoutId: 'payout-1',
-      payout: {
-        project: { founderId: 'other-founder' },
-      },
-    })
-
-    const result = await markRecipientPaid({
-      prisma: mockPrisma as any,
-      recipientId: 'recipient-1',
-      userId: 'founder-1',
-    })
-
-    expect(result.success).toBe(false)
-    if (!result.success) {
-      expect(result.code).toBe('FORBIDDEN')
-    }
-  })
-
-  test('marks recipient as paid and checks for full payout completion', async () => {
-    mockPrisma.payoutRecipient.findUnique.mockResolvedValue({
-      id: 'recipient-1',
-      userId: 'user-1',
-      payoutId: 'payout-1',
-      payout: {
-        project: { founderId: 'founder-1' },
-      },
-    })
-    mockPrisma.payoutRecipient.update.mockResolvedValue({
-      id: 'recipient-1',
-      paidAt: new Date(),
-      paidNote: 'Paid via PayPal',
-    })
-    mockPrisma.payoutRecipient.count.mockResolvedValue(1) // 1 unpaid remaining
-
-    const result = await markRecipientPaid({
-      prisma: mockPrisma as any,
-      recipientId: 'recipient-1',
-      userId: 'founder-1',
-      note: 'Paid via PayPal',
-    })
-
-    expect(result.success).toBe(true)
-    expect(mockPrisma.payoutRecipient.update).toHaveBeenCalledWith({
-      where: { id: 'recipient-1' },
-      data: {
-        paidAt: expect.any(Date),
-        paidNote: 'Paid via PayPal',
-      },
-    })
-    // Payout should NOT be updated since there's still 1 unpaid
-    expect(mockPrisma.payout.update).not.toHaveBeenCalled()
-    if (result.success) {
-      expect(result.payoutStatusUpdated).toBe(false)
-    }
-  })
-
-  test('updates payout status when all recipients are paid', async () => {
-    mockPrisma.payoutRecipient.findUnique.mockResolvedValue({
-      id: 'recipient-1',
-      userId: 'user-1',
-      payoutId: 'payout-1',
-      payout: {
-        project: { founderId: 'founder-1' },
-      },
-    })
-    mockPrisma.payoutRecipient.update.mockResolvedValue({
-      id: 'recipient-1',
-      paidAt: new Date(),
-      paidNote: null,
-    })
-    mockPrisma.payoutRecipient.count.mockResolvedValue(0) // All paid
-    mockPrisma.payout.update.mockResolvedValue({})
-
-    const result = await markRecipientPaid({
-      prisma: mockPrisma as any,
-      recipientId: 'recipient-1',
-      userId: 'founder-1',
-    })
-
-    expect(result.success).toBe(true)
-    expect(mockPrisma.payout.update).toHaveBeenCalledWith({
-      where: { id: 'payout-1' },
-      data: {
-        status: PayoutStatus.SENT,
-        sentAt: expect.any(Date),
-      },
-    })
-    if (result.success) {
-      expect(result.payoutStatusUpdated).toBe(true)
-    }
-  })
-})
-
-// ================================
-// markAllPaid Tests
-// ================================
-
-describe('markAllPaid', () => {
-  let mockPrisma: ReturnType<typeof createMockPrisma>
-
-  beforeEach(() => {
-    mockPrisma = createMockPrisma()
-    vi.clearAllMocks()
-  })
-
-  test('returns NOT_FOUND when payout does not exist', async () => {
-    mockPrisma.payout.findUnique.mockResolvedValue(null)
-
-    const result = await markAllPaid({
-      prisma: mockPrisma as any,
-      payoutId: 'non-existent',
-      userId: 'founder-1',
-    })
-
-    expect(result.success).toBe(false)
-    if (!result.success) {
-      expect(result.code).toBe('NOT_FOUND')
-    }
-  })
-
-  test('returns FORBIDDEN when user is not founder', async () => {
-    mockPrisma.payout.findUnique.mockResolvedValue({
-      id: 'payout-1',
-      project: { founderId: 'other-founder' },
-    })
-
-    const result = await markAllPaid({
-      prisma: mockPrisma as any,
-      payoutId: 'payout-1',
-      userId: 'founder-1',
-    })
-
-    expect(result.success).toBe(false)
-    if (!result.success) {
-      expect(result.code).toBe('FORBIDDEN')
-    }
-  })
-
-  test('marks all unpaid recipients and updates payout status', async () => {
-    mockPrisma.payout.findUnique.mockResolvedValue({
-      id: 'payout-1',
-      project: { founderId: 'founder-1' },
-    })
-    mockPrisma.payoutRecipient.findMany.mockResolvedValue([
-      { userId: 'user-1' },
-      { userId: 'user-2' },
-    ])
-    mockPrisma.payoutRecipient.updateMany.mockResolvedValue({ count: 2 })
-    mockPrisma.payout.update.mockResolvedValue({
-      id: 'payout-1',
-      status: PayoutStatus.SENT,
-      sentAt: new Date(),
-    })
-
-    const result = await markAllPaid({
-      prisma: mockPrisma as any,
-      payoutId: 'payout-1',
-      userId: 'founder-1',
-      note: 'Bulk payment',
-    })
-
-    expect(result.success).toBe(true)
-    expect(mockPrisma.payoutRecipient.updateMany).toHaveBeenCalledWith({
-      where: {
-        payoutId: 'payout-1',
-        paidAt: null,
-      },
-      data: {
-        paidAt: expect.any(Date),
-        paidNote: 'Bulk payment',
-      },
-    })
-    expect(mockPrisma.payout.update).toHaveBeenCalledWith({
-      where: { id: 'payout-1' },
-      data: {
-        status: PayoutStatus.SENT,
-        sentAt: expect.any(Date),
-        sentNote: 'Bulk payment',
-      },
-    })
-    if (result.success) {
-      expect(result.recipientsUpdated).toBe(2)
-    }
-  })
-})
-
-// ================================
-// confirmReceipt Tests
-// ================================
-
-describe('confirmReceipt', () => {
-  let mockPrisma: ReturnType<typeof createMockPrisma>
-
-  beforeEach(() => {
-    mockPrisma = createMockPrisma()
-    vi.clearAllMocks()
-  })
-
-  test('returns NOT_RECIPIENT when user is not a recipient', async () => {
-    mockPrisma.payoutRecipient.findFirst.mockResolvedValue(null)
-
-    const result = await confirmReceipt({
-      prisma: mockPrisma as any,
-      payoutId: 'payout-1',
-      userId: 'random-user',
-      confirmed: true,
-    })
-
-    expect(result.success).toBe(false)
-    if (!result.success) {
-      expect(result.code).toBe('NOT_RECIPIENT')
-    }
-  })
-
-  test('confirms receipt successfully', async () => {
-    mockPrisma.payoutRecipient.findFirst.mockResolvedValue({
-      id: 'recipient-1',
-      userId: 'user-1',
-      payoutId: 'payout-1',
-      payout: {
-        project: { founderId: 'founder-1' },
-      },
-    })
-    mockPrisma.payoutRecipient.update.mockResolvedValue({
-      id: 'recipient-1',
-      status: PayoutRecipientStatus.CONFIRMED,
-      confirmedAt: new Date(),
-      disputedAt: null,
-    })
-
-    const result = await confirmReceipt({
-      prisma: mockPrisma as any,
-      payoutId: 'payout-1',
-      userId: 'user-1',
-      confirmed: true,
-      note: 'Received, thank you!',
-    })
-
-    expect(result.success).toBe(true)
-    expect(mockPrisma.payoutRecipient.update).toHaveBeenCalledWith({
-      where: { id: 'recipient-1' },
-      data: {
-        status: PayoutRecipientStatus.CONFIRMED,
-        confirmedAt: expect.any(Date),
-        confirmNote: 'Received, thank you!',
-      },
-    })
-  })
-
-  test('disputes receipt successfully', async () => {
-    mockPrisma.payoutRecipient.findFirst.mockResolvedValue({
-      id: 'recipient-1',
-      userId: 'user-1',
-      payoutId: 'payout-1',
-      payout: {
-        project: { founderId: 'founder-1' },
-      },
-    })
-    mockPrisma.payoutRecipient.update.mockResolvedValue({
-      id: 'recipient-1',
-      status: PayoutRecipientStatus.DISPUTED,
-      confirmedAt: null,
-      disputedAt: new Date(),
-    })
-
-    const result = await confirmReceipt({
-      prisma: mockPrisma as any,
-      payoutId: 'payout-1',
-      userId: 'user-1',
-      confirmed: false,
-      disputeReason: 'Never received payment',
-    })
-
-    expect(result.success).toBe(true)
-    expect(mockPrisma.payoutRecipient.update).toHaveBeenCalledWith({
-      where: { id: 'recipient-1' },
-      data: {
-        status: PayoutRecipientStatus.DISPUTED,
-        disputedAt: expect.any(Date),
-        disputeReason: 'Never received payment',
-      },
-    })
-  })
-})
+// Legacy tests removed: markRecipientPaid, markAllPaid, confirmReceipt
+// These functions have been removed in favor of Stripe transfer-based payments
 
 // ================================
 // Payout Calculation Edge Cases
@@ -818,10 +535,17 @@ describe('Payout Calculation Edge Cases', () => {
 
     // Pool: $1 * 20% = $0.20 = 20 cents
     expect(result.poolAmountCents).toBe(20)
-    // Fee: $0.20 * 2% = 0 cents (floored)
+    // Platform fee (full): 2% of 20 = 0 (floored)
+    // Max distributable: 20 - 0 = 20 cents
+    // 100% utilization: Shippy = 0, Contributors potential = 20
+    // Founder pays: 20 cents
+    expect(result.founderPaysCents).toBe(20)
+    // Stripe fee: ceil(20 * 2.9%) + 30 = 31 cents (exceeds amount!)
+    expect(result.stripeFeeCents).toBe(31)
+    // Platform fee at this utilization: 0
     expect(result.platformFeeCents).toBe(0)
-    // Distributed: 20 cents
-    expect(result.distributedAmountCents).toBe(20)
+    // Distributed: max(0, 20 - 0 - 31) = 0 cents
+    expect(result.distributedAmountCents).toBe(0)
   })
 
   test('handles very large profit amounts', () => {
@@ -837,10 +561,16 @@ describe('Payout Calculation Edge Cases', () => {
 
     // Pool: $10M * 50% = $5M = 500000000 cents
     expect(result.poolAmountCents).toBe(500000000)
-    // Fee: $5M * 5% = $250K = 25000000 cents
+    // Platform fee (full): 5% of $5M = $250K = 25000000 cents
+    // Max distributable: $4.75M = 475000000 cents
+    // 100% utilization, founder pays $5M
+    expect(result.founderPaysCents).toBe(500000000)
+    // Stripe fee: ACH for large amounts, 0.8% capped at $5 = 500 cents
+    expect(result.stripeFeeCents).toBe(500)
+    // Shippy: 25000000 cents
     expect(result.platformFeeCents).toBe(25000000)
-    // Distributed: $5M - $250K = $4.75M = 475000000 cents
-    expect(result.distributedAmountCents).toBe(475000000)
+    // Distributed: $5M - $250K - Stripe = 500000000 - 25000000 - 500 = 474999500
+    expect(result.distributedAmountCents).toBe(474999500)
   })
 
   test('handles single point contributor', () => {
@@ -854,10 +584,17 @@ describe('Payout Calculation Edge Cases', () => {
       ],
     })
 
-    // 1/1000 = 0.1% of pool
-    // 19600 * 1/1000 = 19 cents (floored)
-    expect(result.distributedAmountCents).toBe(19)
-    expect(result.breakdown[0].amountCents).toBe(19)
+    // 1/1000 = 0.1% utilization
+    // Shippy: 2% of $200 = $4 = 400 cents (FULL, not scaled)
+    // Max distributable: 19600 cents
+    // At 0.1%: Contributors potential = 19 cents
+    // Founder pays: 400 + 19 = 419 cents
+    expect(result.founderPaysCents).toBe(419)
+    // Stripe fee on $4.19 = ceil(419 * 2.9%) + 30 = 43 cents
+    expect(result.stripeFeeCents).toBe(43)
+    // Contributors: 419 - 400 - 43 = -24 → max(0, -24) = 0
+    expect(result.distributedAmountCents).toBe(0)
+    expect(result.breakdown[0].amountCents).toBe(0)
   })
 
   test('handles many small contributors', () => {
@@ -879,13 +616,14 @@ describe('Payout Calculation Edge Cases', () => {
       contributors,
     })
 
-    // Total: 1000 points = capacity
+    // Total: 1000 points = capacity = 100% utilization
     expect(result.totalEarnedPoints).toBe(1000)
-    expect(result.distributedAmountCents).toBe(19600)
+    // Distributed: 18990 cents (Stripe absorbed by contributors)
+    expect(result.distributedAmountCents).toBe(18990)
 
-    // Each gets 1/100 = 196 cents
+    // Each gets 1/100 of 18990 = 189 cents (floored)
     for (const breakdown of result.breakdown) {
-      expect(breakdown.amountCents).toBe(196)
+      expect(breakdown.amountCents).toBe(189)
     }
   })
 })

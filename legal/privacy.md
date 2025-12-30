@@ -1,6 +1,6 @@
 # Privacy Policy
 
-Last updated: 2025-12-14
+Last updated: 2025-12-30
 
 This Privacy Policy explains how **Desiderata LLC** ("Desiderata," "we," "us," or "our") collects, uses, and shares information when you use Shippy (the "Service").
 
@@ -82,9 +82,15 @@ Depending on how you use the Service, some information may be visible to other u
 
 Shippy may display or store payout-related records (for example, payout amounts, dates, and confirmations) to support transparency.
 
-Payments to contributors may be handled through third-party payment processors (for example, Stripe Connect) and/or other methods depending on the project.
+Payments are processed through Stripe. Founders pay via Stripe Checkout; contributors receive funds via Stripe Connect (Express accounts). By using Shippy's payout features, you agree to [Stripe's privacy policy](https://stripe.com/privacy).
 
-We may collect and store limited information needed to facilitate payouts through payment processors, such as payment account identifiers, onboarding/verification status, payout status, and payout history. Shippy does not collect or store your full payment card details or full bank account numbers.
+We collect and store information needed to facilitate payouts through Stripe, including:
+
+- **For contributors**: Stripe Connect account ID, onboarding/verification status, and whether payouts are enabled.
+- **For founders**: Stripe Checkout session information and payment status.
+- **For all users**: Payout amounts, dates, transfer IDs, and confirmation status.
+
+Shippy does not collect or store your full payment card details, bank account numbers, or tax identification numbers—this information is collected and stored directly by Stripe.
 
 ## 8. Cookies
 

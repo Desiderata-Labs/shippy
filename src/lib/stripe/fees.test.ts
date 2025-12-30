@@ -1,9 +1,40 @@
 import {
-  calculateFounderPayoutTotal,
   calculateStripeFee,
+  calculateStripeFeeFromGross,
   formatCents,
 } from './fees'
 import { describe, expect, test } from 'vitest'
+
+describe('calculateStripeFeeFromGross', () => {
+  test('calculates fee for $10 gross', () => {
+    const fee = calculateStripeFeeFromGross(1000) // $10 gross
+
+    // Stripe takes: ceil($10 * 2.9%) + $0.30 = ceil(29) + 30 = 59 cents
+    expect(fee).toBe(59)
+  })
+
+  test('calculates fee for $100 gross', () => {
+    const fee = calculateStripeFeeFromGross(10000) // $100 gross
+
+    // Stripe takes: ceil($100 * 2.9%) + $0.30 = ceil(290) + 30 = 320 cents
+    expect(fee).toBe(320)
+  })
+
+  test('calculates fee for $1,000 gross', () => {
+    const fee = calculateStripeFeeFromGross(100000) // $1,000 gross
+
+    // Stripe takes: ceil($1,000 * 2.9%) + $0.30 = ceil(2900) + 30 = 2930 cents
+    expect(fee).toBe(2930)
+  })
+
+  test('returns 0 for zero amount', () => {
+    expect(calculateStripeFeeFromGross(0)).toBe(0)
+  })
+
+  test('returns 0 for negative amount', () => {
+    expect(calculateStripeFeeFromGross(-100)).toBe(0)
+  })
+})
 
 describe('calculateStripeFee', () => {
   test('calculates fee for $10 charge', () => {
@@ -43,43 +74,6 @@ describe('calculateStripeFee', () => {
     // For $1, the $0.30 fixed fee is significant
     expect(result.feeCents).toBeGreaterThan(30)
     expect(result.totalCents).toBeGreaterThan(130)
-  })
-})
-
-describe('calculateFounderPayoutTotal', () => {
-  test('calculates full breakdown for typical payout', () => {
-    // $1,000 pool, $20 platform fee (2%)
-    const result = calculateFounderPayoutTotal(100000, 2000)
-
-    expect(result.poolAmountCents).toBe(100000)
-    expect(result.platformFeeCents).toBe(2000)
-    expect(result.subtotalCents).toBe(102000)
-    expect(result.stripeFeeCents).toBeGreaterThan(0)
-    expect(result.founderTotalCents).toBe(
-      result.subtotalCents + result.stripeFeeCents,
-    )
-  })
-
-  test('contributors get full pool amount', () => {
-    const result = calculateFounderPayoutTotal(50000, 1000)
-
-    // Pool amount should be unchanged
-    expect(result.poolAmountCents).toBe(50000)
-  })
-
-  test('Shippy gets full platform fee', () => {
-    const result = calculateFounderPayoutTotal(50000, 1000)
-
-    // Platform fee should be unchanged
-    expect(result.platformFeeCents).toBe(1000)
-  })
-
-  test('founder pays all fees', () => {
-    const result = calculateFounderPayoutTotal(100000, 2000)
-
-    // Founder total = pool + platform + stripe
-    expect(result.founderTotalCents).toBeGreaterThan(102000)
-    expect(result.founderTotalCents - 102000).toBe(result.stripeFeeCents)
   })
 })
 

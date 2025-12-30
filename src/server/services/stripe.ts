@@ -5,7 +5,6 @@ import {
   PayoutPaymentStatus,
   StripeConnectAccountStatus,
 } from '@/lib/db/types'
-import { calculateFounderPayoutTotal } from '@/lib/stripe/fees'
 import {
   getAppUrl,
   getConnectRefreshUrl,
@@ -1748,7 +1747,7 @@ export interface CreatePayoutCheckoutResult {
   checkoutUrl: string
   sessionId: string
   breakdown: {
-    poolAmountCents: number
+    distributedAmountCents: number
     platformFeeCents: number
     stripeFeeCents: number
     founderTotalCents: number
@@ -1815,13 +1814,12 @@ export async function createPayoutCheckout({
     return { success: false, code: 'NOT_FOUND', message: 'Founder not found' }
   }
 
-  // Calculate fees
-  const poolAmountCents = Number(payout.poolAmountCents)
+  // Fees come OUT of the pool (already calculated when payout was created)
+  // Founder pays exactly founderTotalCents, fees are deducted from that
+  const founderTotalCents = Number(payout.founderTotalCents)
+  const stripeFeeCents = Number(payout.stripeFeeCents ?? 0)
   const platformFeeCents = Number(payout.platformFeeCents)
-  const breakdown = calculateFounderPayoutTotal(
-    poolAmountCents,
-    platformFeeCents,
-  )
+  const distributedAmountCents = Number(payout.distributedAmountCents)
 
   // Build success/cancel URLs
   const appUrl = getAppUrl()
@@ -1830,7 +1828,7 @@ export async function createPayoutCheckout({
 
   try {
     const session = await stripeOps.createCheckoutSession({
-      amountCents: breakdown.founderTotalCents,
+      amountCents: founderTotalCents,
       currency: 'usd',
       customerEmail: founder.email,
       successUrl,
@@ -1845,14 +1843,12 @@ export async function createPayoutCheckout({
       lineItemDescription: `${payout.project.name} - ${payout.periodLabel} Payout`,
     })
 
-    // Update payout with session info
+    // Update payout with session info (status only, amounts already set)
     await prisma.payout.update({
       where: { id: payoutId },
       data: {
         paymentStatus: PayoutPaymentStatus.PROCESSING,
         stripeSessionId: session.id,
-        stripeFeeCents: breakdown.stripeFeeCents,
-        founderTotalCents: breakdown.founderTotalCents,
       },
     })
 
@@ -1860,7 +1856,12 @@ export async function createPayoutCheckout({
       success: true,
       checkoutUrl: session.url,
       sessionId: session.id,
-      breakdown,
+      breakdown: {
+        distributedAmountCents,
+        platformFeeCents,
+        stripeFeeCents,
+        founderTotalCents,
+      },
     }
   } catch (error) {
     console.error('Failed to create checkout session:', error)

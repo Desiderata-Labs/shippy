@@ -2,9 +2,12 @@
  * Stripe fee calculation utilities
  *
  * Fee structure (Uber-style - founder pays all fees):
- * - Contributors receive: Full pool amount
- * - Shippy receives: Platform fee (2% of pool)
- * - Founder pays: Pool + Platform fee + Stripe processing fees
+ * - Contributors receive: Distributed amount (based on pool utilization)
+ * - Shippy receives: Platform fee (2% of full pool amount)
+ * - Founder pays: Distributed amount + Platform fee + Stripe processing fees
+ *
+ * Note: When pool is under-utilized (e.g., 2.5% of points earned),
+ * founder only pays for the distributed amount + platform fee, not the full pool.
  */
 
 // Stripe's standard pricing for card payments (US)
@@ -13,7 +16,22 @@ const STRIPE_PERCENTAGE = 2.9 // 2.9%
 const STRIPE_FIXED_CENTS = 30 // $0.30
 
 /**
- * Calculate Stripe processing fee for a given amount
+ * Calculate Stripe processing fee FROM a gross amount
+ *
+ * This calculates what Stripe takes from a given charge amount.
+ * Use this when fees come OUT of the charged amount.
+ *
+ * Formula: fee = grossAmount * 2.9% + $0.30
+ */
+export function calculateStripeFeeFromGross(grossAmountCents: number): number {
+  if (grossAmountCents <= 0) return 0
+  return (
+    Math.ceil((grossAmountCents * STRIPE_PERCENTAGE) / 100) + STRIPE_FIXED_CENTS
+  )
+}
+
+/**
+ * Calculate Stripe processing fee for a given NET amount
  *
  * Stripe charges 2.9% + $0.30 per successful card charge (US)
  *
@@ -42,61 +60,8 @@ export function calculateStripeFee(amountCents: number): {
 }
 
 /**
- * Calculate the full breakdown for a founder payout
- *
- * @param poolAmountCents - Amount going to contributors
- * @param platformFeeCents - Shippy's platform fee
- * @returns Full breakdown of what founder pays
- */
-export function calculateFounderPayoutTotal(
-  poolAmountCents: number,
-  platformFeeCents: number,
-): {
-  /** Amount going to contributors */
-  poolAmountCents: number
-  /** Shippy's platform fee */
-  platformFeeCents: number
-  /** Subtotal before Stripe fees (pool + platform) */
-  subtotalCents: number
-  /** Stripe processing fee */
-  stripeFeeCents: number
-  /** Total founder pays */
-  founderTotalCents: number
-} {
-  const subtotalCents = poolAmountCents + platformFeeCents
-  const { feeCents: stripeFeeCents, totalCents: founderTotalCents } =
-    calculateStripeFee(subtotalCents)
-
-  return {
-    poolAmountCents,
-    platformFeeCents,
-    subtotalCents,
-    stripeFeeCents,
-    founderTotalCents,
-  }
-}
-
-/**
  * Format cents as a dollar amount string
  */
 export function formatCents(cents: number): string {
   return `$${(cents / 100).toFixed(2)}`
-}
-
-/**
- * Format a full payout breakdown for display
- */
-export function formatPayoutBreakdown(breakdown: {
-  poolAmountCents: number
-  platformFeeCents: number
-  stripeFeeCents: number
-  founderTotalCents: number
-}): string {
-  return [
-    `Pool (to contributors): ${formatCents(breakdown.poolAmountCents)}`,
-    `Platform fee (2%): ${formatCents(breakdown.platformFeeCents)}`,
-    `Processing fee: ${formatCents(breakdown.stripeFeeCents)}`,
-    `─────────────────────`,
-    `Total: ${formatCents(breakdown.founderTotalCents)}`,
-  ].join('\n')
 }

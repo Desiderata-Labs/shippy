@@ -249,11 +249,11 @@ export function NewPayoutContent() {
           <Link
             href={routes.project.detail({
               slug: params.slug,
-              tab: ProjectTab.CONTRIBUTORS,
+              tab: ProjectTab.PAYOUTS,
             })}
             className="text-muted-foreground transition-colors hover:text-foreground"
           >
-            Contributors
+            Payouts
           </Link>
           <span className="text-muted-foreground/50">/</span>
           <span className="text-foreground">New Payout</span>
@@ -452,65 +452,60 @@ export function NewPayoutContent() {
                       </div>
                     ) : (
                       <>
-                        {/* Distribution bar - shows money split including platform fee */}
+                        {/* Distribution bar - shows money split between contributors and platform fee */}
                         <div className="flex h-8 overflow-hidden rounded-lg bg-muted/50">
-                          {preview.breakdown.map((recipient, index) => {
-                            // Show as % of total pool amount (including platform fee)
-                            const amountPercent =
-                              (recipient.amountCents /
-                                preview.poolAmountCents) *
-                              100
-                            return (
-                              <motion.div
-                                key={recipient.userId}
-                                initial={{ width: 0 }}
-                                animate={{ width: `${amountPercent}%` }}
-                                transition={{
-                                  duration: 0.6,
-                                  delay: index * 0.08,
-                                  ease: [0.34, 1.56, 0.64, 1],
-                                }}
-                                className="h-full hover:opacity-80"
-                                style={{
-                                  backgroundColor: getChartColor(index),
-                                }}
-                                title={`${recipient.userName}: ${formatCurrency(recipient.amountCents)} (${formatPercentage(amountPercent)})`}
-                              />
-                            )
-                          })}
-                          {/* Shippy platform fee segment */}
-                          {preview.platformFeeCents > 0 && (
-                            <motion.div
-                              initial={{ width: 0 }}
-                              animate={{
-                                width: `${(preview.platformFeeCents / preview.poolAmountCents) * 100}%`,
-                              }}
-                              transition={{
-                                duration: 0.6,
-                                delay: preview.breakdown.length * 0.08,
-                                ease: [0.34, 1.56, 0.64, 1],
-                              }}
-                              className="h-full hover:opacity-80"
-                              style={{
-                                backgroundColor: getChartColor(
-                                  preview.breakdown.length,
-                                ),
-                              }}
-                              title={`Shippy: ${formatCurrency(preview.platformFeeCents)} (${formatPercentage((preview.platformFeeCents / preview.poolAmountCents) * 100)})`}
-                            />
-                          )}
-                          {/* Undistributed portion */}
                           {(() => {
-                            const distributedCents =
+                            // Use distributed + platform fee as the base for bar percentages
+                            // This excludes Stripe processing fees so the bar fills 100%
+                            const barTotal =
                               preview.distributedAmountCents +
                               preview.platformFeeCents
-                            const undistributedPercent =
-                              ((preview.poolAmountCents - distributedCents) /
-                                preview.poolAmountCents) *
-                              100
-                            return undistributedPercent > 0 ? (
-                              <div className="flex-1" />
-                            ) : null
+                            return (
+                              <>
+                                {preview.breakdown.map((recipient, index) => {
+                                  const amountPercent =
+                                    (recipient.amountCents / barTotal) * 100
+                                  return (
+                                    <motion.div
+                                      key={recipient.userId}
+                                      initial={{ width: 0 }}
+                                      animate={{ width: `${amountPercent}%` }}
+                                      transition={{
+                                        duration: 0.6,
+                                        delay: index * 0.08,
+                                        ease: [0.34, 1.56, 0.64, 1],
+                                      }}
+                                      className="h-full hover:opacity-80"
+                                      style={{
+                                        backgroundColor: getChartColor(index),
+                                      }}
+                                      title={`${recipient.userName}: ${formatCurrency(recipient.amountCents)} (${formatPercentage(amountPercent)})`}
+                                    />
+                                  )
+                                })}
+                                {/* Shippy platform fee segment */}
+                                {preview.platformFeeCents > 0 && (
+                                  <motion.div
+                                    initial={{ width: 0 }}
+                                    animate={{
+                                      width: `${(preview.platformFeeCents / barTotal) * 100}%`,
+                                    }}
+                                    transition={{
+                                      duration: 0.6,
+                                      delay: preview.breakdown.length * 0.08,
+                                      ease: [0.34, 1.56, 0.64, 1],
+                                    }}
+                                    className="h-full hover:opacity-80"
+                                    style={{
+                                      backgroundColor: getChartColor(
+                                        preview.breakdown.length,
+                                      ),
+                                    }}
+                                    title={`Shippy: ${formatCurrency(preview.platformFeeCents)} (${formatPercentage((preview.platformFeeCents / barTotal) * 100)})`}
+                                  />
+                                )}
+                              </>
+                            )
                           })()}
                         </div>
 
@@ -564,37 +559,32 @@ export function NewPayoutContent() {
                                 preview.breakdown.length,
                               )
                               return (
-                                <div
-                                  className="flex items-center justify-between rounded-lg border px-3 py-2.5"
-                                  style={{
-                                    borderColor: shippyColor,
-                                    backgroundColor: shippyColor.replace(
-                                      ')',
-                                      ' / 0.1)',
-                                    ),
-                                  }}
-                                >
-                                  <div className="flex items-center gap-3">
-                                    {/* eslint-disable-next-line @next/next/no-img-element */}
-                                    <img
-                                      src="/logo-mark.svg"
-                                      alt="Shippy"
-                                      className="size-6"
-                                    />
-                                    <div>
+                                <div className="rounded-lg border border-border bg-card px-3 py-2.5 transition-colors hover:bg-muted/50">
+                                  <div className="flex items-center justify-between">
+                                    <div className="flex items-center gap-3">
+                                      <div
+                                        className="size-2.5 rounded-full"
+                                        style={{ backgroundColor: shippyColor }}
+                                      />
+                                      {/* eslint-disable-next-line @next/next/no-img-element */}
+                                      <img
+                                        src="/logo-mark.svg"
+                                        alt="Shippy"
+                                        className="size-6"
+                                      />
                                       <span className="text-sm font-medium">
                                         Shippy
                                       </span>
-                                      <p className="text-[10px] text-muted-foreground">
-                                        Platform fee (
-                                        {preview.platformFeePercentage}% of
-                                        profit share)
-                                      </p>
                                     </div>
-                                  </div>
-                                  <div className="text-right">
-                                    <div className="text-sm font-semibold text-muted-foreground">
-                                      {formatCurrency(preview.platformFeeCents)}
+                                    <div className="text-right">
+                                      <div className="text-sm font-semibold text-muted-foreground">
+                                        {formatCurrency(
+                                          preview.platformFeeCents,
+                                        )}
+                                      </div>
+                                      <div className="text-[10px] text-muted-foreground">
+                                        {preview.platformFeePercentage}%
+                                      </div>
                                     </div>
                                   </div>
                                 </div>
@@ -602,15 +592,44 @@ export function NewPayoutContent() {
                             })()}
                         </div>
 
-                        {/* Total */}
-                        <div className="flex items-center justify-between border-t border-border pt-3">
-                          <span className="text-sm font-medium">Total</span>
-                          <span className="text-lg font-bold text-primary">
-                            {formatCurrency(
-                              preview.distributedAmountCents +
-                                preview.platformFeeCents,
-                            )}
-                          </span>
+                        {/* Fee breakdown & Total - fees come OUT of what founder pays */}
+                        <div className="space-y-2 border-t border-border pt-3">
+                          {/* To contributors */}
+                          <div className="flex items-center justify-between text-sm">
+                            <span className="text-muted-foreground">
+                              To contributors
+                            </span>
+                            <span className="font-medium">
+                              {formatCurrency(preview.distributedAmountCents)}
+                            </span>
+                          </div>
+                          {/* Platform fee */}
+                          <div className="flex items-center justify-between text-sm">
+                            <span className="text-muted-foreground">
+                              Platform fee ({preview.platformFeePercentage}%)
+                            </span>
+                            <span className="font-medium">
+                              {formatCurrency(preview.platformFeeCents)}
+                            </span>
+                          </div>
+                          {/* Stripe fee */}
+                          <div className="flex items-center justify-between text-sm">
+                            <span className="text-muted-foreground">
+                              Processing fee
+                            </span>
+                            <span className="font-medium">
+                              {formatCurrency(preview.stripeFeeCents)}
+                            </span>
+                          </div>
+                          {/* Total */}
+                          <div className="flex items-center justify-between pt-2">
+                            <span className="text-sm font-medium">
+                              Payout amount
+                            </span>
+                            <span className="text-lg font-bold text-primary">
+                              {formatCurrency(preview.founderPaysCents)}
+                            </span>
+                          </div>
                         </div>
                       </>
                     )}

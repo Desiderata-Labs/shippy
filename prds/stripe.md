@@ -125,21 +125,31 @@ Keep this terminal running while developing!
 
 When a founder runs a payout:
 
-| Component         | Who Pays | Description                       |
-| ----------------- | -------- | --------------------------------- |
-| Pool Amount       | Founder  | Total distributed to contributors |
-| Platform Fee (2%) | Founder  | Shippy's platform fee             |
-| Stripe Fees (~3%) | Founder  | Stripe's processing fees          |
+| Component           | Who Pays     | Description                                              |
+| ------------------- | ------------ | -------------------------------------------------------- |
+| Platform Fee (2%)   | Founder      | Shippy's 2% of the full pool (regardless of utilization) |
+| Contributors' Share | Founder      | 98% of pool × utilization                                |
+| Stripe Fees (~3%)   | Contributors | Absorbed from contributors' share                        |
 
-**Example**: $1,000 pool payout
+**Key concept**: Shippy takes 2% of the **full pool amount**, like a guaranteed contributor. This is NOT scaled by utilization. Contributors' share (98%) IS scaled by utilization, and Stripe fees come out of their portion.
 
-- Pool: $1,000
-- Platform fee (2%): $20
-- Subtotal: $1,020
-- Stripe fee (2.9% + $0.30): ~$30
-- **Founder pays**: ~$1,050
-- **Contributors receive**: $1,000 (full pool, split by points)
-- **Shippy receives**: $20 (platform fee)
+**Example at 100% utilization** ($1,000 pool):
+
+- Shippy (2% of pool): $20
+- Contributors (98% × 100%): $980
+- Founder pays: $1,000
+- Stripe fee (2.9% + $0.30): ~$29.30
+- **Contributors receive**: ~$950.70 ($980 - Stripe)
+- **Shippy receives**: $20
+
+**Example at 2.5% utilization** ($1,000 pool, only 25 of 1000 points earned):
+
+- Shippy (2% of pool): $20 (full amount, not scaled!)
+- Contributors (98% × 2.5%): $24.50
+- Founder pays: $44.50
+- Stripe fee: ~$1.59
+- **Contributors receive**: ~$22.91 ($24.50 - Stripe)
+- **Shippy receives**: $20
 
 ### Stripe Connect
 

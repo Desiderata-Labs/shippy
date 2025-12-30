@@ -21,12 +21,14 @@ type SerializeRecipient<T> = T extends { amountCents: bigint }
 type SerializePayout<T> = T extends {
   reportedProfitCents: bigint
   poolAmountCents: bigint
+  distributedAmountCents: bigint
   platformFeeCents: bigint
 }
   ? Omit<
       T,
       | 'reportedProfitCents'
       | 'poolAmountCents'
+      | 'distributedAmountCents'
       | 'platformFeeCents'
       | 'stripeFeeCents'
       | 'founderTotalCents'
@@ -34,6 +36,7 @@ type SerializePayout<T> = T extends {
     > & {
       reportedProfitCents: number
       poolAmountCents: number
+      distributedAmountCents: number
       platformFeeCents: number
       stripeFeeCents: number | null
       founderTotalCents: number | null
@@ -46,6 +49,7 @@ function serializePayout<
   T extends {
     reportedProfitCents: bigint
     poolAmountCents: bigint
+    distributedAmountCents: bigint
     platformFeeCents: bigint
     stripeFeeCents?: bigint | null
     founderTotalCents?: bigint | null
@@ -56,6 +60,7 @@ function serializePayout<
     ...payout,
     reportedProfitCents: Number(payout.reportedProfitCents),
     poolAmountCents: Number(payout.poolAmountCents),
+    distributedAmountCents: Number(payout.distributedAmountCents),
     platformFeeCents: Number(payout.platformFeeCents),
     stripeFeeCents: payout.stripeFeeCents
       ? Number(payout.stripeFeeCents)
@@ -236,8 +241,9 @@ export const payoutRouter = router({
       // Calculate amounts using shared service
       const {
         poolAmountCents,
+        founderPaysCents,
+        stripeFeeCents,
         platformFeeCents,
-        maxDistributableCents,
         distributedAmountCents,
         totalEarnedPoints,
         breakdown,
@@ -254,9 +260,10 @@ export const payoutRouter = router({
         poolPercentage: project.rewardPool.poolPercentage,
         poolCapacity: project.rewardPool.poolCapacity,
         poolAmountCents,
+        founderPaysCents,
+        stripeFeeCents,
         platformFeePercentage: project.rewardPool.platformFeePercentage,
         platformFeeCents,
-        maxDistributableCents,
         distributedAmountCents,
         totalEarnedPoints,
         breakdown,

@@ -573,64 +573,63 @@ export function PayoutDetailContent() {
               </FilterButton>
             </div>
 
-            {/* Distribution bar - shows money split including platform fee */}
+            {/* Distribution bar - shows money split between contributors and platform fee */}
             <div className="flex h-8 overflow-hidden rounded-lg bg-muted/50">
-              {payout.recipients.map((recipient, index) => {
-                // Show as % of total pool amount (including platform fee)
-                const amountPercent =
-                  (recipient.amountCents / payout.poolAmountCents) * 100
-                const canSeeThisAmount = canSeeAmount(recipient.user.id)
-                return (
-                  <motion.div
-                    key={recipient.id}
-                    initial={{ width: 0 }}
-                    animate={{ width: `${amountPercent}%` }}
-                    transition={{
-                      duration: 0.6,
-                      delay: index * 0.08,
-                      ease: [0.34, 1.56, 0.64, 1],
-                    }}
-                    className="h-full hover:opacity-80"
-                    style={{ backgroundColor: getChartColor(index) }}
-                    title={
-                      canSeeThisAmount
-                        ? `${recipient.user.name}: ${formatCurrency(recipient.amountCents)} (${formatPercentage(amountPercent)})`
-                        : `${recipient.user.name}: ${formatPercentage(amountPercent)}`
-                    }
-                  />
-                )
-              })}
-              {/* Shippy platform fee segment */}
-              {payout.platformFeeCents > 0 && canSeeFinancials && (
-                <motion.div
-                  initial={{ width: 0 }}
-                  animate={{
-                    width: `${(payout.platformFeeCents / payout.poolAmountCents) * 100}%`,
-                  }}
-                  transition={{
-                    duration: 0.6,
-                    delay: payout.recipients.length * 0.08,
-                    ease: [0.34, 1.56, 0.64, 1],
-                  }}
-                  className="h-full hover:opacity-80"
-                  style={{
-                    backgroundColor: getChartColor(payout.recipients.length),
-                  }}
-                  title={`Shippy: ${formatCurrency(payout.platformFeeCents)} (${formatPercentage((payout.platformFeeCents / payout.poolAmountCents) * 100)})`}
-                />
-              )}
-              {/* Undistributed portion */}
               {(() => {
-                const distributedCents =
+                // Use distributed + platform fee as the base for bar percentages
+                // This excludes Stripe processing fees so the bar fills 100%
+                const barTotal =
                   payout.recipients.reduce((sum, r) => sum + r.amountCents, 0) +
                   payout.platformFeeCents
-                const undistributedPercent =
-                  ((payout.poolAmountCents - distributedCents) /
-                    payout.poolAmountCents) *
-                  100
-                return undistributedPercent > 0 ? (
-                  <div className="flex-1" />
-                ) : null
+                return (
+                  <>
+                    {payout.recipients.map((recipient, index) => {
+                      const amountPercent =
+                        (recipient.amountCents / barTotal) * 100
+                      const canSeeThisAmount = canSeeAmount(recipient.user.id)
+                      return (
+                        <motion.div
+                          key={recipient.id}
+                          initial={{ width: 0 }}
+                          animate={{ width: `${amountPercent}%` }}
+                          transition={{
+                            duration: 0.6,
+                            delay: index * 0.08,
+                            ease: [0.34, 1.56, 0.64, 1],
+                          }}
+                          className="h-full hover:opacity-80"
+                          style={{ backgroundColor: getChartColor(index) }}
+                          title={
+                            canSeeThisAmount
+                              ? `${recipient.user.name}: ${formatCurrency(recipient.amountCents)} (${formatPercentage(amountPercent)})`
+                              : `${recipient.user.name}: ${formatPercentage(amountPercent)}`
+                          }
+                        />
+                      )
+                    })}
+                    {/* Shippy platform fee segment */}
+                    {payout.platformFeeCents > 0 && canSeeFinancials && (
+                      <motion.div
+                        initial={{ width: 0 }}
+                        animate={{
+                          width: `${(payout.platformFeeCents / barTotal) * 100}%`,
+                        }}
+                        transition={{
+                          duration: 0.6,
+                          delay: payout.recipients.length * 0.08,
+                          ease: [0.34, 1.56, 0.64, 1],
+                        }}
+                        className="h-full hover:opacity-80"
+                        style={{
+                          backgroundColor: getChartColor(
+                            payout.recipients.length,
+                          ),
+                        }}
+                        title={`Shippy: ${formatCurrency(payout.platformFeeCents)} (${formatPercentage((payout.platformFeeCents / barTotal) * 100)})`}
+                      />
+                    )}
+                  </>
+                )
               })()}
             </div>
 
@@ -729,34 +728,50 @@ export function PayoutDetailContent() {
                 canSeeFinancials &&
                 (() => {
                   const shippyColor = getChartColor(payout.recipients.length)
+                  const isPaid =
+                    payout.paymentStatus === PayoutPaymentStatus.PAID
                   return (
-                    <div
-                      className="flex items-center justify-between rounded-lg border px-3 py-2.5"
-                      style={{
-                        borderColor: shippyColor,
-                        backgroundColor: shippyColor.replace(')', ' / 0.1)'),
-                      }}
-                    >
-                      <div className="flex items-center gap-3">
-                        {/* eslint-disable-next-line @next/next/no-img-element */}
-                        <img
-                          src="/logo-mark.svg"
-                          alt="Shippy"
-                          className="size-6"
-                        />
-                        <div>
-                          <span className="text-sm font-medium">Shippy</span>
-                          <p className="text-[10px] text-muted-foreground">
-                            Platform fee (
-                            {payout.project.rewardPool?.platformFeePercentage ??
-                              10}
-                            % of profit share)
-                          </p>
+                    <div className="rounded-lg border border-border bg-card px-3 py-2.5 transition-colors hover:bg-muted/50">
+                      <div className="flex items-center justify-between">
+                        <div className="flex items-center gap-3">
+                          <div
+                            className="size-2.5 rounded-full"
+                            style={{ backgroundColor: shippyColor }}
+                          />
+                          {/* eslint-disable-next-line @next/next/no-img-element */}
+                          <img
+                            src="/logo-mark.svg"
+                            alt="Shippy"
+                            className="size-6"
+                          />
+                          <div>
+                            <span className="text-sm font-medium">Shippy</span>
+                            {isPaid && (
+                              <div className="flex items-center gap-1">
+                                <Check className="size-3 text-primary" />
+                                <span className="text-[10px] text-primary">
+                                  Paid
+                                </span>
+                              </div>
+                            )}
+                          </div>
                         </div>
-                      </div>
-                      <div className="text-right">
-                        <div className="text-sm font-semibold text-muted-foreground">
-                          {formatCurrency(payout.platformFeeCents)}
+                        <div className="flex items-center gap-2">
+                          <div className="text-right">
+                            <div className="text-sm font-semibold text-muted-foreground">
+                              {formatCurrency(payout.platformFeeCents)}
+                            </div>
+                            <div className="text-[10px] text-muted-foreground">
+                              {payout.project.rewardPool
+                                ?.platformFeePercentage ?? 2}
+                              %
+                            </div>
+                          </div>
+                          {isPaid && (
+                            <div className="flex size-7 items-center justify-center">
+                              <CheckCircle className="size-3.5 text-primary" />
+                            </div>
+                          )}
                         </div>
                       </div>
                     </div>
@@ -764,18 +779,44 @@ export function PayoutDetailContent() {
                 })()}
             </div>
 
-            {/* Total - only show if user can see financials */}
+            {/* Fee breakdown & Total - only show if user can see financials */}
             {canSeeFinancials && (
-              <div className="flex items-center justify-between border-t border-border pt-3">
-                <span className="text-sm font-medium">Total</span>
-                <span className="text-lg font-bold text-primary">
-                  {formatCurrency(
-                    payout.recipients.reduce(
-                      (sum, r) => sum + r.amountCents,
-                      0,
-                    ) + payout.platformFeeCents,
-                  )}
-                </span>
+              <div className="space-y-2 border-t border-border pt-3">
+                {/* To contributors */}
+                <div className="flex items-center justify-between text-sm">
+                  <span className="text-muted-foreground">To contributors</span>
+                  <span className="font-medium">
+                    {formatCurrency(payout.distributedAmountCents)}
+                  </span>
+                </div>
+                {/* Platform fee */}
+                <div className="flex items-center justify-between text-sm">
+                  <span className="text-muted-foreground">
+                    Platform fee (
+                    {payout.project.rewardPool?.platformFeePercentage ?? 2}%)
+                  </span>
+                  <span className="font-medium">
+                    {formatCurrency(payout.platformFeeCents)}
+                  </span>
+                </div>
+                {/* Stripe fee */}
+                <div className="flex items-center justify-between text-sm">
+                  <span className="text-muted-foreground">Processing fee</span>
+                  <span className="font-medium">
+                    {formatCurrency(payout.stripeFeeCents ?? 0)}
+                  </span>
+                </div>
+                {/* Total */}
+                <div className="flex items-center justify-between pt-2">
+                  <span className="text-sm font-medium">
+                    {payout.paymentStatus === PayoutPaymentStatus.PAID
+                      ? 'Paid'
+                      : 'Payout amount'}
+                  </span>
+                  <span className="text-lg font-bold text-primary">
+                    {formatCurrency(payout.founderTotalCents ?? 0)}
+                  </span>
+                </div>
               </div>
             )}
           </div>

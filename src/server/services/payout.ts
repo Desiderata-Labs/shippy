@@ -6,6 +6,7 @@ import {
   StripeConnectAccountStatus,
   SubmissionStatus,
 } from '@/lib/db/types'
+import { calculateStripeFeeFromGross } from '@/lib/stripe/fees'
 import { createNotifications } from '@/server/routers/notification'
 import { transferFunds } from '@/server/services/stripe'
 import type { Prisma, PrismaClient } from '@prisma/client'
@@ -88,8 +89,13 @@ export interface PayoutBreakdown {
 
 export interface CalculatePayoutResult {
   poolAmountCents: number
+  /** What founder actually pays (pool * utilization) */
+  founderPaysCents: number
+  /** Stripe processing fee (comes out of founderPaysCents) */
+  stripeFeeCents: number
+  /** Platform fee (comes out of founderPaysCents) */
   platformFeeCents: number
-  maxDistributableCents: number
+  /** What contributors receive (founderPaysCents - stripeFeeCents - platformFeeCents) */
   distributedAmountCents: number
   totalEarnedPoints: number
   breakdown: PayoutBreakdown[]
@@ -98,11 +104,18 @@ export interface CalculatePayoutResult {
 /**
  * Calculate payout amounts based on contributor points
  *
- * This handles:
- * - Calculating pool amount from profit
- * - Calculating platform fee
- * - Calculating individual contributor shares using capacity-based model
- * - If earned points exceed capacity, capacity auto-expands (capped at 100%)
+ * Fee model:
+ * - Shippy takes 2% of the FULL pool (regardless of utilization)
+ * - Contributors get the remaining 98% of pool, scaled by utilization
+ * - Founder pays: Shippy's full share + Contributors' utilized share
+ * - Stripe fee comes out of founder's payment, absorbed by contributors
+ *
+ * Example at 2.5% utilization of $1,000 pool:
+ * - Shippy: 2% of $1,000 = $20.00 (full, not scaled)
+ * - Contributors (pre-Stripe): 98% of $1,000 × 2.5% = $24.50
+ * - Founder pays: $44.50
+ * - Stripe takes: ~$1.59
+ * - Contributors get: $22.91 ($44.50 - $20 - $1.59)
  */
 export function calculatePayout({
   reportedProfitCents,
@@ -111,30 +124,50 @@ export function calculatePayout({
   platformFeePercentage,
   contributors,
 }: CalculatePayoutParams): CalculatePayoutResult {
+  // Max pool amount (if 100% utilized)
   const poolAmountCents = Math.floor(
     (reportedProfitCents * poolPercentage) / 100,
   )
+
+  // Platform fee = 2% of FULL pool (Shippy gets this regardless of utilization)
   const platformFeeCents = Math.floor(
     (poolAmountCents * platformFeePercentage) / 100,
   )
+
+  // Max distributable to actual contributors (remaining 98% of pool)
   const maxDistributableCents = poolAmountCents - platformFeeCents
 
   const totalEarnedPoints = contributors.reduce((sum, c) => sum + c.points, 0)
 
-  // Only distribute for earned points (not full capacity)
-  const distributedAmountCents = Math.floor(
-    (maxDistributableCents * Math.min(totalEarnedPoints, poolCapacity)) /
-      poolCapacity,
+  // Utilization ratio (capped at 100%)
+  const utilizationRatio = Math.min(totalEarnedPoints / poolCapacity, 1)
+
+  // What contributors would get if no Stripe fee (scaled by utilization)
+  const potentialContributorCents = Math.floor(
+    maxDistributableCents * utilizationRatio,
   )
 
+  // What founder pays (full Shippy fee + utilized contributor amount)
+  const founderPaysCents = platformFeeCents + potentialContributorCents
+
+  // Stripe takes their fee from the gross amount
+  const stripeFeeCents = calculateStripeFeeFromGross(founderPaysCents)
+
+  // Contributors get what's left after Shippy and Stripe
+  const distributedAmountCents = Math.max(
+    0,
+    founderPaysCents - platformFeeCents - stripeFeeCents,
+  )
+
+  // Calculate each contributor's share
   const breakdown = contributors.map((c) => {
     const amountCents =
       totalEarnedPoints > 0
         ? Math.floor((distributedAmountCents * c.points) / totalEarnedPoints)
         : 0
-    // sharePercent is % of total pool (including platform fee)
+    // sharePercent is % of what founder pays (before fees)
     const sharePercent =
-      poolAmountCents > 0 ? (amountCents / poolAmountCents) * 100 : 0
+      founderPaysCents > 0 ? (amountCents / founderPaysCents) * 100 : 0
     return {
       userId: c.userId,
       userName: c.userName,
@@ -147,8 +180,9 @@ export function calculatePayout({
 
   return {
     poolAmountCents,
+    founderPaysCents,
+    stripeFeeCents,
     platformFeeCents,
-    maxDistributableCents,
     distributedAmountCents,
     totalEarnedPoints,
     breakdown,
@@ -244,15 +278,22 @@ export async function createPayout({
   }
 
   // Calculate amounts using capacity-based model
-  const { poolAmountCents, platformFeeCents, breakdown } = calculatePayout({
+  // Fees come OUT of the pool (contributors are diluted, founder cost capped at pool %)
+  const {
+    poolAmountCents,
+    founderPaysCents,
+    stripeFeeCents,
+    platformFeeCents,
+    distributedAmountCents,
+    totalEarnedPoints,
+    breakdown,
+  } = calculatePayout({
     reportedProfitCents,
     poolPercentage: project.rewardPool.poolPercentage,
     poolCapacity: project.rewardPool.poolCapacity,
     platformFeePercentage: project.rewardPool.platformFeePercentage,
     contributors,
   })
-
-  const totalEarnedPoints = contributors.reduce((sum, c) => sum + c.points, 0)
 
   // Create payout with recipients
   const payout = await prisma.payout.create({
@@ -263,7 +304,11 @@ export async function createPayout({
       periodLabel,
       reportedProfitCents,
       poolAmountCents,
+      distributedAmountCents,
       platformFeeCents,
+      // Pre-calculate Stripe fees (founder pays founderPaysCents, fees come out of it)
+      stripeFeeCents,
+      founderTotalCents: founderPaysCents,
       totalPointsAtPayout: totalEarnedPoints,
       poolCapacityAtPayout: project.rewardPool.poolCapacity,
       recipients: {

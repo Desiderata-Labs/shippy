@@ -15,9 +15,20 @@ ALTER TABLE "user" ADD COLUMN "stripeConnectOnboardedAt" TIMESTAMPTZ(3);
 CREATE UNIQUE INDEX "user_stripeConnectAccountId_key" ON "user"("stripeConnectAccountId");
 
 -- ================================
+-- Payout: Distributed amount tracking
+-- ================================
+-- distributedAmountCents = actual amount going to contributors (after Stripe fees)
+-- This is (98% of pool × utilization) minus Stripe processing fees
+ALTER TABLE "payout" ADD COLUMN "distributedAmountCents" BIGINT NOT NULL DEFAULT 0;
+
+-- ================================
 -- Payout: Founder payment tracking
 -- ================================
--- Founder pays: poolAmountCents + platformFeeCents + stripeFeeCents
+-- Fee model:
+-- - Shippy takes 2% of the FULL pool (platformFeeCents) regardless of utilization
+-- - Contributors get 98% of pool × utilization (potentialContributorCents)
+-- - Founder pays: platformFeeCents + potentialContributorCents
+-- - Stripe fee is absorbed by contributors (deducted from their share)
 ALTER TABLE "payout" ADD COLUMN "stripeFeeCents" BIGINT;
 ALTER TABLE "payout" ADD COLUMN "founderTotalCents" BIGINT;
 ALTER TABLE "payout" ADD COLUMN "paymentStatus" TEXT NOT NULL DEFAULT 'PENDING';

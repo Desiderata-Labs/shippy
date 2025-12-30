@@ -128,6 +128,7 @@ function createMockStripeOps(): StripeOperations {
     createLoginLink: vi.fn(),
     createCheckoutSession: vi.fn(),
     retrieveCheckoutSession: vi.fn(),
+    retrievePaymentIntent: vi.fn(),
   }
 }
 
@@ -780,7 +781,7 @@ describe('transferFunds', () => {
     })
   })
 
-  test('transfers funds with sourceTransaction when provided', async () => {
+  test('transfers funds with sourceTransaction (charge ID) when provided', async () => {
     mockPrisma.user.findUnique.mockResolvedValue({
       id: 'user-1',
       stripeConnectAccountId: 'acct_123',
@@ -796,7 +797,7 @@ describe('transferFunds', () => {
       prisma: mockPrisma as any,
       recipientUserId: 'user-1',
       amountCents: 1000,
-      sourceTransaction: 'pi_original_payment',
+      sourceTransaction: 'ch_original_charge', // Charge ID, not PaymentIntent ID
     })
 
     expect(result.success).toBe(true)
@@ -804,7 +805,7 @@ describe('transferFunds', () => {
       amount: 1000,
       currency: 'usd',
       destination: 'acct_123',
-      sourceTransaction: 'pi_original_payment',
+      sourceTransaction: 'ch_original_charge',
       metadata: {
         userId: 'user-1',
         platform: 'shippy',
@@ -1605,6 +1606,14 @@ describe('processPayoutTransfers', () => {
       ],
     })
 
+    // Mock retrieving charge ID from PaymentIntent
+    ;(
+      mockStripeOps.retrievePaymentIntent as ReturnType<typeof vi.fn>
+    ).mockResolvedValue({
+      id: 'pi_test123',
+      latestChargeId: 'ch_test123',
+    })
+
     // Mock user lookup for transferFunds
     mockPrisma.user.findUnique.mockResolvedValue({
       id: 'user-1',
@@ -1663,6 +1672,14 @@ describe('processPayoutTransfers', () => {
           },
         },
       ],
+    })
+
+    // Mock retrieving charge ID from PaymentIntent
+    ;(
+      mockStripeOps.retrievePaymentIntent as ReturnType<typeof vi.fn>
+    ).mockResolvedValue({
+      id: 'pi_test123',
+      latestChargeId: 'ch_test123',
     })
 
     // Mock user lookup
@@ -1743,6 +1760,14 @@ describe('processPayoutTransfers', () => {
       ],
     })
 
+    // Mock retrieving charge ID from PaymentIntent
+    ;(
+      mockStripeOps.retrievePaymentIntent as ReturnType<typeof vi.fn>
+    ).mockResolvedValue({
+      id: 'pi_test123',
+      latestChargeId: 'ch_test123',
+    })
+
     // Mock user lookup for eligible user
     mockPrisma.user.findUnique.mockResolvedValue({
       id: 'user-3',
@@ -1800,6 +1825,14 @@ describe('processPayoutTransfers', () => {
       ],
     })
 
+    // Mock retrieving charge ID from PaymentIntent
+    ;(
+      mockStripeOps.retrievePaymentIntent as ReturnType<typeof vi.fn>
+    ).mockResolvedValue({
+      id: 'pi_test123',
+      latestChargeId: 'ch_test123',
+    })
+
     mockPrisma.user.findUnique.mockResolvedValue({
       id: 'user-1',
       stripeConnectAccountId: 'acct_123',
@@ -1821,6 +1854,62 @@ describe('processPayoutTransfers', () => {
     expect(result.success).toBe(true)
     // Verify recipient was marked as paid with transfer ID
     expect(mockPrisma.payoutRecipient.update).toHaveBeenCalled()
+  })
+
+  test('uses charge ID from PaymentIntent for source_transaction', async () => {
+    mockPrisma.payout.findUnique.mockResolvedValue({
+      id: 'payout-1',
+      paymentStatus: PayoutPaymentStatus.PAID,
+      stripePaymentIntent: 'pi_test123',
+      project: { id: 'proj-1', slug: 'test', name: 'Test' },
+      recipients: [
+        {
+          id: 'rec-1',
+          amountCents: BigInt(1000),
+          paidAt: null,
+          stripeTransferId: null,
+          user: {
+            id: 'user-1',
+            username: 'contributor1',
+            stripeConnectAccountId: 'acct_123',
+            stripeConnectAccountStatus: StripeConnectAccountStatus.ACTIVE,
+          },
+        },
+      ],
+    })
+
+    // Mock retrieving charge ID from PaymentIntent
+    ;(
+      mockStripeOps.retrievePaymentIntent as ReturnType<typeof vi.fn>
+    ).mockResolvedValue({
+      id: 'pi_test123',
+      latestChargeId: 'ch_charge_id_123', // This is the charge ID
+    })
+
+    mockPrisma.user.findUnique.mockResolvedValue({
+      id: 'user-1',
+      stripeConnectAccountId: 'acct_123',
+      stripeConnectAccountStatus: StripeConnectAccountStatus.ACTIVE,
+    })
+    ;(
+      mockStripeOps.createTransfer as ReturnType<typeof vi.fn>
+    ).mockResolvedValue({
+      id: 'tr_123',
+    })
+
+    mockPrisma.payoutRecipient.update.mockResolvedValue({})
+
+    await processPayoutTransfers({
+      prisma: mockPrisma as any,
+      payoutId: 'payout-1',
+    })
+
+    // Verify createTransfer was called with charge ID, not PaymentIntent ID
+    expect(mockStripeOps.createTransfer).toHaveBeenCalledWith(
+      expect.objectContaining({
+        sourceTransaction: 'ch_charge_id_123',
+      }),
+    )
   })
 })
 

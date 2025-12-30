@@ -59,9 +59,17 @@ export interface StripeOperations {
     amount: number
     currency: string
     destination: string
-    sourceTransaction?: string // Charge or PaymentIntent ID to use as source
+    sourceTransaction?: string // Charge ID (ch_xxx) to use as source
     metadata?: Record<string, string>
   }): Promise<{ id: string }>
+
+  /**
+   * Retrieve a PaymentIntent to get its associated charge ID
+   */
+  retrievePaymentIntent(paymentIntentId: string): Promise<{
+    id: string
+    latestChargeId: string | null
+  }>
 
   createLoginLink(accountId: string): Promise<{ url: string }>
 
@@ -231,6 +239,20 @@ export function createRealStripeOperations(): StripeOperations {
             ? session.payment_intent
             : (session.payment_intent?.id ?? null),
         amountTotal: session.amount_total,
+      }
+    },
+
+    async retrievePaymentIntent(paymentIntentId) {
+      const paymentIntent =
+        await stripe.paymentIntents.retrieve(paymentIntentId)
+      // Get the latest charge ID from the PaymentIntent
+      const latestChargeId =
+        typeof paymentIntent.latest_charge === 'string'
+          ? paymentIntent.latest_charge
+          : (paymentIntent.latest_charge?.id ?? null)
+      return {
+        id: paymentIntent.id,
+        latestChargeId,
       }
     },
   }
@@ -708,10 +730,11 @@ export interface TransferFundsParams {
   amountCents: number
   currency?: string
   /**
-   * Stripe PaymentIntent ID from the founder's checkout payment.
-   * When provided, the transfer is linked to this payment and will
+   * Stripe Charge ID (ch_xxx) from the founder's payment.
+   * When provided, the transfer is linked to this charge and will
    * only execute when those funds become available (after settlement).
    * This prevents "insufficient funds" errors from pending balances.
+   * Note: Use charge ID, not PaymentIntent ID - retrieve it via retrievePaymentIntent().
    */
   sourceTransaction?: string
   metadata?: {
@@ -934,6 +957,23 @@ export async function processPayoutTransfers({
     }
   }
 
+  // Get the charge ID from the PaymentIntent (source_transaction requires charge ID, not PaymentIntent ID)
+  let sourceChargeId: string | undefined
+  if (payout.stripePaymentIntent) {
+    try {
+      const pi = await stripeOps.retrievePaymentIntent(
+        payout.stripePaymentIntent,
+      )
+      sourceChargeId = pi.latestChargeId ?? undefined
+    } catch (error) {
+      console.warn(
+        `Could not retrieve charge for PaymentIntent ${payout.stripePaymentIntent}:`,
+        error,
+      )
+      // Continue without source_transaction - transfers will use available balance
+    }
+  }
+
   const results: RecipientTransferResult[] = []
 
   for (const recipient of payout.recipients) {
@@ -998,13 +1038,13 @@ export async function processPayoutTransfers({
     }
 
     // Attempt the transfer
-    // Use source_transaction to link transfer to the founder's payment,
+    // Use source_transaction to link transfer to the founder's payment charge,
     // ensuring it executes when those funds become available
     const transferResult = await transferFunds({
       prisma,
       recipientUserId: recipient.user.id,
       amountCents,
-      sourceTransaction: payout.stripePaymentIntent ?? undefined,
+      sourceTransaction: sourceChargeId,
       metadata: {
         payoutId: payout.id,
         recipientId: recipient.id,

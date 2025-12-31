@@ -3,7 +3,6 @@
 import { linkSocial, listAccounts, useSession } from '@/lib/auth/react'
 import { trpc } from '@/lib/trpc/react'
 import {
-  AlertCircle,
   Check,
   Copy,
   ExternalLink,
@@ -542,19 +541,13 @@ function StripeConnectSection() {
     getOnboardingLinkMutation.isPending ||
     isRedirecting
 
-  // Stripe not configured on platform
+  // Stripe not configured on platform - show loading skeleton
   if (!stripeConfig?.configured) {
     return (
       <div className="space-y-4 p-4">
         <div className="text-xs font-medium text-muted-foreground">Payouts</div>
-        <div className="flex items-center gap-3 rounded-md bg-muted/30 px-4 py-3">
-          <AlertCircle className="size-5 text-muted-foreground" />
-          <div>
-            <p className="text-sm font-medium">Coming Soon</p>
-            <p className="text-xs text-muted-foreground">
-              Payment processing is not yet configured.
-            </p>
-          </div>
+        <div className="space-y-2">
+          <Skeleton className="h-12 w-full" />
         </div>
       </div>
     )
